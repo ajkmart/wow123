@@ -159,6 +159,29 @@ function VendorVerificationDrawer({ vendor, onClose }: { vendor: any; onClose: (
   const statusMutation = useUpdateVendorStatus();
   const [note, setNote] = useState("");
 
+  // Vendor profile fields may be nested under vendorProfile or flattened at top level
+  const profile = vendor.vendorProfile ?? vendor;
+  const businessName  = profile.businessName  ?? vendor.businessName  ?? null;
+  const businessType  = profile.businessType  ?? vendor.businessType  ?? null;
+  const ntn           = profile.ntn           ?? vendor.ntn           ?? null;
+  const storeAddress  = profile.storeAddress  ?? vendor.storeAddress  ?? null;
+  const cnic          = vendor.cnic           ?? null;
+  const nationalId    = vendor.nationalId     ?? null;
+  const kycStatus     = vendor.kycStatus      ?? null;
+  const tier          = vendor.accountLevel   ?? null;
+
+  const kycColor = kycStatus === "verified" ? "text-green-700 bg-green-50"
+    : kycStatus === "rejected" ? "text-red-700 bg-red-50"
+    : kycStatus === "pending"  ? "text-amber-700 bg-amber-50"
+    : "text-slate-600 bg-slate-50";
+
+  const VRow = ({ label, value }: { label: string; value: string | null }) => (
+    <div className="flex justify-between gap-2">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="font-medium text-right break-all">{value || "—"}</span>
+    </div>
+  );
+
   const handleApprove = () => {
     statusMutation.mutate({ id: vendor.id, isActive: true, isBanned: false, banReason: null }, {
       onSuccess: () => { toast({ title: "Vendor approved", description: `${vendor.storeName || vendor.name} is now active.` }); onClose(); },
@@ -176,28 +199,75 @@ function VendorVerificationDrawer({ vendor, onClose }: { vendor: any; onClose: (
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="w-[95vw] max-w-md rounded-2xl">
+      <DialogContent className="w-[95vw] max-w-md rounded-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileCheck className="w-5 h-5 text-blue-600" /> Verify Vendor — {vendor.storeName || vendor.name}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-1">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Store</span><span className="font-semibold">{vendor.storeName || "—"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Owner</span><span className="font-semibold">{vendor.name || "—"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-mono">{vendor.phone}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Category</span><span className="capitalize">{vendor.storeCategory || "General"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Applied</span><span>{vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="capitalize font-medium text-amber-700">{vendor.approvalStatus || "pending"}</span></div>
+          {/* Core identity */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Identity</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2 text-sm">
+              <VRow label="Store Name"   value={vendor.storeName || null} />
+              <VRow label="Owner"        value={vendor.name || null} />
+              <VRow label="Phone"        value={vendor.phone || null} />
+              <VRow label="Email"        value={vendor.email || null} />
+              <VRow label="Category"     value={vendor.storeCategory || null} />
+              <VRow label="Applied"      value={vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : null} />
+              <div className="flex justify-between gap-2 items-center">
+                <span className="text-muted-foreground shrink-0">Status</span>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${vendor.approvalStatus === "approved" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                  {vendor.approvalStatus || "pending"}
+                </span>
+              </div>
+            </div>
           </div>
 
+          {/* Business documents */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Business Documents</p>
+            <div className="bg-slate-50 border border-border rounded-xl p-4 space-y-2 text-sm">
+              <VRow label="Business Name"  value={businessName} />
+              <VRow label="Business Type"  value={businessType} />
+              <VRow label="NTN / Tax No."  value={ntn} />
+              <VRow label="Store Address"  value={storeAddress} />
+            </div>
+          </div>
+
+          {/* KYC */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">KYC / Identity</p>
+            <div className="bg-slate-50 border border-border rounded-xl p-4 space-y-2 text-sm">
+              <div className="flex justify-between gap-2 items-center">
+                <span className="text-muted-foreground">KYC Status</span>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${kycColor}`}>
+                  {kycStatus || "not submitted"}
+                </span>
+              </div>
+              <VRow label="CNIC"          value={cnic} />
+              <VRow label="National ID"   value={nationalId} />
+              <div className="flex justify-between gap-2 items-center">
+                <span className="text-muted-foreground">Tier</span>
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border capitalize ${
+                  tier === "gold"   ? "text-yellow-600 bg-yellow-50 border-yellow-200" :
+                  tier === "silver" ? "text-slate-600 bg-slate-100 border-slate-200" :
+                  "text-amber-700 bg-amber-50 border-amber-200"
+                }`}>
+                  {tier || "bronze"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Approval note */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Note (required for rejection)</label>
             <textarea
               value={note}
               onChange={e => setNote(e.target.value)}
-              placeholder="e.g. Documents incomplete, or reason for rejection..."
+              placeholder="e.g. Documents incomplete, CNIC missing, or reason for rejection..."
               rows={2}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -404,7 +474,7 @@ export default function Vendors() {
   const handleTierChange = useCallback(async (vendorId: string, tier: VendorTier) => {
     setTierUpdating(vendorId);
     try {
-      await fetcher(`/vendors/${vendorId}`, { method: "PATCH", body: JSON.stringify({ tier }) });
+      await fetcher(`/vendors/${vendorId}/tier`, { method: "PATCH", body: JSON.stringify({ tier }) });
       await qc.invalidateQueries({ queryKey: ["admin-vendors"] });
       toast({ title: "Tier updated", description: `Vendor tier set to ${tier}.` });
     } catch (e: any) {

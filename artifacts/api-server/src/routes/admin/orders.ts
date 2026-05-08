@@ -727,4 +727,81 @@ router.patch("/orders/:id/assign-rider", async (req, res) => {
 
 /* ── PATCH /admin/vendors/:id/commission — set per-vendor commission override ── */
 
+/* ── Return requests (lightweight — no dedicated DB table, stored in-memory per session) ── */
+const returnStore = new Map<string, { id: string; reason: string; amount: number; status: string; createdAt: string }[]>();
+
+router.get("/orders/:id/returns", async (req, res) => {
+  const orderId = req.params["id"]!;
+  sendSuccess(res, returnStore.get(orderId) ?? []);
+});
+
+router.post("/orders/:id/return", async (req, res) => {
+  const orderId = req.params["id"]!;
+  const { reason, amount } = req.body;
+  if (!reason) { sendValidationError(res, "reason is required"); return; }
+  const entry = { id: generateId(), reason: String(reason), amount: parseFloat(String(amount)) || 0, status: "pending", createdAt: new Date().toISOString() };
+  const existing = returnStore.get(orderId) ?? [];
+  returnStore.set(orderId, [...existing, entry]);
+  sendSuccess(res, entry, 201);
+});
+
+router.patch("/orders/:id/returns/:returnId", async (req, res) => {
+  const { id: orderId, returnId } = req.params as { id: string; returnId: string };
+  const { status } = req.body;
+  const existing = returnStore.get(orderId) ?? [];
+  const idx = existing.findIndex(r => r.id === returnId);
+  if (idx === -1) { sendNotFound(res, "Return request not found"); return; }
+  existing[idx] = { ...existing[idx]!, status: String(status ?? "pending") };
+  returnStore.set(orderId, existing);
+  sendSuccess(res, existing[idx]);
+});
+
+/* ── Dispute requests (lightweight — no dedicated DB table) ── */
+const disputeStore = new Map<string, { id: string; type: string; note: string; status: string; createdAt: string }[]>();
+
+router.get("/orders/:id/disputes", async (req, res) => {
+  const orderId = req.params["id"]!;
+  sendSuccess(res, disputeStore.get(orderId) ?? []);
+});
+
+router.post("/orders/:id/dispute", async (req, res) => {
+  const orderId = req.params["id"]!;
+  const { type, note } = req.body;
+  if (!note) { sendValidationError(res, "note is required"); return; }
+  const entry = { id: generateId(), type: String(type ?? "other"), note: String(note), status: "open", createdAt: new Date().toISOString() };
+  const existing = disputeStore.get(orderId) ?? [];
+  disputeStore.set(orderId, [...existing, entry]);
+  sendSuccess(res, entry, 201);
+});
+
+router.patch("/orders/:id/disputes/:disputeId", async (req, res) => {
+  const { id: orderId, disputeId } = req.params as { id: string; disputeId: string };
+  const { status } = req.body;
+  const existing = disputeStore.get(orderId) ?? [];
+  const idx = existing.findIndex(d => d.id === disputeId);
+  if (idx === -1) { sendNotFound(res, "Dispute not found"); return; }
+  existing[idx] = { ...existing[idx]!, status: String(status ?? "open") };
+  disputeStore.set(orderId, existing);
+  sendSuccess(res, existing[idx]);
+});
+
+/* ── PATCH /admin/vendors/:id/tier — update vendor account tier ── */
+router.patch("/vendors/:id/tier", async (req, res) => {
+  const { tier } = req.body;
+  const VALID_TIERS = ["bronze", "silver", "gold"];
+  if (!tier || !VALID_TIERS.includes(String(tier))) {
+    sendValidationError(res, `tier must be one of: ${VALID_TIERS.join(", ")}`);
+    return;
+  }
+  const vendorId = req.params["id"]!;
+  const [user] = await db
+    .update(usersTable)
+    .set({ accountLevel: String(tier), updatedAt: new Date() })
+    .where(eq(usersTable.id, vendorId))
+    .returning({ id: usersTable.id, accountLevel: usersTable.accountLevel });
+  if (!user) { sendNotFound(res, "Vendor not found"); return; }
+  addAuditEntry({ action: "vendor_tier_update", ip: getClientIp(req), adminId: (req as AdminRequest).adminId, details: `Vendor ${vendorId} tier set to ${tier}`, result: "success" });
+  sendSuccess(res, user);
+});
+
 export default router;

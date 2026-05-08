@@ -86,11 +86,15 @@ function updatedAgo(ts: number): string {
 
 /* ── Live Metrics Strip ── */
 const EVENT_LABELS: Record<string, { label: string; color: string }> = {
-  "order:new":    { label: "New Order",    color: "bg-green-100 text-green-700 border-green-200" },
-  "order:update": { label: "Order Update", color: "bg-blue-100 text-blue-700 border-blue-200" },
-  "rider:sos":    { label: "Rider SOS",    color: "bg-red-100 text-red-700 border-red-200" },
-  "ride:new":     { label: "New Ride",     color: "bg-violet-100 text-violet-700 border-violet-200" },
-  "ride:update":  { label: "Ride Update",  color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  "order:new":             { label: "New Order",       color: "bg-green-100 text-green-700 border-green-200" },
+  "order:update":          { label: "Order Update",    color: "bg-blue-100 text-blue-700 border-blue-200" },
+  "rider:sos":             { label: "Rider SOS",       color: "bg-red-100 text-red-700 border-red-200" },
+  "ride:dispatch-update":  { label: "Ride Update",     color: "bg-violet-100 text-violet-700 border-violet-200" },
+  "rider:status":          { label: "Rider Status",    color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  "rider:offline":         { label: "Rider Offline",   color: "bg-slate-100 text-slate-600 border-slate-200" },
+  "rider:spoof-alert":     { label: "GPS Spoof",       color: "bg-orange-100 text-orange-700 border-orange-200" },
+  "wallet:admin-topup":    { label: "Wallet Top-up",   color: "bg-teal-100 text-teal-700 border-teal-200" },
+  "wallet:deposit-approved": { label: "Deposit OK",   color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
 };
 
 function LiveMetricsStrip() {
@@ -103,8 +107,8 @@ function LiveMetricsStrip() {
   const sosThreshold  = parseInt(getSetting("dashboard_sos_threshold")  || "3",  10);
   const pendThreshold = parseInt(getSetting("dashboard_pending_threshold") || "30", 10);
 
-  const sosCnt  = events.filter(e => e.event === "rider:sos").length;
-  const newOrd  = events.filter(e => e.event === "order:new").length;
+  const sosCnt  = events.filter(e => e.type === "rider:sos").length;
+  const newOrd  = events.filter(e => e.type === "order:new").length;
 
   const sosBreached  = sosCnt  >= sosThreshold;
   const ordBreached  = newOrd  >= pendThreshold;
@@ -184,12 +188,12 @@ function LiveMetricsStrip() {
             {last.length === 0 ? (
               <span className="text-xs text-muted-foreground">Waiting for events…</span>
             ) : last.map((ev: any, i: number) => {
-              const meta = EVENT_LABELS[ev.event] ?? { label: ev.event, color: "bg-slate-100 text-slate-600 border-slate-200" };
+              const meta = EVENT_LABELS[ev.type] ?? { label: String(ev.type ?? ev.title ?? "event"), color: "bg-slate-100 text-slate-600 border-slate-200" };
               return (
                 <span key={i} className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full border ${meta.color}`}>
                   <Radio className="w-2.5 h-2.5" />
                   {meta.label}
-                  {ev.data?.id ? <span className="opacity-60 text-[10px] font-mono">#{String(ev.data.id).slice(-4)}</span> : null}
+                  {ev.subtitle ? <span className="opacity-60 text-[10px] font-mono">{ev.subtitle}</span> : null}
                 </span>
               );
             })}
