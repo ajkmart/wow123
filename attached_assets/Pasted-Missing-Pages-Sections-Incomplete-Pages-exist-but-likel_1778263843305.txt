@@ -1,0 +1,108 @@
+Missing Pages/Sections
+Incomplete Pages (exist but likely have missing functionality):
+
+❌ users.tsx - Missing: bulk actions, role assignment UI, permission matrix
+❌ dashboard.tsx - Missing: real-time metrics, alert thresholds
+❌ orders.tsx - Missing: batch operations, return flow, dispute handling
+❌ products.tsx - Missing: bulk edit, inventory sync, pricing rules
+❌ vendors.tsx - Missing: vendor verification flow, tier management
+❌ settings-render.tsx - Missing: config validation, preview before save
+❌ error-monitor.tsx - Missing: auto-resolution rules, escalation workflow
+6️⃣ Missing API Integration Examples
+TypeScript
+// ❌ The admin panel needs these patterns:
+
+// Pattern 1: Query hook for listings
+export const useAdminUsers = () => {
+  return useQuery({
+    queryKey: ['admin', 'users'],
+    queryFn: async () => {
+      const res = await adminFetcher.get('/users');
+      return res.data;
+    },
+  });
+};
+
+// Pattern 2: Mutation hook for updates
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => {
+      return adminFetcher.put(`/users/${payload.id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin', 'users']);
+    },
+  });
+};
+
+// ❌ NONE OF THESE EXIST IN /lib or /hooks!
+📋 MISSING FEATURE REQUIREMENTS
+Feature	Admin Panel	API-Server	Status
+User Management	Page exists	Full API ✓	🟡 Frontend hooks missing
+Bulk Operations	❌	✓	🔴 Not implemented
+Data Export	❌	✓	🔴 Missing components
+Audit Logging	Page exists	Full API ✓	🟡 Missing query hooks
+Real-time Updates	❌	Socket.io ✓	🔴 No websocket client
+Permission Matrix	Partial	Full RBAC ✓	🟡 UI incomplete
+Form Validation	Manual	Zod schemas ✓	🟡 No reusable validators
+Error Handling	Basic	Comprehensive	🟡 No unified handler
+Caching Strategy	None	(Backend)	🔴 Missing query cache invalidation
+Notifications	Basic toast	Full system ✓	🟡 No integration
+🚀 PRIORITY FIXES (ordered by impact)
+CRITICAL - Create /lib/adminApiClient.ts
+
+Wrapper around adminFetcher with typed methods
+Handle error responses consistently
+Auto-token refresh
+CRITICAL - Generate React Query hooks
+
+useAdminQuery() - Generic data fetcher
+useAdminMutation() - Generic mutation wrapper
+Auto-invalidation on success
+HIGH - Create shared UI components
+
+<AdminDataTable> - Pagination, sorting, filtering
+<AdminForm> - Form validation + submission
+<StatusIndicator> - Consistent status rendering
+HIGH - Add missing hooks in /hooks
+
+useAdminData() - Data fetching
+useErrorToast() - Error display
+useConfirmAction() - Confirmation dialogs
+MEDIUM - Complete page implementations
+
+Add bulk operations to users, orders, products pages
+Add real-time updates via WebSocket
+Add export/import functionality
+MEDIUM - Validation library
+
+Reuse Zod schemas from API
+Client-side form validation
+Field-level error messages
+📁 RECOMMENDED STRUCTURE
+TypeScript
+artifacts/admin/src/
+├── lib/
+│   ├── adminApiClient.ts       // ✅ ADD - Typed API wrapper
+│   ├── reactQueryHooks.ts      // ✅ ADD - Auto-generated hooks
+│   ├── validators.ts           // ✅ ADD - Reuse API Zod schemas
+│   ├── dataTransforms.ts       // ✅ ADD - API ↔ UI conversion
+│   └── errorHandler.ts         // ✅ ADD - Unified error handling
+│
+├── hooks/
+│   ├── useAdminQuery.ts        // ✅ ADD - Generic query hook
+│   ├── useAdminMutation.ts     // ✅ ADD - Generic mutation hook
+│   ├── useErrorToast.ts        // ✅ ADD - Error notifications
+│   └── useConfirmAction.ts     // ✅ ADD - Confirmation dialog
+│
+├── components/shared/          // ✅ ADD - Reusable components
+│   ├── DataTable.tsx
+│   ├── FormBuilder.tsx
+│   ├── BulkActions.tsx
+│   └── ExportButton.tsx
+│
+└── pages/ (enhance existing)
+    ├── users.tsx              // 🔄 Add bulk actions
+    ├── orders.tsx             // 🔄 Add batch operations
+    └── products.tsx           // 🔄 Add inventory sync
