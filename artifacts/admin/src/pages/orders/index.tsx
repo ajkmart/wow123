@@ -131,11 +131,18 @@ export default function Orders() {
     });
   }, [selectedOrder, updateMutation, toast]);
 
-  const handleRefundOrder = useCallback(() => {
+  const handleRefundOrder = useCallback((prefilledAmount?: number, prefilledReason?: string) => {
     if (!selectedOrder) return;
-    const amt = parseFloat(refundAmount);
-    if (!refundAmount || !Number.isFinite(amt) || amt <= 0 || amt > (selectedOrder.total || 0)) return;
-    refundMutation.mutate({ id: selectedOrder.id, amount: amt, reason: refundReason.trim() || undefined }, {
+    // Pre-fill state if called from ReturnPanel with an approved return amount/reason
+    const finalAmount = prefilledAmount ?? parseFloat(refundAmount);
+    const finalReason = prefilledReason ?? refundReason.trim();
+    if (!Number.isFinite(finalAmount) || finalAmount <= 0 || finalAmount > (selectedOrder.total || 0)) return;
+    if (prefilledAmount !== undefined) {
+      setRefundAmount(String(prefilledAmount));
+      setRefundReason(prefilledReason ?? "");
+    }
+    const amt = finalAmount;
+    refundMutation.mutate({ id: selectedOrder.id, amount: amt, reason: finalReason || undefined }, {
       onSuccess: (res: any) => {
         toast({ title: "Refund issued", description: `${formatCurrency(Math.round(res.refundedAmount))} credited to customer wallet` });
         setShowRefundConfirm(false);

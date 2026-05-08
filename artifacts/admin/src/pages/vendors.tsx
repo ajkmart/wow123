@@ -434,6 +434,31 @@ export default function Vendors() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [tierUpdating, setTierUpdating] = useState<string | null>(null);
 
+  // Declare qc and sort state BEFORE any callbacks that close over them
+  const qc = useQueryClient();
+
+  const [sortKey, setSortKey] = useState<"storeName" | "totalRevenue" | "walletBalance" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const toggleVendorSort = useCallback((key: "storeName" | "totalRevenue" | "walletBalance") => {
+    setSortKey(prev => {
+      if (prev === key) { setSortDir(d => d === "asc" ? "desc" : "asc"); return key; }
+      setSortDir("asc");
+      return key;
+    });
+  }, []);
+
+  const sortedFiltered = useMemo(() => {
+    if (!sortKey) return filtered;
+    return [...filtered].sort((a: any, b: any) => {
+      const av = sortKey === "storeName" ? (a.storeName || "").toLowerCase() : (a[sortKey] ?? 0);
+      const bv = sortKey === "storeName" ? (b.storeName || "").toLowerCase() : (b[sortKey] ?? 0);
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filtered, sortKey, sortDir]);
+
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -483,29 +508,6 @@ export default function Vendors() {
     setTierUpdating(null);
   }, [qc, toast]);
 
-  const [sortKey, setSortKey] = useState<"storeName" | "totalRevenue" | "walletBalance" | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-
-  const toggleVendorSort = useCallback((key: "storeName" | "totalRevenue" | "walletBalance") => {
-    setSortKey(prev => {
-      if (prev === key) { setSortDir(d => d === "asc" ? "desc" : "asc"); return key; }
-      setSortDir("asc");
-      return key;
-    });
-  }, []);
-
-  const sortedFiltered = useMemo(() => {
-    if (!sortKey) return filtered;
-    return [...filtered].sort((a: any, b: any) => {
-      let av = sortKey === "storeName" ? (a.storeName || "").toLowerCase() : (a[sortKey] ?? 0);
-      let bv = sortKey === "storeName" ? (b.storeName || "").toLowerCase() : (b[sortKey] ?? 0);
-      if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [filtered, sortKey, sortDir]);
-
-  const qc = useQueryClient();
   const handlePullRefresh = useCallback(async () => {
     await qc.invalidateQueries({ queryKey: ["admin-vendors"] });
   }, [qc]);

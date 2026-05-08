@@ -273,6 +273,25 @@ router.post("/products", async (req, res) => {
   sendCreated(res, { ...product!, price: parseFloat(product!.price) });
 });
 
+/* ── PATCH /products/bulk — single atomic bulk update for price/category/stock ── */
+router.patch("/products/bulk", async (req, res) => {
+  const { ids, update } = req.body as { ids: string[]; update: { price?: number; category?: string; inStock?: boolean; stock?: number } };
+  if (!Array.isArray(ids) || ids.length === 0) { sendValidationError(res, "ids must be a non-empty array"); return; }
+  if (!update || typeof update !== "object" || Object.keys(update).length === 0) { sendValidationError(res, "update must contain at least one field"); return; }
+  const updates: Partial<typeof productsTable.$inferInsert> = {};
+  if (update.price   !== undefined) updates.price   = String(update.price);
+  if (update.category !== undefined) updates.category = update.category;
+  if (update.inStock  !== undefined) updates.inStock  = update.inStock;
+  if (update.stock    !== undefined) updates.stock    = update.stock;
+  const { inArray } = await import("drizzle-orm");
+  const updated = await db
+    .update(productsTable)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(inArray(productsTable.id, ids))
+    .returning({ id: productsTable.id });
+  sendSuccess(res, { updated: updated.length, ids: updated.map(r => r.id) });
+});
+
 router.patch("/products/:id", async (req, res) => {
   const { name, description, price, originalPrice, category, unit, inStock, stock, vendorName, deliveryTime, image } = req.body;
   const updates: Partial<typeof productsTable.$inferInsert> = {};

@@ -58,6 +58,7 @@ router.get("/stats", async (_req, res) => {
     recentRides,
     [riderCount],
     [vendorCount],
+    [failedPaymentCount],
   ] = await Promise.all([
     db.select({ count: count() }).from(usersTable),
     db.select({ count: count() }).from(ordersTable),
@@ -80,6 +81,8 @@ router.get("/stats", async (_req, res) => {
     db.select().from(ridesTable).orderBy(desc(ridesTable.createdAt)).limit(5),
     db.select({ count: count() }).from(riderProfilesTable),
     db.select({ count: count() }).from(vendorProfilesTable),
+    /* failed payments: orders where paymentStatus = 'failed' */
+    db.select({ count: count() }).from(ordersTable).where(eq(ordersTable.paymentStatus, "failed")),
   ]);
 
   sendSuccess(res, {
@@ -89,6 +92,7 @@ router.get("/stats", async (_req, res) => {
     pendingOrders: pendingOrderCount!.count,
     activeRides: activeRideCount!.count,
     activeSos: activeSosCount!.count,
+    failedPayments: failedPaymentCount!.count,
     pharmacyOrders: pharmCount!.count,
     parcelBookings: parcelCount!.count,
     products: productCount!.count,

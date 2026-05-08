@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import {
   Search, CheckCircle2, XCircle, Wallet, RefreshCw, Trash2,

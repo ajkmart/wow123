@@ -349,19 +349,17 @@ export default function Products() {
     }
     setBulkApplying(true);
     const ids = Array.from(selectedProductIds);
-    const payload: Record<string, any> = {};
-    if (bulkPrice) payload.price = parseFloat(bulkPrice);
-    if (bulkCategory) payload.category = bulkCategory;
-    if (bulkStock === "in") payload.inStock = true;
-    if (bulkStock === "out") payload.inStock = false;
-    let succeeded = 0;
-    for (const id of ids) {
-      try {
-        await fetcher(`/products/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
-        succeeded++;
-      } catch { /* continue */ }
+    const update: Record<string, unknown> = {};
+    if (bulkPrice) update.price = parseFloat(bulkPrice);
+    if (bulkCategory) update.category = bulkCategory;
+    if (bulkStock === "in")  update.inStock = true;
+    if (bulkStock === "out") update.inStock = false;
+    try {
+      const result = await fetcher("/products/bulk", { method: "PATCH", body: JSON.stringify({ ids, update }) }) as { updated: number };
+      toast({ title: "Bulk edit applied", description: `${result.updated} of ${ids.length} products updated in one operation.` });
+    } catch (e: any) {
+      toast({ title: "Bulk update failed", description: e.message, variant: "destructive" });
     }
-    toast({ title: `Bulk edit applied`, description: `${succeeded} of ${ids.length} products updated.` });
     setSelectedProductIds(new Set());
     setShowBulkEdit(false);
     setBulkPrice("");

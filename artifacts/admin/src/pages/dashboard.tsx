@@ -109,14 +109,18 @@ function LiveMetricsStrip() {
 
   // Use real DB-backed live stats for threshold comparison (not activity-feed event counts)
   const { data: liveStats } = useStats();
-  const pendingOrders = (liveStats as any)?.pendingOrders ?? 0;
-  const activeSos     = (liveStats as any)?.activeSos     ?? 0;
+  const pendingOrders  = (liveStats as any)?.pendingOrders  ?? 0;
+  const activeSos      = (liveStats as any)?.activeSos      ?? 0;
+  const failedPayments = (liveStats as any)?.failedPayments ?? 0;
+
+  const failThreshold = parseInt(getSetting("dashboard_failed_payments_threshold") || "5", 10);
 
   const sosCnt = activeSos;
   const newOrd = pendingOrders;
 
-  const sosBreached  = sosCnt  >= sosThreshold;
-  const ordBreached  = newOrd  >= pendThreshold;
+  const sosBreached  = sosCnt         >= sosThreshold;
+  const ordBreached  = newOrd         >= pendThreshold;
+  const failBreached = failedPayments >= failThreshold;
 
   const [editingThresholds, setEditingThresholds] = useState(false);
   const [draftSos,  setDraftSos]  = useState(String(sosThreshold));
@@ -166,7 +170,15 @@ function LiveMetricsStrip() {
         <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm">
           <Bell className="w-4 h-4 text-amber-600 animate-pulse shrink-0" />
           <span className="text-amber-800 font-medium">
-            Order surge: <strong>{newOrd}</strong> new orders — threshold of {pendThreshold} exceeded. Consider increasing rider capacity.
+            Order surge: <strong>{newOrd}</strong> pending orders — threshold of {pendThreshold} exceeded. Consider increasing rider capacity.
+          </span>
+        </div>
+      )}
+      {failBreached && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 text-sm">
+          <AlertTriangle className="w-4 h-4 text-red-600 animate-pulse shrink-0" />
+          <span className="text-red-800 font-medium">
+            Payment failures: <strong>{failedPayments}</strong> orders with failed payment — threshold of {failThreshold} exceeded. Review payment gateway.
           </span>
         </div>
       )}

@@ -16,7 +16,7 @@ import { fetcher } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 /* ── Return Request Panel — Admin Moderation View ── */
-function ReturnPanel({ order, onRefundOrder }: { order: any; onRefundOrder?: () => void }) {
+function ReturnPanel({ order, onRefundOrder }: { order: any; onRefundOrder?: (amount?: number, reason?: string) => void }) {
   const { toast } = useToast();
   const [requests, setRequests] = useState<any[]>([]);
   const [loadingReqs, setLoadingReqs] = useState(true);
@@ -55,10 +55,13 @@ function ReturnPanel({ order, onRefundOrder }: { order: any; onRefundOrder?: () 
   const handleAction = async (returnId: string, action: "approve" | "reject") => {
     setActioning(returnId);
     try {
-      await fetcher(`/orders/${order.id}/returns/${returnId}`, { method: "PATCH", body: JSON.stringify({ status: action === "approve" ? "approved" : "rejected" }) });
-      toast({ title: action === "approve" ? "Return approved" : "Return rejected", description: action === "approve" ? "Refund can now be issued." : "Return request closed." });
+      const updatedReqs = await fetcher(`/orders/${order.id}/returns/${returnId}`, { method: "PATCH", body: JSON.stringify({ status: action === "approve" ? "approved" : "rejected" }) });
+      toast({ title: action === "approve" ? "Return approved" : "Return rejected", description: action === "approve" ? "Issuing refund now…" : "Return request closed." });
       await loadRequests();
-      if (action === "approve" && onRefundOrder) onRefundOrder();
+      if (action === "approve" && onRefundOrder) {
+        const approvedReq = requests.find(r => r.id === returnId);
+        onRefundOrder(approvedReq?.amount ?? order.total, approvedReq?.reason ?? "Return approved by admin");
+      }
     } catch (e: any) {
       toast({ title: "Action failed", description: e.message, variant: "destructive" });
     }
@@ -277,7 +280,7 @@ interface OrderDetailDrawerProps {
   setRefundReason: (v: string) => void;
   cancelling: boolean;
   onCancelOrder: () => void;
-  onRefundOrder: () => void;
+  onRefundOrder: (amount?: number, reason?: string) => void;
   refundPending: boolean;
   showAssignRider: boolean;
   setShowAssignRider: (v: boolean) => void;
