@@ -329,7 +329,23 @@ export default function VanServiceScreen() {
             maxLength={10}
           />
         </View>
-        <TouchableOpacity activeOpacity={0.7} style={[ss.btnPrimary, loading && ss.btnDisabled]} onPress={() => checkAvailability(selectedSchedule.id, travelDate)} disabled={loading}>
+        <TouchableOpacity activeOpacity={0.7} style={[ss.btnPrimary, loading && ss.btnDisabled]}
+          onPress={() => {
+            if (!selectedRoute || !selectedSchedule) return;
+            router.push({
+              pathname: "/van/seats",
+              params: {
+                routeId: selectedRoute.id,
+                scheduleId: selectedSchedule.id,
+                travelDate,
+                routeName: selectedRoute.name,
+                fromAddress: selectedRoute.fromAddress,
+                toAddress: selectedRoute.toAddress,
+                departureTime: selectedSchedule.departureTime,
+                vanCode: selectedSchedule.vanCode ?? "",
+              },
+            });
+          }} disabled={loading}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={ss.btnPrimaryText}>Check Availability</Text>}
         </TouchableOpacity>
       </ScrollView>

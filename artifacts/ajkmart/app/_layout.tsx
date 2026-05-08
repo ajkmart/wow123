@@ -348,6 +348,7 @@ function DeepLinkHandler() {
         const routeMap: Record<string, string> = {
           product: "/product/{id}",
           vendor: "/vendor/{id}",
+          order: "/orders/{id}",
           category: "/categories",
           promo: "/offers",
           ride: "/ride",
@@ -358,17 +359,42 @@ function DeepLinkHandler() {
           van: "/van",
         };
 
-        const route = routeMap[path];
-        if (!route) return;
+        /* Support both scheme://host?id=x and scheme://host/id path formats.
+           For ajkmart://order/123: hostname="order", pathname="/123" so
+           rawPath="123" and path="123" (not "order"). We detect this case
+           by checking if the rawPath looks like an ID segment while the
+           hostname matches a known route. */
+        let resolvedPath = path;
+        let pathSegmentId: string | undefined;
+        if (!routeMap[path] && parsed.hostname && routeMap[parsed.hostname]) {
+          resolvedPath = parsed.hostname;
+          pathSegmentId = rawPath.split("/")[0] || undefined;
+        }
+
+        type RouterHref = Parameters<typeof router.push>[0];
+        const pushNotFound = () => {
+          setTimeout(() => {
+            try { router.push("/+not-found" as RouterHref); } catch {}
+          }, 500);
+        };
+
+        const route = routeMap[resolvedPath];
+        if (!route) {
+          pushNotFound();
+          return;
+        }
 
         let targetPath = route;
         if (route.includes("{id}")) {
-          const id = params.productId || params.vendorId || params.id || "";
-          if (!id) return;
+          const id = params.productId || params.vendorId || params.id || pathSegmentId || "";
+          if (!id) {
+            pushNotFound();
+            return;
+          }
           targetPath = route.replace("{id}", id);
         }
 
-        if (path === "ride" && (params.pickup || params.dropoff)) {
+        if (resolvedPath === "ride" && (params.pickup || params.dropoff)) {
           const queryParts: string[] = [];
           if (params.pickup) queryParts.push(`pickup=${encodeURIComponent(params.pickup)}`);
           if (params.dropoff) queryParts.push(`dropoff=${encodeURIComponent(params.dropoff)}`);
@@ -379,15 +405,18 @@ function DeepLinkHandler() {
           if (queryParts.length) targetPath += `?${queryParts.join("&")}`;
         }
 
-        if (path === "category" && params.categoryId) {
+        if (resolvedPath === "category" && params.categoryId) {
           targetPath = `/categories?id=${encodeURIComponent(params.categoryId)}`;
         }
 
-        if (path === "promo" && params.code) {
+        if (resolvedPath === "promo" && params.code) {
           targetPath = `/offers?code=${encodeURIComponent(params.code)}`;
         }
 
-        if (!targetPath.startsWith("/")) return;
+        if (!targetPath.startsWith("/")) {
+          pushNotFound();
+          return;
+        }
 
         setTimeout(() => {
           try {

@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { getRide as getRideApi, type Ride } from "@workspace/api-client-react";
 import { API_BASE } from "@/utils/api";
+import { useNetworkQuality, type NetworkTier } from "@/hooks/useNetworkQuality";
 
 type RideStatusHookResult = {
   ride: Ride | null;
   setRide: React.Dispatch<React.SetStateAction<Ride | null>>;
   connectionType: "sse" | "polling" | "connecting";
+  networkTier: NetworkTier;
   reconnect: () => void;
 };
 
@@ -17,7 +19,8 @@ const SSE_RETRY_BASE_DELAY = 3000;
  * wait more than 10 s between reconnects before falling back to polling.
  */
 const SSE_MAX_RETRY_DELAY = 10_000;
-const POLL_INTERVAL = 5000;
+const POLL_INTERVAL_FAST = 5000;
+const POLL_INTERVAL_SLOW = 10_000;
 /**
  * How long (ms) to stay in polling mode before attempting to re-upgrade
  * to SSE.  Gives transient connectivity blips time to recover.
@@ -28,6 +31,13 @@ export function useRideStatus(rideId: string): RideStatusHookResult {
   const [ride, setRide] = useState<Ride | null>(null);
   const [connectionType, setConnectionType] =
     useState<"sse" | "polling" | "connecting">("connecting");
+  const { tier: networkTier } = useNetworkQuality();
+  const networkTierRef = useRef<NetworkTier>(networkTier);
+
+  useEffect(() => {
+    networkTierRef.current = networkTier;
+  }, [networkTier]);
+
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,6 +82,9 @@ export function useRideStatus(rideId: string): RideStatusHookResult {
     clearUpgradeTimer();
     setConnectionType("polling");
 
+    const currentTier = networkTierRef.current;
+    const pollInterval = currentTier === "slow" ? POLL_INTERVAL_SLOW : POLL_INTERVAL_FAST;
+
     const poll = async () => {
       try {
         const d = await getRideApi(rideId);
@@ -80,7 +93,7 @@ export function useRideStatus(rideId: string): RideStatusHookResult {
              entirely — this preserves any fields (e.g. tripOtp) that arrived
              via a socket event and might not be re-sent in every poll response,
              and prevents a "jumpy" UI reset when upgrading back to SSE. */
-          setRide((prev) => (prev ? { ...prev, ...d } : d));
+          setRide((prev: Ride | null) => (prev ? { ...prev, ...d } : d));
           const status = d?.status;
           if (status === "completed" || status === "cancelled") {
             stopPolling();
@@ -89,19 +102,27 @@ export function useRideStatus(rideId: string): RideStatusHookResult {
       } catch {}
     };
     poll();
-    pollRef.current = setInterval(poll, POLL_INTERVAL);
+    pollRef.current = setInterval(poll, pollInterval);
 
-    /* Schedule a re-upgrade attempt to SSE after POLLING_UPGRADE_DELAY.
-       If SSE succeeds connectSse will call stopPolling internally. */
-    upgradeTimerRef.current = setTimeout(() => {
-      if (mountedRef.current && pollRef.current) {
-        sseFailCountRef.current = 0;
-        connectSseRef.current();
-      }
-    }, POLLING_UPGRADE_DELAY);
+    /* On slow networks, skip the SSE re-upgrade attempt entirely.
+       On medium/fast networks, schedule a re-upgrade after POLLING_UPGRADE_DELAY. */
+    if (currentTier !== "slow") {
+      upgradeTimerRef.current = setTimeout(() => {
+        if (mountedRef.current && pollRef.current) {
+          sseFailCountRef.current = 0;
+          connectSseRef.current();
+        }
+      }, POLLING_UPGRADE_DELAY);
+    }
   }, [rideId, clearUpgradeTimer, stopPolling]);
 
   const connectSse = useCallback(async () => {
+    /* On slow networks, skip SSE entirely and go straight to polling. */
+    if (networkTierRef.current === "slow") {
+      startPolling();
+      return;
+    }
+
     closeSse();
     clearRetryTimer();
     setConnectionType("connecting");
@@ -158,7 +179,7 @@ export function useRideStatus(rideId: string): RideStatusHookResult {
             /* Merge SSE payload with previous state so that fields delivered via
                socket events (e.g. tripOtp set by ride:otp) are not lost when
                the next SSE push omits them. */
-            setRide((prev) => (prev ? { ...prev, ...data } : data));
+            setRide((prev: Ride | null) => (prev ? { ...prev, ...data } : data));
             if (data?.status === "completed" || data?.status === "cancelled") {
               /* Terminal state — close SSE cleanly and stop polling. */
               reader.releaseLock();
@@ -196,7 +217,8 @@ export function useRideStatus(rideId: string): RideStatusHookResult {
 
       if (sseFailCountRef.current >= 3) {
         /* Three consecutive failures — fall back to HTTP polling.
-           startPolling will schedule a re-upgrade attempt automatically. */
+           startPolling will schedule a re-upgrade attempt automatically
+           (unless the network tier is slow). */
         startPolling();
       } else {
         /* Exponential back-off capped at SSE_MAX_RETRY_DELAY. */
@@ -244,5 +266,5 @@ export function useRideStatus(rideId: string): RideStatusHookResult {
     };
   }, [rideId]);
 
-  return { ride, setRide, connectionType, reconnect };
+  return { ride, setRide, connectionType, networkTier, reconnect };
 }

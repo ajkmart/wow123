@@ -112,7 +112,7 @@ function PharmacyScreenInner() {
   const { goBack } = useSmartBack();
   const topPad = Math.max(insets.top, 12);
   const { searchOpacity, searchTranslateY, searchMaxHeight, subtitleOpacity, subtitleMaxHeight, scrollHandler, scrollEventThrottle } = useCollapsibleHeader({ expandedHeight: 130, collapsedHeight: 56, scrollThreshold: 80, searchBarHeight: 46 });
-  const { category: routeCategory, cartItems: cartItemsParam } = useLocalSearchParams<{ category?: string; cartItems?: string }>();
+  const { category: routeCategory, cartItems: cartItemsParam, checkout: openCheckout } = useLocalSearchParams<{ category?: string; cartItems?: string; checkout?: string }>();
   const { user, updateUser, token } = useAuth();
   const { items: globalCartItems, addItem: addToGlobalCart, removeItem: removeFromGlobalCart, updateQuantity, clearCart, setPharmacyPendingOrderId } = useCart();
   const { showToast } = useToast();
@@ -138,6 +138,14 @@ function PharmacyScreenInner() {
   const [uploadFailed, setUploadFailed] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [confirmedOrderId, setConfirmedOrderId] = useState("");
+
+  const checkoutOpenedRef = React.useRef(false);
+  useEffect(() => {
+    if (openCheckout === "1" && !checkoutOpenedRef.current) {
+      checkoutOpenedRef.current = true;
+      setShowCheckout(true);
+    }
+  }, [openCheckout]);
 
   const restoredFromCartRef = React.useRef(false);
   useEffect(() => {
@@ -177,6 +185,8 @@ function PharmacyScreenInner() {
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [permGuideType, setPermGuideType] = useState<"camera" | "gallery" | "location" | "notification" | "microphone">("camera");
   const [permGuideVisible, setPermGuideVisible] = useState(false);
+  const [pendingPhotoUri, setPendingPhotoUri] = useState<string | null>(null);
+  const [showPrescriptionPreview, setShowPrescriptionPreview] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -188,6 +198,40 @@ function PharmacyScreenInner() {
 
   const pickPrescriptionPhoto = () => {
     setShowPhotoSourceModal(true);
+  };
+
+  const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
+  const MAX_PRESCRIPTION_SIZE = 2097152;
+
+  const checkPhotoFormatAndSize = async (uri: string, mimeType?: string | null): Promise<"ok" | "bad_format" | "too_large"> => {
+    const mime = mimeType ?? "";
+    const ext = uri.split("?")[0]!.split(".").pop()?.toLowerCase() ?? "";
+    if (mime && !ALLOWED_MIME_TYPES.includes(mime)) return "bad_format";
+    if (!mime && ext && !ALLOWED_EXTENSIONS.includes(ext)) return "bad_format";
+    try {
+      const info = await FileSystem.getInfoAsync(uri);
+      if (info.exists && "size" in info && typeof (info as { size?: number }).size === "number") {
+        if ((info as { size: number }).size > MAX_PRESCRIPTION_SIZE) return "too_large";
+      }
+    } catch {
+      if (__DEV__) console.warn("[Pharmacy] Could not check file size — proceeding anyway");
+    }
+    return "ok";
+  };
+
+  const validateAndPreviewPhoto = async (uri: string, mimeType?: string | null): Promise<void> => {
+    const result = await checkPhotoFormatAndSize(uri, mimeType);
+    if (result === "bad_format") {
+      showToast("Unsupported file format. Please attach a JPEG, PNG, or WebP image.", "error");
+      return;
+    }
+    if (result === "too_large") {
+      showToast("Image is too large (max 2 MB). Please choose a smaller file or retake the photo.", "error");
+      return;
+    }
+    setPendingPhotoUri(uri);
+    setShowPrescriptionPreview(true);
   };
 
   const pickFromGallery = async () => {
@@ -204,8 +248,8 @@ function PharmacyScreenInner() {
         quality: 0.7,
       });
       if (result.canceled || !result.assets?.[0]) return;
-      setPrescriptionPhotoUri(result.assets[0].uri);
-      if (uploadFailed) setUploadFailed(false);
+      const asset = result.assets[0];
+      await validateAndPreviewPhoto(asset.uri, asset.mimeType);
     } catch {
       showToast("Could not pick image", "error");
     }
@@ -225,8 +269,8 @@ function PharmacyScreenInner() {
         quality: 0.7,
       });
       if (result.canceled || !result.assets?.[0]) return;
-      setPrescriptionPhotoUri(result.assets[0].uri);
-      if (uploadFailed) setUploadFailed(false);
+      const asset = result.assets[0];
+      await validateAndPreviewPhoto(asset.uri, asset.mimeType);
     } catch {
       showToast("Could not open camera", "error");
     }
@@ -407,6 +451,19 @@ function PharmacyScreenInner() {
         : undefined;
 
       if (prescriptionPhotoUri && prescriptionRefId) {
+        const preCheck = await checkPhotoFormatAndSize(prescriptionPhotoUri);
+        if (preCheck === "bad_format") {
+          showToast("Unsupported file format. Please attach a JPEG, PNG, or WebP image.", "error");
+          setLoading(false);
+          submittingRef.current = false;
+          return;
+        }
+        if (preCheck === "too_large") {
+          showToast("Prescription photo is too large (max 2 MB). Please retake or choose a smaller image.", "error");
+          setLoading(false);
+          submittingRef.current = false;
+          return;
+        }
         setIsUploading(true);
         const MAX_UPLOAD_RETRIES = 3;
         let uploadSuccess = false;
@@ -909,6 +966,55 @@ function PharmacyScreenInner() {
             )}
           </TouchableOpacity>
         </ScrollView>
+      </Modal>
+
+      <Modal visible={showPrescriptionPreview} animationType="fade" onRequestClose={() => { setShowPrescriptionPreview(false); setPendingPhotoUri(null); }}>
+        <View style={{ flex: 1, backgroundColor: "#000", justifyContent: "flex-end" }}>
+          {pendingPhotoUri && (
+            <Image
+              source={{ uri: pendingPhotoUri }}
+              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+              resizeMode="contain"
+            />
+          )}
+          <View style={{ backgroundColor: "rgba(0,0,0,0.7)", paddingHorizontal: 20, paddingVertical: 28, paddingBottom: Math.max(insets.bottom + 12, 32), gap: 12 }}>
+            <Text style={{ color: "#fff", fontSize: 16, fontFamily: Font.bold, textAlign: "center", marginBottom: 4 }}>
+              Use this prescription photo?
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={{ backgroundColor: C.purple, borderRadius: 14, paddingVertical: 15, alignItems: "center" }}
+              onPress={() => {
+                if (pendingPhotoUri) {
+                  setPrescriptionPhotoUri(pendingPhotoUri);
+                  if (uploadFailed) setUploadFailed(false);
+                }
+                setPendingPhotoUri(null);
+                setShowPrescriptionPreview(false);
+              }}
+            >
+              <Text style={{ color: "#fff", fontFamily: Font.bold, fontSize: 16 }}>Use This Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={{ backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 14, paddingVertical: 15, alignItems: "center" }}
+              onPress={() => {
+                setPendingPhotoUri(null);
+                setShowPrescriptionPreview(false);
+                setShowPhotoSourceModal(true);
+              }}
+            >
+              <Text style={{ color: "#fff", fontFamily: Font.semiBold, fontSize: 16 }}>Retake / Choose Again</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={{ alignItems: "center", paddingVertical: 10 }}
+              onPress={() => { setPendingPhotoUri(null); setShowPrescriptionPreview(false); }}
+            >
+              <Text style={{ color: "rgba(255,255,255,0.6)", fontFamily: Font.regular, fontSize: 14 }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       <Modal visible={showAddressPicker} transparent animationType="fade" onRequestClose={() => setShowAddressPicker(false)}>
