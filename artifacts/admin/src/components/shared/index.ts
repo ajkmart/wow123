@@ -13,3 +13,12 @@ export { FilterBar } from "./FilterBar";
 export type { FilterBarProps } from "./FilterBar";
 export { ActionBar } from "./ActionBar";
 export type { ActionBarProps } from "./ActionBar";
+
+export { ConfirmDelete } from "./ConfirmDelete";
+export type { ConfirmDeleteProps } from "./ConfirmDelete";
+export { DataTable } from "./DataTable";
+export type { DataTableProps, DataTableColumn } from "./DataTable";
+export { ExportData } from "./ExportData";
+export type { ExportDataProps } from "./ExportData";
+export { BulkUpload } from "./BulkUpload";
+export type { BulkUploadProps } from "./BulkUpload";
