@@ -1,0 +1,67 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "secure-start": "node scripts/secure-start.mjs",
+    "start:all": "node scripts/secure-start.mjs",
+    "dev:all": "concurrently \"pnpm --filter @workspace/api-server dev\" \"pnpm --filter @workspace/admin dev\" \"pnpm --filter @workspace/vendor-app dev\" \"pnpm --filter @workspace/rider-app dev\" \"pnpm --filter @workspace/ajkmart dev:web\"",
+    "pm2:start": "node scripts/pm2-control.mjs start",
+    "pm2:stop": "node scripts/pm2-control.mjs stop",
+    "pm2:restart": "pnpm dlx pm2 restart all",
+    "pm2:logs": "pnpm dlx pm2 logs",
+    "health": "curl -sf http://localhost:${PORT:-5000}/api/health && echo OK",
+    "stop:all": "node scripts/dev-ctl.mjs stop all",
+    "status:all": "node scripts/dev-ctl.mjs status all",
+    "start:api": "node scripts/dev-ctl.mjs start api",
+    "stop:api": "node scripts/dev-ctl.mjs stop api",
+    "status:api": "node scripts/dev-ctl.mjs status api",
+    "start:admin": "node scripts/dev-ctl.mjs start admin",
+    "stop:admin": "node scripts/dev-ctl.mjs stop admin",
+    "status:admin": "node scripts/dev-ctl.mjs status admin",
+    "start:vendor": "node scripts/dev-ctl.mjs start vendor",
+    "stop:vendor": "node scripts/dev-ctl.mjs stop vendor",
+    "status:vendor": "node scripts/dev-ctl.mjs status vendor",
+    "start:rider": "node scripts/dev-ctl.mjs start rider",
+    "stop:rider": "node scripts/dev-ctl.mjs stop rider",
+    "status:rider": "node scripts/dev-ctl.mjs status rider",
+    "start:ajkmart": "node scripts/dev-ctl.mjs start ajkmart",
+    "stop:ajkmart": "node scripts/dev-ctl.mjs stop ajkmart",
+    "status:ajkmart": "node scripts/dev-ctl.mjs status ajkmart",
+    "start:sandbox": "node scripts/dev-ctl.mjs start sandbox",
+    "stop:sandbox": "node scripts/dev-ctl.mjs stop sandbox",
+    "status:sandbox": "node scripts/dev-ctl.mjs status sandbox",
+    "setup": "bash scripts/setup.sh",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:generate": "pnpm --filter @workspace/db generate",
+    "db:seed": "curl -sf -X POST http://localhost:${PORT:-5000}/api/seed/full -H \"x-admin-seed-key: ${DEV_SEED_KEY:-local-dev-seed-ajkmart}\" -H 'Content-Type: application/json' | node -e \"process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{try{const r=JSON.parse(d);console.log(JSON.stringify(r,null,2));}catch{console.log(d);}});\"",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "artifacts/admin/src/**/*.{ts,tsx}": [
+      "pnpm --filter @workspace/admin exec eslint --max-warnings 0"
+    ],
+    "artifacts/rider-app/src/**/*.{ts,tsx}": [
+      "pnpm --filter @workspace/rider-app exec eslint --max-warnings 0"
+    ],
+    "artifacts/vendor-app/src/**/*.{ts,tsx}": [
+      "pnpm --filter @workspace/vendor-app exec eslint --max-warnings 0"
+    ]
+  },
+  "private": true,
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
+  },
+  "dependencies": {
+    "@react-oauth/google": "^0.13.4",
+    "eas-cli": "^18.5.0"
+  }
+}

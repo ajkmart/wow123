@@ -1,0 +1,17 @@
+{
+  "name": "AJKMart Vendor Portal",
+  "short_name": "Vendor",
+  "description": "AJKMart Business Partner Portal – Manage your store, orders and products",
+  "start_url": "/vendor/",
+  "scope": "/vendor/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f97316",
+  "theme_color": "#f97316",
+  "icons": [
+    { "src": "/vendor/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "shopping"],
+  "lang": "en-PK",
+  "dir": "ltr"
+}

@@ -1,0 +1,48 @@
+Professional software development aur standard companies mein, initial admin setup ke liye "Seeding" aur "Force Password Reset" ka tarika istemal kiya jata hai. Yeh process security aur user experience dono ka khayal rakhta hai.
+Standard company level ke professional tarike ye hain:
+1. Database Seeding (Default Admin Setup)
+Jab bhi naya database setup hota hai, developers ek Seed Script chalate hain jo default roles aur ek initial admin user create karti hai.
+Default Credentials: Aik temporary username (e.g., admin@company.com) aur password (e.g., Temp@123) rakha jata hai.
+Security Note: Professional environment mein password plain text mein nahi balkay hashed (jaise BCrypt) store hota hai.
+2. Force Password Change (First Login)
+Standard practice yeh hai ke default admin account ke sath ek flag set kiya jata hai: is_password_expired: true ya must_change_password: true.
+Jab admin pehli bar login karega, system check karega ke kya yeh flag true hai.
+Agar true hai, toh system usay Dashboard ke bajaye seedha "Create New Password" wali screen par redirect kar dega.
+Naya password set hone ke baad hi admin baqi features tak pahunch sake ga.
+3. Admin Panel Password Management
+Aik mukammal admin panel mein yeh features lazmi hone chahiye:
+Self Reset: Agar login hai, toh Profile Settings mein password change karne ka option ho.
+Manage Other Users: Super Admin ke pas ikhtiyar ho ke woh doosre admins ke passwords reset kar sakay ya unhein "Reset Link" email kar sakay.
+Forgot Password: Login screen par "Forgot Password" ka link hona chahiye jo email ke zariye secure reset token bhejay.
+4. Role-Based Access Control (RBAC)
+Companies "Super Admin" aur "Sub-Admins" ke darmiyan farq rakhti hain.
+Super Admin: Database aur system level ki settings control karta hai.
+Sub-Admins: Sirf makhsoos tasks (jaise orders ya users manage karna) kar sakte hain. Is se security mazeed behtar ho jati hai.
+Kya aap chahte hain ke main is logic ka code example (Node.js/Python) dikhaon?
+
+
+
+
+
+
+
+
+8 sites
+Enterprise User Management: Technologies and Best Practices
+21-May-2024 — Implementing RBAC involves first defining the roles within the organization. These roles should reflect the organization's structu...
+
+
+IEEE Computer Society
+Top 7 Security Best Practices for System Administrator Accounts
+04-Jun-2024 — Check these helpful tips on how to securely use and manage accounts of system administrators: * Limit the use of admin accounts. M...
+
+
+Syteca
+How to trigger password reset on first login for users created ...
+30-May-2025 — An admin user should be able to create accounts for subordinate users. Once created, each user should receive an email inviting th...
+
+Auth0 Community
+Show all
+Ask anything
+
+

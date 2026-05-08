@@ -1,0 +1,83 @@
+Mujhe ek Unified Multi-Role Auth System (Customer, Rider, Vendor apps) ke liye complete logic aur code chahiye. Is system ko Binance jesi security aur flexibility par mabni hona chahiye. Meri requirements ye hain:
+
+1. Unified Identity Logic:
+
+User login/register ke liye sirf ek entry point ho (Identifier: Email, Phone, ya Username).
+
+Backend pehle check kare ke user exist karta hai ya nahi. Agar karta hai, to wahi method force kare jis se usne account banaya tha (Account Linking).
+
+Naya user hone ki surat mein Registration Flow start ho, lekin agar email/phone pehle se kisi aur account mein link hai, to duplicate account banane ke bajaye user ko 'Merge/Link' ka option de.
+
+2. Supported Auth Methods (Admin Controlled):
+
+Backend mein Admin Panel se ye methods toggle (ON/OFF) ho saken: Phone OTP, Email OTP, Username/Password, Google Social, Facebook Social, Magic Link, aur Biometric (Fingerprint).
+
+Agar Admin ne koi method disable kiya hai, to app mein wo nazar na aaye aur API usey reject kar de.
+
+3. Two-Factor Authentication (2FA):
+
+Login ke baad ek mandatory/optional 2FA layer ho (via Authenticator App ya SMS). Jab tak 2FA verify na ho, JWT token 'fully authorized' na ho.
+
+4. Backend & Database Architecture:
+
+Mujhe ek Single Users Table ka schema chahiye jo Roles (Customer, Rider, Vendor) ko handle kare.
+
+API routes aise hon jo redundant na hon (No duplicate code for different apps).
+
+JWT (JSON Web Tokens) ka istemal ho aur session management (Device ID tracking) ke sath taake ek account makhsoos devices par hi chale.
+
+5. Edge Cases & Security:
+
+Rate limiting (OTP spam rokne ke liye).
+
+Password hashing (Bcrypt).
+
+Incomplete registration handles (Agar user beech mein app band kar de).
+
+
+
+Information Architecture (IA) — Structure
+Interaction Design (IxD)
+Button Feedback
+Loading States
+-------
+Wireframing & Prototyping — The Blueprint
+Wireframe
+Prototype
+-------
+Accessibility (A11y)
+Contrast
+Font Size
+Language
+--------
+UI/UX Cycle
+Empathize
+Define
+Ideate
+Prototype
+Test
+-------
+The Database (Storage)
+Users Table
+Settings Table
+Logs Table
+-----
+The Server & Logic
+Authentication Logic
+Authorization
+Validation
+-----
+API Routes
+---
+Auth System ka Backend Logic (Flow)
+Request Input
+Middleware (The Guard)
+Controller Logic:
+Encryption:
+Response:
+----
+Duplicate Accounts Kaise Rukte Hain? (Backend Trick)
+Unique Constraints
+Security
+Speed
+Consistency

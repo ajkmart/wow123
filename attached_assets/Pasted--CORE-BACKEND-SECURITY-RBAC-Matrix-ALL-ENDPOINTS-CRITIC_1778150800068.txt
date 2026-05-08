@@ -1,0 +1,232 @@
+✅ CORE BACKEND SECURITY
+ RBAC Matrix - ALL ENDPOINTS ⚠️ CRITICAL
+Create a document with every endpoint:
+
+Code
+GET    /api/auth/me                          → Auth required, any user
+POST   /api/auth/login                       → Public
+POST   /api/auth/logout                      → Auth required
+POST   /api/auth/refresh                     → Public (uses refresh token)
+
+GET    /api/admin/dashboard                  → Admin only
+GET    /api/admin/users                      → Admin + permissions.users.view
+GET    /api/admin/users/:id                  → Admin + owner verification
+PATCH  /api/admin/users/:id                  → Admin + owner verification
+
+GET    /api/vendor/orders                    → Vendor + ownership (vendor_id)
+GET    /api/vendor/products                  → Vendor + ownership (store_id)
+
+GET    /api/rider/active-ride                → Rider + ownership (rider_id)
+GET    /api/rider/earnings                   → Rider + ownership (rider_id)
+GET    /api/rider/wallet                     → Rider + ownership (rider_id)
+POST   /api/rider/location                   → Rider + GPS validation
+ Create middleware: verifyOwnership(resourceType)
+
+ Apply to ALL resource endpoints
+
+ Test: Rider1 tries to access Rider2's wallet → 403
+
+ Input Validation & Sanitization ⚠️ CRITICAL
+
+ File: Create lib/validation/schemas.ts with Zod schemas
+ Schemas for:
+ User registration/login
+ Order creation
+ Wallet transaction
+ Location update
+ Product creation
+ Chat message
+ All routes validate input before processing
+ Reject payload > 10KB
+ Example:
+TypeScript
+const LocationUpdateSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  accuracy: z.number().min(0).max(500),
+  timestamp: z.number().max(Date.now() + 5000)
+});
+
+app.post('/api/rider/location', authenticate, (req, res) => {
+  const parsed = LocationUpdateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error);
+  // Process location
+});
+ JWT Security ⚠️ CRITICAL
+
+ Access Token: 15 minutes TTL
+ Refresh Token: 7 days TTL
+ Store refresh token in HttpOnly, Secure, SameSite=Strict cookie
+ Add jti (token ID) for revocation tracking
+ Implement token blacklist (Redis) for logout
+ Rotate refresh token on every refresh
+ File: Check lib/jwt.ts or middlewares/auth.ts
+ Database Query Security
+
+ All queries use parameterized queries (Drizzle ORM does this)
+ Verify NO raw SQL with string concatenation
+ Test SQL injection: '; DROP TABLE users; -- → escaped
+ Password Security
+
+ Hash passwords with bcrypt (salt rounds ≥ 10)
+ Never store plaintext passwords
+ Never log passwords in errors
+ Implement password reset flow:
+ Send reset link via email (valid 24 hours)
+ Reset link includes secure token
+ Validate token before resetting
+ Invalidate old tokens after reset
+ Session Management
+
+ Sessions stored in Redis (not memory or DB)
+ Session TTL = 15 minutes
+ Refresh extends TTL
+ Auto-logout after 30 minutes inactivity
+ Force logout on suspicious activity
+ Single session per user (optional)
+ Rate Limiting ⚠️ PREVENT BRUTE FORCE
+
+ Login endpoint: 5 attempts per minute per IP
+ OTP endpoint: 3 attempts per minute per phone
+ General API: 100 requests per minute per user
+ Use redis-rate-limit or similar
+ Return 429 (Too Many Requests) when exceeded
+ CORS Configuration
+
+ Whitelist admin domain only
+ Whitelist rider app domain only
+ Whitelist vendor app domain only
+ NO wildcard (*) in production
+ Verify Origin header
+ Example:
+TypeScript
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS?.split(','),
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+ Audit Logging ⚠️ CRITICAL FOR COMPLIANCE
+
+ Log all admin actions:
+ User creation/deletion
+ Role changes
+ Data exports
+ System config changes
+ Log all financial transactions:
+ Withdrawals
+ Refunds
+ Commission deductions
+ Log all security events:
+ Login failures
+ Permission denials
+ Suspicious activity
+ File: Create lib/audit-logger.ts
+ Store in DB + push to Datadog/Splunk for real-time alerts
+🗄️ DATABASE INTEGRITY
+ Query Optimization
+
+ Add indexes to frequently queried columns:
+ riders.id, riders.email, riders.phone
+ orders.rider_id, orders.vendor_id, orders.status
+ wallet_transactions.rider_id, wallet_transactions.created_at
+ promo_codes.code, promo_codes.expiry_date
+ Use EXPLAIN to verify index usage
+ Profile slow queries (> 1 second)
+ Set up slow query log
+ Cursor-Based Pagination
+
+ For high-volume tables: Orders, RiderLogs, Transactions
+ Endpoint: GET /api/rider/earnings?limit=20&after=<cursor>
+ Return: data[], nextCursor, hasMore
+ File: Create lib/pagination/cursor.ts
+ Test: Fetch 1000 items → should be fast
+ IDOR (Insecure Direct Object Reference) Prevention
+
+ EVERY resource endpoint must verify ownership
+ Middleware: verifyResourceOwnership(resourceType)
+ Apply to: GET /:id, PATCH /:id, DELETE /:id
+ Test matrix:
+Code
+Rider1 tries to GET /api/rider/wallet/:rider2_id → 403
+Vendor1 tries to GET /api/vendor/products/:vendor2_id → 403
+Admin tries to view user without permission → 403
+ Data Encryption at Rest
+
+ Encrypt PII: phone, email, SSN, bank account
+ Use AES-256-GCM (app-layer encryption)
+ Master key in AWS Secrets Manager
+ File: lib/crypto/encryption.ts
+ Migration: ALTER TABLE riders ADD COLUMN phone_encrypted BYTEA;
+ Schema Governance
+
+ NO manual ALTER TABLE commands
+ ALL schema changes via versioned migrations
+ Migration naming: YYYY-MM-DD-HH-mm-description.ts
+ Each migration has up() and down() functions
+ Test rollbacks before production
+ Maintain migration log in DB
+ Backup & Disaster Recovery
+
+ Daily automated backups (S3)
+ Hourly incremental backups
+ Point-in-time recovery (PITR) enabled
+ RTO target: 1 hour
+ RPO target: 1 hour
+ Monthly restore test (critical!)
+🔒 ADVANCED AUTH FLOWS
+ Multi-Device Session Management
+
+ User can have multiple active sessions (mobile + web)
+ Each device gets unique session ID
+ Logout can be: current device only OR all devices
+ Show active sessions to user
+ OTP Flow
+
+ OTP valid for 10 minutes
+ OTP can be used only once
+ Max 3 OTP requests per 24 hours per phone
+ After failed attempt, cooldown 5 minutes
+ OTP delivered via SMS (Twilio)
+ Password Reset Flow
+
+ User clicks "Forgot Password"
+ Receives reset link (valid 24 hours)
+ Link contains secure token (non-guessable)
+ User sets new password
+ Old sessions invalidated
+ New session created automatically
+ 2FA (if implemented)
+
+ Admin users MUST have 2FA enabled
+ TOTP (Time-based OTP) via authenticator app
+ Backup codes for account recovery
+ 2FA prompt on new device
+📊 MONITORING & OBSERVABILITY
+ Sentry Integration
+
+ Capture all unhandled exceptions
+ Add context: user ID, request ID, endpoint
+ Set sample rate (0.1 for traces)
+ Upload source maps
+ Test: Throw error → verify in Sentry
+ Logging
+
+ Structured logging (JSON format)
+ Log levels: DEBUG, INFO, WARN, ERROR
+ Log all request/response pairs with timing
+ Log database queries (in dev only)
+ Push logs to Datadog/Splunk for analysis
+ Performance Monitoring
+
+ API response time (p50, p95, p99)
+ Database query time
+ Memory usage
+ CPU usage
+ Set alerts on thresholds
+ Health Checks
+
+ Endpoint: GET /api/health
+ Check: API running, DB connected, Redis connected
+ Return: { status: "ok" } or error details
+ Uptime monitoring (Datadog/Pingdom)

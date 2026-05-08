@@ -1,0 +1,469 @@
+ Complete Fixed Files
+File 1: flake.nix (Fully Fixed)
+nix
+{
+  description = "AJKMart Monorepo - Production-Ready Zero-Config";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        
+        nodejs = pkgs.nodejs_20;
+        # FIX 2: Direct pnpm, no override
+        pnpm = pkgs.pnpm_9;
+        
+        # FIX 1: nodePackages.pm2
+        systemDeps = with pkgs; [
+          git
+          openssl
+          postgresql_16
+          libpqxx
+          gcc
+          gnumake
+          python3
+          curl
+          wget
+          redis
+          caddy
+          nginx
+          nodePackages.pm2
+          jq
+          yq-go
+          openssh
+          gnupg
+        ];
+        
+        # FIX 3: PATH removed from env block
+        shellEnv = {
+          NODE_ENV = "development";
+          NODE_OPTIONS = "--max-old-space-size=4096";
+          DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/ajkmart";
+          REDIS_URL = "redis://localhost:6379";
+          PORT = "5000";
+          ADMIN_PORT = "5173";
+          VENDOR_PORT = "5174";
+          RIDER_PORT = "5175";
+          CUSTOMER_PORT = "19006";
+          ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:19006,https://*.replit.dev,https://*.github.dev,https://*.codespaces.dev";
+          RATE_LIMIT_WINDOW_MS = "900000";
+          RATE_LIMIT_MAX = "100";
+          WS_HEARTBEAT_INTERVAL = "30000";
+          WS_CONNECTION_TIMEOUT = "10000";
+        };
+        
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          buildInputs = [ nodejs pnpm ] ++ systemDeps;
+          
+          # FIX 3: PATH in shellHook, not env block
+          shellHook = ''
+            # ============================================
+            # AJKMart Production-Ready Zero-Config Setup
+            # ============================================
+            
+            # FIX 3: Set PATH here
+            export PATH="$HOME/.local/share/pnpm:$PATH"
+            export PNPM_HOME="$HOME/.local/share/pnpm"
+            
+            echo "╔══════════════════════════════════════════════════╗"
+            echo "║     🚀 AJKMart Production Environment            ║"
+            echo "║     Zero-Config · One-Click · Secure             ║"
+            echo "╚══════════════════════════════════════════════════╝"
+            
+            # ---------- 1. Security: Never run as root ----------
+            if [ "$EUID" -eq 0 ]; then 
+              echo "❌ Do not run as root! Use non-root user."
+              exit 1
+            fi
+            
+            # ---------- 2. Environment Detection ----------
+            IS_REPLIT=$(test -n "$REPL_ID" && echo "true" || echo "false")
+            IS_CODESPACE=$(test -n "$CODESPACES" && echo "true" || echo "false")
+            IS_GITHUB_DEV=$(test -n "$GITHUB_CODESPACE_TOKEN" && echo "true" || echo "false")
+            IS_VPS=$(test -f /etc/vps && echo "true" || echo "false")
+            
+            # ---------- 3. Setup PNPM with retry ----------
+            if ! command -v pnpm &> /dev/null; then
+              echo "📦 Installing PNPM 9..."
+              npm install -g pnpm@9
+            fi
+            
+            # ---------- 4. Auto-Install with hash check ----------
+            if [ ! -f "node_modules/.install_hash" ] || [ "$(cat node_modules/.install_hash 2>/dev/null)" != "$(find . -name "package.json" -type f -exec md5sum {} \; | sort | md5sum | cut -d' ' -f1)" ]; then
+              echo "📦 Installing/Updating dependencies..."
+              pnpm install
+              find . -name "package.json" -type f -exec md5sum {} \; | sort | md5sum | cut -d' ' -f1 > node_modules/.install_hash
+            fi
+            
+            # ---------- 5. Secure Environment Decryption ----------
+            if [ ! -f ".env" ] && [ -f ".env.enc" ]; then
+              echo "🔐 Decrypting environment variables..."
+              if [ -n "$ENV_PASSWORD" ]; then
+                echo "$ENV_PASSWORD" | pnpm env:decrypt --non-interactive
+              else
+                read -s -p "Enter decryption password: " ENV_PASSWORD
+                echo ""
+                echo "$ENV_PASSWORD" | pnpm env:decrypt --non-interactive
+                unset ENV_PASSWORD
+              fi
+              # Secure: Clear from history
+              history -c 2>/dev/null || true
+            fi
+            
+            # ---------- 6. Database with Connection Pool ----------
+            if [ -n "$DATABASE_URL" ]; then
+              echo "🗄️  Checking database connection..."
+              if timeout 10 npx -y drizzle-kit introspect --config=lib/db/drizzle.config.ts 2>/dev/null; then
+                echo "✅ Database connected"
+                cd lib/db && npx drizzle-kit push --force 2>/dev/null || true
+                cd "$OLDPWD"
+              else
+                echo "⚠️  Database not available. Set DATABASE_URL in .env"
+              fi
+            fi
+            
+            # ---------- 7. Start Redis if available ----------
+            if command -v redis-server &> /dev/null && ! pgrep -x "redis-server" > /dev/null; then
+              echo "📦 Starting Redis..."
+              redis-server --daemonize yes --port 6379 2>/dev/null
+            fi
+            
+            # ---------- 8. WebSocket Proxy Configuration ----------
+            if [ "$IS_CODESPACE" = "true" ]; then
+              echo "🔌 Configuring WebSocket for Codespaces..."
+              export WS_URL="https://${CODESPACE_NAME}-5000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+            elif [ "$IS_REPLIT" = "true" ]; then
+              echo "🔌 Configuring WebSocket for Replit..."
+              export WS_URL="https://${REPL_SLUG}.${REPL_OWNER}.repl.co"
+            fi
+            
+            # ---------- 9. Security Headers ----------
+            export CORS_ORIGINS="$ALLOWED_ORIGINS"
+            export SECURITY_HEADERS="true"
+            
+            # ---------- 10. Production Build Check ----------
+            if [ ! -d "artifacts/admin/dist" ] && [ "$NODE_ENV" = "production" ]; then
+              echo "📦 Building production assets..."
+              pnpm build:all
+            fi
+            
+            # ---------- 11. Auto-Port Forwarding Config ----------
+            mkdir -p ~/.config/ajkmart
+            cat > ~/.config/ajkmart/ports.json << 'EOF'
+            {
+              "ports": {
+                "5000": { "protocol": "http", "name": "API Server", "health": "/api/health" },
+                "5173": { "protocol": "http", "name": "Admin Panel" },
+                "5174": { "protocol": "http", "name": "Vendor Portal" },
+                "5175": { "protocol": "http", "name": "Rider App" },
+                "19006": { "protocol": "http", "name": "Customer App" }
+              }
+            }
+            EOF
+            
+            # ---------- 12. Completion Banner ----------
+            echo ""
+            echo "┌─────────────────────────────────────────────────────────────┐"
+            echo "│  ✅ AJKMart Environment Ready!                             │"
+            echo "│                                                             │"
+            echo "│  Quick Commands:                                            │"
+            echo "│    pnpm secure-start  → Start all services                  │"
+            echo "│    pnpm dev:api       → API only                            │"
+            echo "│    pnpm build:all     → Build for production                │"
+            echo "│                                                             │"
+            echo "│  Services:                                                  │"
+            echo "│    🔧 API:      http://localhost:5000                       │"
+            echo "│    🎨 Admin:    http://localhost:5173                       │"
+            echo "│    🏪 Vendor:   http://localhost:5174                       │"
+            echo "│    🏍️ Rider:    http://localhost:5175                       │"
+            echo "│    👤 Customer: http://localhost:19006                      │"
+            echo "└─────────────────────────────────────────────────────────────┘"
+            echo ""
+          '';
+          
+          env = shellEnv;
+        };
+      });
+}
+File 2: scripts/secure-start.mjs (Fully Fixed - Non-Blocking)
+javascript
+#!/usr/bin/env node
+
+/**
+ * AJKMart Secure Universal Starter
+ * FIX 4 & 5: Fixed fs import + non-blocking spawn
+ */
+
+import fs, { existsSync, readFileSync, writeFileSync } from 'fs';
+import { spawn, execSync } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, '..');
+
+// Colors
+const colors = {
+  green: '\x1b[32m', blue: '\x1b[34m', yellow: '\x1b[33m',
+  red: '\x1b[31m', cyan: '\x1b[36m', reset: '\x1b[0m',
+  bold: '\x1b[1m', dim: '\x1b[2m'
+};
+
+function log(msg, color = 'green') {
+  console.log(`${colors[color]}${msg}${colors.reset}`);
+}
+
+function detectEnvironment() {
+  if (process.env.REPL_ID) return { type: 'replit', secure: true };
+  if (process.env.CODESPACES) return { type: 'codespace', secure: true };
+  if (process.env.GITHUB_CODESPACE_TOKEN) return { type: 'github-dev', secure: true };
+  if (existsSync('/etc/vps') || process.env.VPS === 'true') return { type: 'vps', secure: false };
+  return { type: 'local', secure: false };
+}
+
+function runCommand(cmd, options = {}) {
+  try {
+    execSync(cmd, { 
+      cwd: rootDir, 
+      stdio: options.silent ? 'pipe' : 'inherit',
+      timeout: options.timeout || 300000,
+      ...options 
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// FIX 5: Non-blocking service start with spawn
+function startService(service) {
+  return new Promise((resolve) => {
+    log(`  Starting ${service}...`, 'dim');
+    
+    const proc = spawn('pnpm', [`dev:${service}`], {
+      cwd: rootDir,
+      detached: true,
+      stdio: 'ignore',
+      env: { 
+        ...process.env, 
+        NODE_ENV: 'development',
+        FORCE_COLOR: '1'
+      }
+    });
+    
+    // Unref so it doesn't block parent process
+    proc.unref();
+    
+    // Give it a moment to start
+    setTimeout(() => {
+      log(`  ✅ ${service} started (PID: ${proc.pid})`, 'green');
+      resolve(true);
+    }, 2000);
+  });
+}
+
+async function healthCheck() {
+  const services = [
+    { name: 'API', url: 'http://localhost:5000/api/health', timeout: 5000 },
+    { name: 'Admin', url: 'http://localhost:5173', timeout: 5000 },
+  ];
+  
+  const results = {};
+  for (const service of services) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), service.timeout);
+      const response = await fetch(service.url, { signal: controller.signal });
+      clearTimeout(timeout);
+      results[service.name] = response.ok;
+    } catch {
+      results[service.name] = false;
+    }
+  }
+  return results;
+}
+
+async function main() {
+  const { type, secure } = detectEnvironment();
+  
+  log(`
+╔══════════════════════════════════════════════════════════════╗
+║     🔒 AJKMart Secure Universal Starter (Fixed)              ║
+║     Non-Blocking · Production-Ready                          ║
+║     Environment: ${type.toUpperCase()}${secure ? ' ✓ Secure' : ' ⚠️ Production'}
+╚══════════════════════════════════════════════════════════════╝
+`, 'bold');
+
+  // Step 1: Install dependencies if needed
+  if (!existsSync(path.join(rootDir, 'node_modules'))) {
+    log('\n📦 Installing dependencies...', 'blue');
+    runCommand('pnpm install');
+  }
+
+  // Step 2: Setup environment
+  if (!existsSync(path.join(rootDir, '.env'))) {
+    log('\n🔐 Setting up environment...', 'blue');
+    if (process.env.ENV_PASSWORD) {
+      runCommand(`echo "${process.env.ENV_PASSWORD}" | pnpm env:decrypt --non-interactive`);
+    } else {
+      runCommand('pnpm env:decrypt');
+    }
+  }
+
+  // Step 3: Database setup
+  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost')) {
+    log('\n🗄️  Setting up database...', 'blue');
+    runCommand('cd lib/db && npx drizzle-kit push --force', { ignoreError: true });
+  }
+
+  // Step 4: Start all services in parallel (non-blocking)
+  log('\n🚀 Starting services (non-blocking)...', 'green');
+  
+  const services = ['api', 'admin', 'vendor', 'rider', 'customer'];
+  const startPromises = services.map(service => startService(service));
+  
+  await Promise.all(startPromises);
+
+  // Step 5: Wait for health checks
+  log('\n🏥 Running health checks...', 'blue');
+  await new Promise(resolve => setTimeout(resolve, 8000));
+  const health = await healthCheck();
+  
+  log('\n📊 Health Status:', 'bold');
+  Object.entries(health).forEach(([service, status]) => {
+    log(`  ${service}: ${status ? '✅ Healthy' : '❌ Unhealthy'}`, status ? 'green' : 'red');
+  });
+
+  // Step 6: Final banner
+  log(`
+┌─────────────────────────────────────────────────────────────┐
+│  ✅ AJKMart Ready! (Non-Blocking Mode)                      │
+│                                                             │
+│  Started: ${services.length}/5 services                                 │
+│  Health: ${Object.values(health).filter(Boolean).length}/${Object.keys(health).length} healthy           │
+│                                                             │
+│  Access:                                                    │
+│    API:      http://localhost:5000                          │
+│    Admin:    http://localhost:5173                          │
+│    Vendor:   http://localhost:5174                          │
+│    Rider:    http://localhost:5175                          │
+│    Customer: http://localhost:19006                         │
+└─────────────────────────────────────────────────────────────┘
+`, 'cyan');
+
+  // Keep script alive for monitoring
+  process.stdin.resume();
+}
+
+process.on('SIGINT', () => {
+  log('\n\n🛑 Shutting down AJKMart...', 'yellow');
+  execSync('pkill -f "pnpm dev"', { ignoreError: true });
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  log('\n\n🛑 Terminating AJKMart...', 'yellow');
+  execSync('pkill -f "pnpm dev"', { ignoreError: true });
+  process.exit(0);
+});
+
+main().catch(console.error);
+File 3: .replit (Auto-Run Fixed)
+toml
+# AJKMart Replit Configuration - Auto-Run
+run = "nix develop --command pnpm secure-start"
+
+[nix]
+channel = "stable-23_11"
+
+[env]
+ENV_PASSWORD = "Khan@123.com"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 5173
+externalPort = 5173
+
+[[ports]]
+localPort = 5174
+externalPort = 5174
+
+[[ports]]
+localPort = 5175
+externalPort = 5175
+
+[[ports]]
+localPort = 19006
+externalPort = 19006
+
+[packager]
+language = "nodejs"
+ignoredPackages = []
+File 4: .devcontainer/devcontainer.json (Codespace Auto-Run)
+json
+{
+  "name": "AJKMart Monorepo",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20",
+      "pnpmVersion": "9"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  },
+  "postCreateCommand": "pnpm install",
+  "postStartCommand": "node scripts/secure-start.mjs",
+  "forwardPorts": [5000, 5173, 5174, 5175, 19006],
+  "portsAttributes": {
+    "5000": {
+      "label": "API Server",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Admin Panel",
+      "onAutoForward": "openPreview"
+    },
+    "5174": {
+      "label": "Vendor Portal"
+    },
+    "5175": {
+      "label": "Rider App"
+    },
+    "19006": {
+      "label": "Customer App"
+    }
+  }
+}
+File 5: package.json Scripts Update
+json
+{
+  "scripts": {
+    "secure-start": "node scripts/secure-start.mjs",
+    "dev:all": "concurrently \"pnpm dev:api\" \"pnpm dev:admin\" \"pnpm dev:vendor\" \"pnpm dev:rider\" \"pnpm dev:customer\"",
+    "pm2:start": "pm2 start ecosystem.config.cjs --env production",
+    "pm2:stop": "pm2 stop all",
+    "pm2:restart": "pm2 restart all",
+    "pm2:logs": "pm2 logs",
+    "health": "bash scripts/health-check.sh"
+  }
+}

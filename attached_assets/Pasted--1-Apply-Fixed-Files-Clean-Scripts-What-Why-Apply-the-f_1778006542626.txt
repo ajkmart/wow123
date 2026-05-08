@@ -1,0 +1,50 @@
+#1 - Apply Fixed Files & Clean Scripts
+What & Why
+Apply the five "Complete Fixed Files" provided by the user (flake.nix, scripts/secure-start.mjs, .devcontainer/devcontainer.json, and package.json script updates), delete all redundant/superseded scripts that are replaced by these new files, and fix any references to deleted files so no bugs remain.
+
+Done looks like
+flake.nix uses nodejs_20, pnpm_9, nodePackages.pm2, and PATH is set inside shellHook (not the env block) — all four fixes from the attached file are applied.
+scripts/secure-start.mjs exists and works as a non-blocking universal starter (detached spawn, fixed fs import, health checks, SIGINT/SIGTERM handlers).
+.devcontainer/devcontainer.json exists for Codespace auto-run support.
+package.json root scripts are clean: secure-start, dev:all, pm2:start, pm2:stop, pm2:restart, pm2:logs, and health are present; old replit-start, codespace-start, vps-start, local-start, start:all, all-start, all-stop entries that referenced deleted files are removed.
+scripts/launchers/ directory, scripts/run-dev-all.mjs, scripts/server-up.sh, and scripts/bootstrap.sh are deleted.
+.replit workflow task commands no longer reference bootstrap.sh (updated to run service commands directly); all other .replit content (artifacts, deployment, workflows, userenv, nix, ports) is left intact.
+No remaining file in the project imports or calls any deleted script.
+Out of scope
+Changing any artifact source code (api-server, admin, vendor-app, rider-app, ajkmart, mockup-sandbox).
+Modifying lib/ shared packages.
+Changing ecosystem.config.cjs, scripts/dev-ctl.mjs, scripts/setup.sh, scripts/post-merge.sh, or scripts/build-production.mjs (these remain and are still valid).
+Adding any new features.
+Steps
+Replace flake.nix — Overwrite with the fully fixed version from the attached file: switch to nodejs_20, pnpm_9, nodePackages.pm2; move PATH/PNPM_HOME exports from the env block into shellHook; keep all 12 shellHook steps (root check, env detection, pnpm setup, dep install, env decrypt, DB check, Redis, WS proxy, security headers, prod build check, port config, banner).
+
+Create scripts/secure-start.mjs — Write the full non-blocking universal starter from the attached file exactly: fixed import fs, { existsSync, ... } from 'fs'; spawn with detached: true and proc.unref() so services don't block the parent; healthCheck with AbortController; SIGINT/SIGTERM handlers; main() that installs deps, decrypts env, pushes DB, starts all five services in parallel, runs health checks, and prints the final banner.
+
+Create .devcontainer/devcontainer.json — Write the file from the attached document: javascript-node:20 base image, git and node devcontainer features with pnpm 9, VS Code extensions (eslint, prettier, tailwind), postCreateCommand: "pnpm install", postStartCommand: "node scripts/secure-start.mjs", and port forwarding for 5000/5173/5174/5175/19006 with labels.
+
+Update root package.json scripts — Add the six new script entries: secure-start, dev:all (using concurrently for api/admin/vendor/rider/customer), pm2:start, pm2:stop, pm2:restart, pm2:logs, health. Remove the now-dead entries replit-start, codespace-start, vps-start, local-start, start:all, all-start, all-stop since the scripts/launchers/ directory they reference will be deleted. Keep preinstall, build, typecheck, typecheck:libs, setup, and all start:*/stop:*/status:* dev-ctl entries unchanged.
+
+Delete redundant scripts — Remove the following files/directories entirely:
+
+scripts/launchers/ (entire directory — replaced by secure-start.mjs)
+scripts/run-dev-all.mjs (superseded by dev:all in package.json)
+scripts/server-up.sh (superseded by secure-start.mjs VPS mode)
+scripts/bootstrap.sh (superseded by flake.nix shellHook)
+Fix .replit workflow commands — In the four workflow task args that currently include [ -s .env ] || bash scripts/bootstrap.sh &&, strip that prefix so each command starts directly with its pnpm --filter ... or PORT=... pnpm --filter ... invocation. No other part of .replit should be touched.
+
+Verify no dangling references — Search the codebase for any remaining references to deleted file paths (scripts/launchers, run-dev-all, server-up.sh, bootstrap.sh) and fix them. Confirm all scripts referenced from .replit, package.json, and ecosystem.config.cjs exist on disk.
+
+Relevant files
+flake.nix
+scripts/launchers/start.mjs
+scripts/run-dev-all.mjs
+scripts/server-up.sh
+scripts/bootstrap.sh
+scripts/dev-ctl.mjs
+scripts/setup.sh
+scripts/post-merge.sh
+scripts/build-production.mjs
+scripts/pm2-control.mjs
+ecosystem.config.cjs
+package.json
+.replit

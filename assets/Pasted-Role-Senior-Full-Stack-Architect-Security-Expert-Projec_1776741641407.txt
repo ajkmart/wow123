@@ -1,0 +1,33 @@
+Role: Senior Full-Stack Architect & Security Expert.
+Project Context: Upgrading AJKMart (Multi-role App) to a Hybrid Firebase + Neon.tech System.
+Tech Stack: Node.js, Drizzle ORM (PostgreSQL), Firebase Admin SDK, React/React Native, Redis.
+1. [STRICT] Project Governance & Tracking:
+Context Discovery: Before any code change, read lib/db/src/schema/, artifacts/api-server/, and lib/auth-utils/. Use @workspace to index these.
+Progress Log: Create progress_log.txt at the root. Update after every function/file completion: [DONE] File Path | [STATUS] Functional & Verified.
+Instruction File: Create info.md with our specific tech stack and coding standards (TypeScript, Drizzle, Firebase) to ensure consistency.
+2. Database & Schema Migration (The Foundation):
+Neon.tech + Drizzle: Update the schema in lib/db/src/schema/.
+Add firebase_uid to users table.
+Create system_configs table (key, value) for Dynamic Auth Modes.
+Create sms_gateways table for Priority-based Failover (Twilio, Firebase, etc.).
+Data Integrity: Ensure existing user data is compatible with the new Firebase-linked structure.
+3. Backend: The Hybrid Auth Engine:
+Dynamic OTP Failover: Rewrite send-otp logic. It must fetch active providers from sms_gateways by priority. If Provider A fails, auto-switch to Provider B.
+Firebase Custom Claims: On login/signup, embed the user's role (customer, rider, vendor, admin) into the Firebase idToken.
+Admin Bypass & Whitelist: Implement a check for whitelist_users table to bypass real SMS for testers/reviewers.
+Role-Guard Middleware: Standardize requireRole middleware across all apps to strictly validate token roles against the app type (e.g., Block a Rider from the Admin API).
+4. Frontend: Standardized & Dynamic UI:
+Universal Refresh Logic: Fix the inconsistency between Rider, Vendor, and Admin apps. Standardize token storage (LocalStorage) and Proactive Refresh logic.
+Config-Driven UI: Frontend must fetch system_configs on load. If Admin sets authMode = "EMAIL", hide phone/OTP inputs and show Email/Password.
+5. Fixing Security Gaps:
+Remote Logout: Implement a "Revoke Sessions" feature using the user_sessions and refresh_tokens tables.
+OAuth Account Linking: Enable linking Google/Facebook sign-ups to existing phone accounts via email matching.
+Execution Order:
+Create progress_log.txt 
+Update Drizzle Schema and push migrations.
+Build the Backend Hybrid Auth Controller.
+Update Frontend Auth Providers.
+Start now. Phase 1: Create the tracking files and analyze the Drizzle schema.
+
+donot create conflit or duplicate function orcode overwrite  must be full workable frontent must be clean and workable
+impliment all apps adminpanel,rider app , vendor app ,ajkmart

@@ -1,0 +1,22 @@
+After the backend exposes all previously-hardcoded settings via /api/platform-config, the client apps (Mobile App, Rider App, Vendor App) still use their own hardcoded fallback values for dispatch timeouts, pricing, branding colors, map coordinates, vehicle types, and more. This task updates all three client apps to fetch and use these values from the platform config API, so changes made in the admin panel take effect across all apps without redeployment.
+
+Done looks like
+Rider App: Accept timeout, counter offer multiplier, min fares, earning %, and vehicle service names come from platform config (with current values as fallbacks only)
+Mobile App: Service colors, icons/descriptions, default map center, and ride UI theme use config values from the API instead of hardcoded constants
+Vendor App: Any hardcoded operational values (if present) are replaced with API-driven config
+All three apps gracefully fall back to current hardcoded values if the API is unreachable, ensuring zero downtime during rollout
+Phone number format validation in any client-side forms uses the format from platform config
+Out of scope
+Vehicle type registry (admin CRUD for adding entirely new vehicle types with routes/screens) — that requires schema changes and is a separate feature
+Service icon changes (Ionicon names are tied to the app bundle; only colors and text labels are dynamically configurable)
+Complete theme engine (dark mode toggle etc.) — only service-specific brand colors are made configurable
+Tasks
+Rider App – Replace PRICING_DEFAULTS and ACCEPT_TIMEOUT_SEC — Update helpers.ts and any components that reference these constants to instead read from platform config fetched at app startup. Keep current values as fallback defaults. The config should provide: accept timeout, counter offer max multiplier, min fares per vehicle type, default delivery fee, rider earning percentage.
+
+Mobile App – Dynamic service colors from config — Update constants/colors.ts and constants/serviceRegistry.ts to use brand colors from platform config when available. The service registry color, colorLight, gradient, and related properties should be overridable by admin-set brand colors.
+
+Mobile App – Dynamic map center — Update hooks/useMaps.ts to use the map center coordinates from platform config instead of the hardcoded Muzaffarabad coordinates.
+
+Mobile App – Service descriptions and labels from config — Make service labels, descriptions, hero text, and banner content in serviceRegistry.ts overridable from platform config where the admin has set custom values.
+
+All client apps – Phone format from config — Any client-side phone validation should use the format regex and hint text from platform config's regional settings.

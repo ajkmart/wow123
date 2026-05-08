@@ -1,0 +1,47 @@
+Mujhe ek Unified Multi-Role Auth System (Customer, Rider, Vendor apps) ke liye complete logic aur code chahiye. Is system ko Binance jesi security aur flexibility par mabni hona chahiye. Meri requirements ye hain:
+
+1. Unified Identity Logic:
+
+User login/register ke liye sirf ek entry point ho (Identifier: Email, Phone, ya Username).
+
+Is mein Multi-Channel OTP aur Failover Logic hona chahiye. Requirements niche darj hain:
+
+1. Dynamic OTP Routing (The Google-Style Flow):
+
+Jab user Phone Number dale, to pehla priority option WhatsApp OTP ho.
+
+Agar WhatsApp par message deliver na ho ya user 'Send via SMS' click kare, to system SMS OTP bhejey.
+
+Agar dono (WhatsApp aur SMS) available na hon ya fail ho jayen, to system teesra (3rd) option Email OTP ya Voice Call OTP offer kare.
+
+Agar koi bhi method kaam na kare, to user ko automatically 'Account Recovery / Forget Options' par redirect kare jahan wo security questions ya backup codes use kar sake.
+
+Backend pehle check kare ke user exist karta hai ya nahi. Agar karta hai, to wahi method force kare jis se usne account banaya tha (Account Linking).
+
+Naya user hone ki surat mein Registration Flow start ho, lekin agar email/phone pehle se kisi aur account mein link hai, to duplicate account banane ke bajaye user ko 'Merge/Link' ka option de.
+
+2. Supported Auth Methods (Admin Controlled):
+
+Backend mein Admin Panel se ye methods toggle (ON/OFF) ho saken: Phone OTP, Email OTP, Username/Password, Google Social, Facebook Social, Magic Link, aur Biometric (Fingerprint).
+
+Agar Admin ne koi method disable kiya hai, to app mein wo nazar na aaye aur API usey reject kar de.
+
+3. Two-Factor Authentication (2FA):
+
+Login ke baad ek mandatory/optional 2FA layer ho (via Authenticator App ya SMS). Jab tak 2FA verify na ho, JWT token 'fully authorized' na ho.
+
+4. Backend & Database Architecture:
+
+Mujhe ek Single Users Table ka schema chahiye jo Roles (Customer, Rider, Vendor) ko handle kare.
+
+API routes aise hon jo redundant na hon (No duplicate code for different apps).
+
+JWT (JSON Web Tokens) ka istemal ho aur session management (Device ID tracking) ke sath taake ek account makhsoos devices par hi chale.
+
+5. Edge Cases & Security:
+
+Rate limiting (OTP spam rokne ke liye).
+
+Password hashing (Bcrypt).
+
+Incomplete registration handles (Agar user beech mein app band kar de).

@@ -1,0 +1,41 @@
+### Step 2: Deep Stack Error Discovery
+Perform a thorough scan for other potential "silent" or "unhandled" errors across all components. Do not rely solely on console logs; analyze code structure.
+
+**A. Backend (API Server)**
+- Search for all instances of `.values()` in Drizzle insert queries. Check if they handle empty arrays safely.
+- Check global error handling middleware in Express/Router. Ensure `unhandledRejection` and `uncaughtException` are logged properly but do NOT crash the server if possible.
+- Review PostgreSQL connection setup. Fix the SSL mode warning by checking `.env` and ensuring `sslmode` is appropriate for the environment (e.g., set to `verify-full` for production, `disable` for local if needed).
+
+**B. Database**
+- Connect to the PostgreSQL instance and run a health check to ensure tables exist and migrations are up to date. (Command: `pnpm run db:push` or `pnpm run db:migrate` depending on project setup).
+
+**C. Admin Panel & Apps (Rider/Vendor/Customer)**
+- Scan the source directories for common frontend pitfalls: undefined props, unhandled promise rejections in `useEffect`, missing API error handling in `fetch`/`axios` calls.
+- Ensure every API call has a `.catch()` block or a try/catch wrapper that displays a user-friendly message (e.g., toast notification) rather than white-screening the app.
+
+### Step 3: Master Tracking Document
+- Create a new file in the workspace root named `DEBUG_STATUS.md`.
+- Format the document as a table:
+
+| Component       | File Path                          | Error Description                                | Status      | Fixed Date |
+|-----------------|------------------------------------|--------------------------------------------------|-------------|------------|
+| API Server      | src/routes/admin/system.ts:113     | values() empty array crash                       | ✅ Fixed    | [Date]     |
+| Database        | .env / pg connection               | SSL mode deprecation warning                     | ⚠️ Pending | -          |
+| ...             | ...                                | ...                                              | ...         | ...        |
+
+- Populate this table with **every** issue discovered in Step 2.
+- As you fix each item, update the **Status** to `✅ Fixed` and add the **Fixed Date**.
+
+### Step 4: Verification and Summary
+- Run the full system (API + Frontends if possible in the Replit environment) and trigger the specific admin route that previously crashed.
+- Ensure the server log shows `[Fixed]` related logs instead of the crash.
+- Provide a final summary at the end of `DEBUG_STATUS.md` with:
+  - Total Errors Found: X
+  - Total Errors Fixed: Y
+  - Remaining Pending Issues: Z (with brief reason why pending, e.g., "Requires environment variable update on deployment").
+
+### Strict Agent Behavior Rules:
+1. **Do not** delete or modify unrelated code.
+2. **Always** use absolute paths as provided in the environment (`/home/runner/workspace/...`).
+3. **Communicate** progress in English step by step. e.g., "✅ Step 1 Complete: Fixed system.ts line 113."
+4. **If you encounter a nested error** while fixing (e.g., dependency missing), pause and report the exact error before proceeding.

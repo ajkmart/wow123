@@ -1,0 +1,93 @@
+# Bug Fix Task: Ui Error
+
+## Summary
+- **Severity**: MINOR
+- **Source**: Customer
+- **Type**: Ui Error
+- **Error ID**: mnogwef9r9w4nux71nq
+- **Reported**: 2026-04-07T10:19:37.605Z
+
+## Error Message
+```
+In HTML, %s cannot be a descendant of <%s>.
+This will cause a hydration error.%s <button> button 
+
+  ...
+    <View onScrollEndDrag={function} onTouchStart={function} onTouchEnd={function} onScrollBeginDrag={function} ...>
+      <div onTouchStart={function} onTouchEnd={function} onScroll={function handleScroll} onTouchMove={function} ...>
+        <View collapsable={false} ref={function} style={[...]}>
+          <div dir={null} ref={function forwardRef} className="css-view-g...">
+            <SectionHeader>
+            <View>
+            <SectionHeader>
+            <View style={undefined}>
+              <div dir={null} ref={function forwardRef} className="css-view-g...">
+                <View style={undefined}>
+                  <div dir={null} ref={function forwardRef} className="css-view-g...">
+                    <RideCard ride={{id:"mnmo91...", ...}} liveTracking={true} reviews={true} ratingWindowHours={48} ...>
+                      <TouchableOpacity activeOpacity={0.7} onPress={function t7} onMouseEnter={function onMouseEnter} ...>
+                        <View onMouseEnter={function onMouseEnter} onMouseLeave={function onMouseLeave} ...>
+>                         <button
+>                           onMouseEnter={function onMouseEnter}
+>                           onMouseLeave={function onMouseLeave}
+>                           onKeyDown={function onKeyDown}
+>                           onClick={function onClick}
+>                           onContextMenu={function onContextMenu}
+>                           dir={null}
+>                           ref={function forwardRef}
+>                           aria-label="bike ride 8ZBVZB8J, Cancelled, Rs. 831"
+>                           role="button"
+>                           className="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-touchAction-..."
+>                           style={{cursor:"pointer",transitionDuration:"0s"}}
+>                           type="button"
+>                         >
+                            <View>
+                            <View>
+                            <View>
+                            <TouchableOpacity activeOpacity={0.7} style={{...}} onPress={function onPress} ...>
+                              <View accessibilityRole="button" accessibilityLabel="Book this ..." ...>
+>                               <button
+>                                 onKeyDown={function onKeyDown}
+>                                 onClick={function onClick}
+>                                 onContextMenu={function onContextMenu}
+>                                 dir={null}
+>                                 ref={function forwardRef}
+>                                 aria-label="Book this ride again"
+>                                 role="button"
+>                                 className="css-view-g5y9jx r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor..."
+>                                 style={{transitionDuration:"0s"}}
+>                                 type="button"
+>                               >
+                            ...
+                ...
+                ...
+            ...
+
+```
+
+## Location
+- **Function**: `console.error`
+
+## Impact
+Minor UI glitch
+
+## Likely Root Causes
+- CSS/style conflict causing layout to break
+- Component receiving wrong prop types
+
+## Recommended Fixes
+- Inspect component props and validate at runtime
+- Use browser DevTools to identify style conflicts
+
+## Potential Consequences If Unresolved
+- UI elements overlap, disappear, or display incorrectly
+
+## Suggested Investigation Steps
+1. Review the error message and stack trace above
+2. Identify the root cause in the Customer codebase
+3. Write a fix and add appropriate error handling
+4. Add tests to prevent regression
+5. Deploy and verify the fix in staging
+
+## Priority
+LOW — Minor issue. Can be addressed when convenient.

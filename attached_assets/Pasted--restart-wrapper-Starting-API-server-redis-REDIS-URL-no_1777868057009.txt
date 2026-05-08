@@ -1,0 +1,872 @@
+[restart-wrapper] Starting API server…
+[redis] REDIS_URL not set — rate-limit counters will use in-memory store
+[rate-limit] "global" limiter → in-memory store
+[rate-limit] "auth" limiter → in-memory store
+[rate-limit] "admin-auth" limiter → in-memory store
+[rate-limit] "payment" limiter → in-memory store
+[port:init] Primary port: 8080, fallback enabled: true, max retries: 10
+[port:check] Port 8080 is available
+[port:check] Primary port 8080 is available
+[dev] Sibling app proxies enabled at /admin /vendor /rider /customer /__mockup
+[server:listen] Server listening on port 8080 (addr={"address":"0.0.0.0","family":"IPv4","port":8080})
+[startup] ERROR_REPORT_HMAC_SECRET is configured.
+[migrations] Database connection successful
+[startup] RBAC seed + backfill complete
+[admin-seed] skipped — at least one admin account already exists
+[admin-password-watch] check failed for admin_moq9giuve94dcfe73323f492: DrizzleQueryError: Failed query: select "admin_id", "secret_hash", "password_changed_at", "last_verified_at", "updated_at" from "admin_password_hash_snapshots" where "admin_password_hash_snapshots"."admin_id" = $1 limit $2
+params: admin_moq9giuve94dcfe73323f492,1
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async detectAndNotifyOutOfBandPasswordResets (/home/runner/workspace/artifacts/api-server/src/services/admin-password-watch.service.ts:212:26)
+    at async runStartupTasks (/home/runner/workspace/artifacts/api-server/src/app.ts:105:5) {
+  query: 'select "admin_id", "secret_hash", "password_changed_at", "last_verified_at", "updated_at" from "admin_password_hash_snapshots" where "admin_password_hash_snapshots"."admin_id" = $1 limit $2',
+  params: [ 'admin_moq9giuve94dcfe73323f492', 1 ],
+  cause: error: column "secret_hash" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async detectAndNotifyOutOfBandPasswordResets (/home/runner/workspace/artifacts/api-server/src/services/admin-password-watch.service.ts:212:26)
+      at async runStartupTasks (/home/runner/workspace/artifacts/api-server/src/app.ts:105:5) {
+    length: 111,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '20',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+[admin-password-watch] scanned=1 verified=0 new=0
+[startup] error-monitor supplementary tables ready
+[startup] migrations + RBAC ready — serving requests
+Failed to log admin audit event: DrizzleQueryError: Failed query: insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, $7, default)
+params: moqo0uflc0b97ceacc87c3c3,admin_moq9giuve94dcfe73323f492,admin_login_success,154.91.164.130,Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36,success,{"mustChangePassword":false}
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:214:5) {
+  query: 'insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, $7, default)',
+  params: [
+    'moqo0uflc0b97ceacc87c3c3',
+    'admin_moq9giuve94dcfe73323f492',
+    'admin_login_success',
+    '154.91.164.130',
+    'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+    'success',
+    '{"mustChangePassword":false}'
+  ],
+  cause: error: column "event" of relation "admin_audit_log" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:149:14)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:214:5) {
+    length: 133,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '50',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_target.c',
+    line: '1071',
+    routine: 'checkInsertTargets'
+  }
+}
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-28T00:00:00.000Z,2026-04-28T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-28T00:00:00.000Z',
+    '2026-04-28T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 0)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+Failed to log admin audit event: DrizzleQueryError: Failed query: insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)
+params: moqo0wo5617e3ac2b251e8d7,admin_moq9giuve94dcfe73323f492,admin_refresh_success,154.91.164.130,Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36,success
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:403:3) {
+  query: 'insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)',
+  params: [
+    'moqo0wo5617e3ac2b251e8d7',
+    'admin_moq9giuve94dcfe73323f492',
+    'admin_refresh_success',
+    '154.91.164.130',
+    'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+    'success'
+  ],
+  cause: error: column "event" of relation "admin_audit_log" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:149:14)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:403:3) {
+    length: 133,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '50',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_target.c',
+    line: '1071',
+    routine: 'checkInsertTargets'
+  }
+}
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-28T00:00:00.000Z,2026-04-28T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-28T00:00:00.000Z',
+    '2026-04-28T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 0)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-28T00:00:00.000Z,2026-04-28T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-28T00:00:00.000Z',
+    '2026-04-28T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 0)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+[admin/condition-rules] list error: DrizzleQueryError: Failed query: select "id", "name", "description", "target_role", "metric", "operator", "threshold", "condition_type", "severity", "cooldown_hours", "is_active", "mode_applicability", "created_at", "updated_at" from "condition_rules" order by "condition_rules"."created_at" desc
+params: 
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/conditions.ts:520:19) {
+  query: 'select "id", "name", "description", "target_role", "metric", "operator", "threshold", "condition_type", "severity", "cooldown_hours", "is_active", "mode_applicability", "created_at", "updated_at" from "condition_rules" order by "condition_rules"."created_at" desc',
+  params: [],
+  cause: error: column "name" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/conditions.ts:520:19) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '14',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+[admin/condition-settings] get error: DrizzleQueryError: Failed query: select "id", "mode", "custom_thresholds", "ai_parameters", "updated_by", "updated_at" from "condition_settings" limit $1
+params: 1
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/conditions.ts:822:24) {
+  query: 'select "id", "mode", "custom_thresholds", "ai_parameters", "updated_by", "updated_at" from "condition_settings" limit $1',
+  params: [ 1 ],
+  cause: error: column "id" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/conditions.ts:822:24) {
+    length: 101,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '8',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+[03:56:37.471] ERROR (1304): Failed to fetch error reports
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"id\", \"timestamp\", \"source_app\", \"error_type\", \"severity\", \"status\", \"function_name\", \"module_name\", \"component_name\", \"error_message\", \"short_impact\", \"stack_trace\", \"metadata\", \"resolved_at\", \"acknowledged_at\", \"resolution_method\", \"resolution_notes\", \"root_cause\", \"updated_at\", \"error_hash\", \"occurrence_count\" from \"error_reports\" where \"error_reports\".\"status\" = $1 order by \"error_reports\".\"timestamp\" desc limit $2\nparams: new,30: column \"module_name\" does not exist",
+      "stack":
+          Error: Failed query: select "id", "timestamp", "source_app", "error_type", "severity", "status", "function_name", "module_name", "component_name", "error_message", "short_impact", "stack_trace", "metadata", "resolved_at", "acknowledged_at", "resolution_method", "resolution_notes", "root_cause", "updated_at", "error_hash", "occurrence_count" from "error_reports" where "error_reports"."status" = $1 order by "error_reports"."timestamp" desc limit $2
+          params: new,30
+              at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:369:35)
+          caused by: error: column "module_name" does not exist
+              at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+              at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:369:35)
+      "query": "select \"id\", \"timestamp\", \"source_app\", \"error_type\", \"severity\", \"status\", \"function_name\", \"module_name\", \"component_name\", \"error_message\", \"short_impact\", \"stack_trace\", \"metadata\", \"resolved_at\", \"acknowledged_at\", \"resolution_method\", \"resolution_notes\", \"root_cause\", \"updated_at\", \"error_hash\", \"occurrence_count\" from \"error_reports\" where \"error_reports\".\"status\" = $1 order by \"error_reports\".\"timestamp\" desc limit $2",
+      "params": [
+        "new",
+        30
+      ]
+    }
+[03:56:37.480] ERROR (1304): Failed to fetch error reports
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"id\", \"timestamp\", \"source_app\", \"error_type\", \"severity\", \"status\", \"function_name\", \"module_name\", \"component_name\", \"error_message\", \"short_impact\", \"stack_trace\", \"metadata\", \"resolved_at\", \"acknowledged_at\", \"resolution_method\", \"resolution_notes\", \"root_cause\", \"updated_at\", \"error_hash\", \"occurrence_count\" from \"error_reports\" where \"error_reports\".\"status\" = $1 order by \"error_reports\".\"timestamp\" desc limit $2\nparams: new,1: column \"module_name\" does not exist",
+      "stack":
+          Error: Failed query: select "id", "timestamp", "source_app", "error_type", "severity", "status", "function_name", "module_name", "component_name", "error_message", "short_impact", "stack_trace", "metadata", "resolved_at", "acknowledged_at", "resolution_method", "resolution_notes", "root_cause", "updated_at", "error_hash", "occurrence_count" from "error_reports" where "error_reports"."status" = $1 order by "error_reports"."timestamp" desc limit $2
+          params: new,1
+              at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:369:35)
+          caused by: error: column "module_name" does not exist
+              at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+              at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:369:35)
+      "query": "select \"id\", \"timestamp\", \"source_app\", \"error_type\", \"severity\", \"status\", \"function_name\", \"module_name\", \"component_name\", \"error_message\", \"short_impact\", \"stack_trace\", \"metadata\", \"resolved_at\", \"acknowledged_at\", \"resolution_method\", \"resolution_notes\", \"root_cause\", \"updated_at\", \"error_hash\", \"occurrence_count\" from \"error_reports\" where \"error_reports\".\"status\" = $1 order by \"error_reports\".\"timestamp\" desc limit $2",
+      "params": [
+        "new",
+        1
+      ]
+    }
+[03:56:37.487] ERROR (1304): Failed to fetch error reports
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"id\", \"timestamp\", \"source_app\", \"error_type\", \"severity\", \"status\", \"function_name\", \"module_name\", \"component_name\", \"error_message\", \"short_impact\", \"stack_trace\", \"metadata\", \"resolved_at\", \"acknowledged_at\", \"resolution_method\", \"resolution_notes\", \"root_cause\", \"updated_at\", \"error_hash\", \"occurrence_count\" from \"error_reports\" where \"error_reports\".\"status\" in ($1, $2) order by \"error_reports\".\"timestamp\" desc limit $3\nparams: acknowledged,in_progress,1: column \"module_name\" does not exist",
+      "stack":
+          Error: Failed query: select "id", "timestamp", "source_app", "error_type", "severity", "status", "function_name", "module_name", "component_name", "error_message", "short_impact", "stack_trace", "metadata", "resolved_at", "acknowledged_at", "resolution_method", "resolution_notes", "root_cause", "updated_at", "error_hash", "occurrence_count" from "error_reports" where "error_reports"."status" in ($1, $2) order by "error_reports"."timestamp" desc limit $3
+          params: acknowledged,in_progress,1
+              at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:369:35)
+          caused by: error: column "module_name" does not exist
+              at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+              at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:369:35)
+      "query": "select \"id\", \"timestamp\", \"source_app\", \"error_type\", \"severity\", \"status\", \"function_name\", \"module_name\", \"component_name\", \"error_message\", \"short_impact\", \"stack_trace\", \"metadata\", \"resolved_at\", \"acknowledged_at\", \"resolution_method\", \"resolution_notes\", \"root_cause\", \"updated_at\", \"error_hash\", \"occurrence_count\" from \"error_reports\" where \"error_reports\".\"status\" in ($1, $2) order by \"error_reports\".\"timestamp\" desc limit $3",
+      "params": [
+        "acknowledged",
+        "in_progress",
+        1
+      ]
+    }
+[03:56:37.497] ERROR (1304): Failed to fetch error reports
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"id\", \"timestamp\", \"source_app\", \"error_type\", \"severity\", \"status\", \"function_name\", \"module_name\", \"component_name\", \"error_message\", \"short_impact\", \"stack_trace\", \"metadata\", \"resolved_at\", \"acknowledged_at\", \"resolution_method\", \"resolution_notes\", \"root_cause\", \"updated_at\", \"error_hash\", \"occurrence_count\" from \"error_reports\" where \"error_reports\".\"status\" = $1 order by \"error_reports\".\"timestamp\" desc limit $2\nparams: resolved,1: column \"module_name\" does not exist",
+      "stack":
+          Error: Failed query: select "id", "timestamp", "source_app", "error_type", "severity", "status", "function_name", "module_name", "component_name", "error_message", "short_impact", "stack_trace", "metadata", "resolved_at", "acknowledged_at", "resolution_method", "resolution_notes", "root_cause", "updated_at", "error_hash", "occurrence_count" from "error_reports" where "error_reports"."status" = $1 order by "error_reports"."timestamp" desc limit $2
+          params: resolved,1
+              at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:369:35)
+          caused by: error: column "module_name" does not exist
+              at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+              at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:369:35)
+      "query": "select \"id\", \"timestamp\", \"source_app\", \"error_type\", \"severity\", \"status\", \"function_name\", \"module_name\", \"component_name\", \"error_message\", \"short_impact\", \"stack_trace\", \"metadata\", \"resolved_at\", \"acknowledged_at\", \"resolution_method\", \"resolution_notes\", \"root_cause\", \"updated_at\", \"error_hash\", \"occurrence_count\" from \"error_reports\" where \"error_reports\".\"status\" = $1 order by \"error_reports\".\"timestamp\" desc limit $2",
+      "params": [
+        "resolved",
+        1
+      ]
+    }
+[03:56:37.502] ERROR (1304): Failed to fetch customer reports
+    err: {
+      "type": "DrizzleQueryError",
+      "message": "Failed query: select \"id\", \"timestamp\", \"customer_name\", \"customer_email\", \"customer_phone\", \"user_id\", \"app_version\", \"device_info\", \"platform\", \"screen\", \"description\", \"repro_steps\", \"status\", \"admin_note\", \"reviewed_at\" from \"customer_error_reports\" where \"customer_error_reports\".\"status\" = $1 order by \"customer_error_reports\".\"timestamp\" desc limit $2\nparams: new,1: column \"admin_note\" does not exist",
+      "stack":
+          Error: Failed query: select "id", "timestamp", "customer_name", "customer_email", "customer_phone", "user_id", "app_version", "device_info", "platform", "screen", "description", "repro_steps", "status", "admin_note", "reviewed_at" from "customer_error_reports" where "customer_error_reports"."status" = $1 order by "customer_error_reports"."timestamp" desc limit $2
+          params: new,1
+              at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:761:35)
+          caused by: error: column "admin_note" does not exist
+              at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+              at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+              at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+              at async Promise.all (index 0)
+              at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/error-reports.ts:761:35)
+      "query": "select \"id\", \"timestamp\", \"customer_name\", \"customer_email\", \"customer_phone\", \"user_id\", \"app_version\", \"device_info\", \"platform\", \"screen\", \"description\", \"repro_steps\", \"status\", \"admin_note\", \"reviewed_at\" from \"customer_error_reports\" where \"customer_error_reports\".\"status\" = $1 order by \"customer_error_reports\".\"timestamp\" desc limit $2",
+      "params": [
+        "new",
+        1
+      ]
+    }
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-29T00:00:00.000Z,2026-04-29T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-29T00:00:00.000Z',
+    '2026-04-29T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 1)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-29T00:00:00.000Z,2026-04-29T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-29T00:00:00.000Z',
+    '2026-04-29T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 1)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-29T00:00:00.000Z,2026-04-29T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-29T00:00:00.000Z',
+    '2026-04-29T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 1)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-29T00:00:00.000Z,2026-04-29T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-29T00:00:00.000Z',
+    '2026-04-29T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 1)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-29T00:00:00.000Z,2026-04-29T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-29T00:00:00.000Z',
+    '2026-04-29T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 1)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-29T00:00:00.000Z,2026-04-29T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-29T00:00:00.000Z',
+    '2026-04-29T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 1)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+Failed to log admin audit event: DrizzleQueryError: Failed query: insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)
+params: moqok8mlc34ccfa626952fd3,admin_moq9giuve94dcfe73323f492,admin_refresh_success,154.91.164.130,Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36,success
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:403:3) {
+  query: 'insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)',
+  params: [
+    'moqok8mlc34ccfa626952fd3',
+    'admin_moq9giuve94dcfe73323f492',
+    'admin_refresh_success',
+    '154.91.164.130',
+    'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+    'success'
+  ],
+  cause: error: column "event" of relation "admin_audit_log" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:149:14)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:403:3) {
+    length: 133,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '50',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_target.c',
+    line: '1071',
+    routine: 'checkInsertTargets'
+  }
+}
+Failed to log admin audit event: DrizzleQueryError: Failed query: insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)
+params: moqok96u2ca85394ef845fe4,admin_moq9giuve94dcfe73323f492,admin_refresh_success,154.91.164.130,Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36,success
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:403:3) {
+  query: 'insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)',
+  params: [
+    'moqok96u2ca85394ef845fe4',
+    'admin_moq9giuve94dcfe73323f492',
+    'admin_refresh_success',
+    '154.91.164.130',
+    'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+    'success'
+  ],
+  cause: error: column "event" of relation "admin_audit_log" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:149:14)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:403:3) {
+    length: 133,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '50',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_target.c',
+    line: '1071',
+    routine: 'checkInsertTargets'
+  }
+}
+Failed to log admin audit event: DrizzleQueryError: Failed query: insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)
+params: moqopdqvf69d4ef5ec0d30c4,admin_moq9giuve94dcfe73323f492,admin_refresh_success,154.91.164.130,Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36,success
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:403:3) {
+  query: 'insert into "admin_audit_log" ("id", "admin_id", "event", "ip", "user_agent", "result", "reason", "metadata", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)',
+  params: [
+    'moqopdqvf69d4ef5ec0d30c4',
+    'admin_moq9giuve94dcfe73323f492',
+    'admin_refresh_success',
+    '154.91.164.130',
+    'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+    'success'
+  ],
+  cause: error: column "event" of relation "admin_audit_log" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:149:14)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async logAdminAudit (/home/runner/workspace/artifacts/api-server/src/middlewares/admin-audit.ts:32:5)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin-auth-v2.ts:403:3) {
+    length: 133,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '50',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_target.c',
+    line: '1071',
+    routine: 'checkInsertTargets'
+  }
+}
+Unhandled error: DrizzleQueryError: Failed query: select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)
+params: completed,2026-04-29T00:00:00.000Z,2026-04-29T23:59:59.999Z
+    at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    ... 2 lines matching cause stack trace ...
+    at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+  query: 'select sum("fare") from "van_bookings" where ("van_bookings"."status" = $1 and "van_bookings"."created_at" >= $2 and "van_bookings"."created_at" <= $3)',
+  params: [
+    'completed',
+    '2026-04-29T00:00:00.000Z',
+    '2026-04-29T23:59:59.999Z'
+  ],
+  cause: error: column "fare" does not exist
+      at /home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+      at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:71:12)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      at async Promise.all (index 7)
+      at async Promise.all (index 1)
+      at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/routes/admin/fleet/rides.ts:674:16) {
+    length: 104,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '12',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3727',
+    routine: 'errorMissingColumn'
+  }
+}
+^C[restart-wrapper] SIGINT received — shutting down (no restart)
+[restart-wrapper] SIGINT received — shutting down (no restart)
+[restart-wrapper] Clean shutdown — exiting wrapper

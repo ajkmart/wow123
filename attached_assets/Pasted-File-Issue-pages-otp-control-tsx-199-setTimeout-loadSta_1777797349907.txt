@@ -1,0 +1,76 @@
+File	Issue
+pages/otp-control.tsx:199	setTimeout(loadStatus, 1500) — component unmount par clear nahi hota
+pages/app-management.tsx:163	setTimeout terminateSession mein — clear nahi
+pages/communication.tsx:226	setTimeout setSaveStatus("idle", 3000) — clear nahi
+pages/settings.tsx:349,550,555,557	Multiple setTimeout UI flashes — unmount par clear nahi
+pages/reset-password.tsx:122	setTimeout(() => setLocation("/login"), 2200) — clear nahi
+pages/communication.tsx:151	Socket connection useEffect([], []) mein — agar token change ho toh reconnect nahi
+🟡 SILENT ERROR SWALLOWING (User Ko Pata Hi Nahi Chalta)
+File	Issue
+pages/settings-render.tsx:686	clipboard.writeText().catch(() => {}) — silently fail
+pages/security.tsx:133	fetchMfaStatus mein catch { /* ignore */ }
+pages/error-monitor.tsx:598,629,644,661,688	Scan/plan/clipboard operations — bare catch {}
+pages/communication.tsx:1206	searchUsers error swallow — sirf setSearchResults([])
+pages/roles-permissions.tsx:259	catch { /* non-fatal */ } — user ko koi feedback nahi
+🟡 MUTATIONS BINA ERROR FEEDBACK KE
+File	Mutations
+pages/reviews.tsx:408-423	hideOrder, deleteOrder, hideRide, deleteRide — koi onError toast nahi
+pages/flash-deals.tsx:73-91	saveDeal, deleteDeal, toggleDeal — koi error handling nahi
+pages/promotions-hub.tsx:719-768	deleteCampaign, deleteOffer, cloneOffer — fail ho toh user ko pata nahi
+pages/faq-management.tsx:157-173	createMut, updateMut, deleteMut, toggleMut — koi onError nahi
+pages/broadcast.tsx:45	sendBroadcast mutation — error nahi dikhata
+pages/otp-control.tsx:152,171	loadStatus, loadAudit — koi catch nahi
+🟡 BUTTONS BINA LOADING STATE (Double-Click Risk)
+File	Issue
+pages/rides.tsx:1322	Status toggle — updateMut.mutate direct onClick mein, disabled nahi hota
+pages/categories.tsx:403,453	Active/Inactive toggle — request chal rahi ho toh bhi clickable
+pages/faq-management.tsx:292	FAQ status toggle — koi loading indicator nahi
+🟡 useEffect DEPENDENCY BUGS
+File	Issue
+pages/settings.tsx:300	activeTop10 dependencies suppress — stale URL updates possible
+pages/communication.tsx:151	useEffect(fn, []) — socket token stale rehta hai on token rotation
+pages/live-riders-map.tsx:345	FitBoundsOnLoad — defaultLat/Lng change hone par map re-center nahi
+🟡 MISSING ERROR BOUNDARIES (Page Crash Risk)
+File	Issue
+pages/orders/index.tsx	1 component crash → poora orders page crash
+pages/users.tsx	1600+ line page, koi local boundary nahi
+pages/products.tsx	CSV export + complex grid — koi boundary nahi
+pages/kyc.tsx	Image/canvas logic — crash hone par koi fallback nahi
+🟡 PAGINATION MISSING (Performance Risk)
+File	Issue
+pages/categories.tsx:338	Poori category hierarchy ek saath load — koi pagination nahi
+pages/banners.tsx:283	Drag-and-drop list — banners badhne par slow ho jayega
+pages/flash-deals.tsx:167	Sab flash deals grid mein — koi limit nahi
+🟡 MISLEADING / BROKEN UX
+File	Issue
+pages/settings.tsx:415,420	Settings backup — fetch fail hone par bhi "Backup downloaded" toast dikhata hai
+pages/dashboard.tsx:98-109	Sparklines default to Array(7).fill(0) — flat zero lines dikh rahi hain jab data nahi
+pages/communication.tsx:945	"Generate with AI" button — AI unavailable ho toh silent fail ya generic toast
+pages/sms-gateways.tsx	Delete/Edit buttons — read-only admin bhi click kar sakta hai (backend enforcement rely karta)
+🟡 PERMISSION GAPS
+File	Issue
+App.tsx	ProtectedRoute sirf accessToken check karta — koi per-route permission check nahi
+pages/vendors.tsx, products.tsx	Role-based action disable missing — roles-permissions.tsx mein hai, yahan nahi
+pages/communication.tsx	support.chat.edit check nahi — koi bhi admin settings save kar sakta
+🟢 CODE QUALITY (Minor)
+File	Issue
+pages/app-management.tsx:122	const qc = useQueryClient() unused — eslint-disable se suppress
+lib/error-reporter.ts:140-166	console.error intercept — circular dependency create karta
+lib/i18nKeys.ts:102	Flat key list sirf "future tooling" ke liye — runtime mein use nahi
+pages/launch-control.tsx:283,307,324...	8 unconditional console.error — production logs pollute
+pages/settings-system.tsx:90,149,197...	5 unconditional console.error
+SUMMARY — Kitne Issues Mile Admin Mein
+Category	Count
+Memory Leaks	6
+Silent Error Swallowing	5
+Mutations bina Error Feedback	6 files, 15+ mutations
+Buttons bina Loading State	3 files
+useEffect Bugs	3
+Missing Error Boundaries	4
+Pagination Missing	3
+Misleading UX	4
+Permission Gaps	3
+Code Quality	5
+Total	~54 issues
+
+

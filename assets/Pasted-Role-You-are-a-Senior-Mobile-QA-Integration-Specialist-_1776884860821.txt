@@ -1,0 +1,58 @@
+Role: You are a Senior Mobile QA & Integration Specialist. Your task is to perform a comprehensive audit of the Customer App (artifacts/ajkmart) and ensure it perfectly respects the configurations set in the Admin Panel.
+
+Context: The Customer App is an Expo-based super-app. You must verify that the UI, Navigation, and Business Logic in the app/ directory respond correctly to server-side toggles from platform_settings.
+
+Execution Plan & Documentation:
+Update the tofiq_step.md file in real-time. For every module, log:
+
+Module: [e.g., Mart / Ride / Pharmacy]
+
+Validation: [e.g., "Disabled feature_mart in Admin, checked if /mart is accessible"]
+
+Result: [PASS / FAIL]
+
+Fix: [If any logic in ServiceGuard.tsx or routes was bypassed]
+
+Audit Steps for Customer App:
+
+Service Guard & Feature Toggles:
+
+Test Feature Isolation: If feature_mart, feature_food, feature_pharmacy, feature_parcel, or feature_rides are OFF in Admin, the ServiceGuard.tsx component and ServiceGrid.tsx must hide/disable these entry points.
+
+Attempt direct navigation to /mart, /food, etc., via Expo Router when disabled; it must redirect to a "Service Unavailable" or home screen.
+
+Authentication & Onboarding (app/auth):
+
+Verify index.tsx (Login) and register.tsx respect feature_new_users and role-based registration toggles.
+
+Check if auth_google_enabled or auth_facebook_enabled correctly hides social buttons in the AuthGateSheet.tsx and login screens.
+
+Financial & Checkout (app/cart & app/order):
+
+Verify feature_wallet toggle: If OFF, the Wallet tab in (tabs)/wallet.tsx and "Pay via Wallet" option in checkout must be hidden.
+
+Test Loyalty Points: Ensure they are visible only if enabled in Admin.
+
+Real-time Services (app/ride, app/van):
+
+Test the SOS Alert logic in ride/index.tsx.
+
+Verify feature_live_tracking: If disabled, the map-tracking components in van/tracking.tsx should show a fallback state.
+
+Marketing & Support (components/home):
+
+Check BannerCarousel.tsx and PopupEngine.tsx. Ensure they only fetch and display data active in the Admin "Marketing" section.
+
+Verify app/help/faq.tsx and app/chat/support.tsx against the feature_chat toggle.
+
+Utility & Localization:
+
+Verify weather.tsx respects the feature_weather toggle.
+
+Ensure LanguageContext.tsx correctly applies RTL (Urdu) or LTR (English) based on Admin-supported languages.
+
+Strict Requirement:
+
+If a bug is found (e.g., a service is accessible even when toggled OFF), you must trace the issue to the API response in useConfig.ts or the frontend guard in ajkmart/components/ServiceGuard.tsx and FIX IT.
+
+Do not stop until the entire tree structure provided has been validated against the Admin's "System Control", "Financial Hub", and "Logistics" logic.

@@ -1,0 +1,1518 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: AJKMart Super App API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: products
+    description: Product catalog
+  - name: orders
+    description: Orders management
+  - name: wallet
+    description: Digital wallet
+  - name: rides
+    description: Ride/taxi booking
+  - name: locations
+    description: Location tracking
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/send-otp:
+    post:
+      operationId: sendOtp
+      tags: [auth]
+      summary: Send OTP to phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendOtpRequest"
+      responses:
+        "200":
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendOtpResponse"
+
+  /auth/verify-otp:
+    post:
+      operationId: verifyOtp
+      tags: [auth]
+      summary: Verify OTP and login/register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /users/profile:
+    get:
+      operationId: getProfile
+      tags: [users]
+      summary: Get user profile
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    put:
+      operationId: updateProfile
+      tags: [users]
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /products:
+    get:
+      operationId: getProducts
+      tags: [products]
+      summary: List products with optional filters
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [mart, food]
+        - name: sort
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductListResponse"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product (vendor only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a single product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /orders:
+    get:
+      operationId: getOrders
+      tags: [orders]
+      summary: Get user orders
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderListResponse"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Place a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get order details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+    patch:
+      operationId: updateOrderStatus
+      tags: [orders]
+      summary: Update order status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrderStatusRequest"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /wallet:
+    get:
+      operationId: getWallet
+      tags: [wallet]
+      summary: Get wallet balance and transactions
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletResponse"
+
+  /wallet/topup:
+    post:
+      operationId: topUpWallet
+      tags: [wallet]
+      summary: Top up wallet balance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TopUpRequest"
+      responses:
+        "200":
+          description: Updated wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletResponse"
+
+  /rides:
+    post:
+      operationId: bookRide
+      tags: [rides]
+      summary: Book a ride
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookRideRequest"
+      responses:
+        "201":
+          description: Booked ride
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ride"
+
+  /rides/{id}:
+    get:
+      operationId: getRide
+      tags: [rides]
+      summary: Get ride status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ride details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ride"
+
+  /rides/estimate:
+    post:
+      operationId: estimateFare
+      tags: [rides]
+      summary: Estimate ride fare
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EstimateFareRequest"
+      responses:
+        "200":
+          description: Fare estimate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FareEstimate"
+
+  /rides/stops:
+    get:
+      operationId: getRideStops
+      tags: [rides]
+      summary: Get popular ride stops
+      responses:
+        "200":
+          description: List of popular stops
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RideStopsResponse"
+
+  /rides/services:
+    get:
+      operationId: getRideServices
+      tags: [rides]
+      summary: Get available ride service types
+      responses:
+        "200":
+          description: List of ride service types
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RideServicesResponse"
+
+  /rides/{id}/cancel:
+    patch:
+      operationId: cancelRide
+      tags: [rides]
+      summary: Cancel a ride
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Ride cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ride"
+
+  /rides/{id}/accept-bid:
+    patch:
+      operationId: acceptRideBid
+      tags: [rides]
+      summary: Accept a rider bid
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bidId:
+                  type: string
+      responses:
+        "200":
+          description: Bid accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ride"
+
+  /rides/{id}/customer-counter:
+    patch:
+      operationId: customerCounterOffer
+      tags: [rides]
+      summary: Send a customer counter offer for a ride
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                offeredFare:
+                  type: number
+      responses:
+        "200":
+          description: Counter offer sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ride"
+
+  /rides/history:
+    get:
+      operationId: getRideHistory
+      tags: [rides]
+      summary: Get customer ride history
+      responses:
+        "200":
+          description: List of past rides
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RideHistoryResponse"
+
+  /pharmacy-orders:
+    post:
+      operationId: createPharmacyOrder
+      tags: [pharmacy]
+      summary: Place a pharmacy order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePharmacyOrderRequest"
+      responses:
+        "201":
+          description: Order placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PharmacyOrderResponse"
+
+  /maps/geocode:
+    get:
+      operationId: geocodeAddress
+      tags: [maps]
+      summary: Forward geocode an address or place ID to lat/lng
+      parameters:
+        - name: address
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "Address text to forward geocode"
+        - name: place_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "Place ID to resolve to coordinates"
+      responses:
+        "200":
+          description: Geocode result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeocodeResponse"
+
+  /maps/reverse-geocode:
+    get:
+      operationId: reverseGeocodeCoordinates
+      tags: [maps]
+      summary: Reverse geocode lat/lng coordinates to a human-readable address
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+          description: Latitude
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+          description: Longitude
+      responses:
+        "200":
+          description: Reverse geocode result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReverseGeocodeResponse"
+        "400":
+          description: Missing or invalid lat/lng
+
+  /school/routes:
+    get:
+      operationId: getSchoolRoutes
+      tags: [school]
+      summary: Get available school shift routes
+      responses:
+        "200":
+          description: List of school routes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchoolRoutesResponse"
+
+  /school/subscribe:
+    post:
+      operationId: subscribeSchoolRoute
+      tags: [school]
+      summary: Subscribe a student to a school route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchoolSubscribeRequest"
+      responses:
+        "200":
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  subscriptionId:
+                    type: string
+
+  /parcel-bookings/estimate:
+    post:
+      operationId: estimateParcel
+      tags: [parcel]
+      summary: Get parcel delivery fare estimate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParcelEstimateRequest"
+      responses:
+        "200":
+          description: Parcel fare estimate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParcelEstimateResponse"
+
+  /parcel-bookings:
+    get:
+      operationId: getParcelBookings
+      tags: [parcel]
+      summary: List user parcel bookings
+      responses:
+        "200":
+          description: List of parcel bookings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParcelBookingsResponse"
+    post:
+      operationId: createParcelBooking
+      tags: [parcel]
+      summary: Create a parcel booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateParcelBookingRequest"
+      responses:
+        "201":
+          description: Parcel booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParcelBooking"
+
+  /parcel-bookings/{id}:
+    get:
+      operationId: getParcelBooking
+      tags: [parcel]
+      summary: Get a parcel booking by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Parcel booking details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParcelBooking"
+
+  /payments/methods:
+    get:
+      operationId: getPaymentMethods
+      tags: [payments]
+      summary: Get available payment methods
+      responses:
+        "200":
+          description: List of payment methods
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodsResponse"
+
+  /locations/update:
+    post:
+      operationId: updateLocation
+      tags: [locations]
+      summary: Update rider live location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLocationRequest"
+      responses:
+        "200":
+          description: Location updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationResponse"
+
+  /categories:
+    get:
+      operationId: getCategories
+      tags: [products]
+      summary: Get product categories
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [mart, food]
+      responses:
+        "200":
+          description: Category list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryListResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    SendOtpRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+      required: [phone]
+
+    SendOtpResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        otp:
+          type: string
+          description: Dev only - OTP for testing
+      required: [message]
+
+    VerifyOtpRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+        otp:
+          type: string
+      required: [phone, otp]
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required: [token, user]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        phone:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [customer, rider, vendor]
+        avatar:
+          type: string
+        walletBalance:
+          type: number
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, phone, role, walletBalance, isActive, createdAt]
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        avatar:
+          type: string
+      required: [userId]
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        originalPrice:
+          type: number
+        category:
+          type: string
+        type:
+          type: string
+          enum: [mart, food]
+        image:
+          type: string
+        videoUrl:
+          type: string
+          nullable: true
+        vendorId:
+          type: string
+        vendorName:
+          type: string
+        rating:
+          type: number
+        reviewCount:
+          type: number
+        inStock:
+          type: boolean
+        unit:
+          type: string
+        deliveryTime:
+          type: string
+      required: [id, name, price, category, type, inStock]
+
+    ProductListResponse:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        total:
+          type: number
+      required: [products, total]
+
+    CreateProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        category:
+          type: string
+        type:
+          type: string
+          enum: [mart, food]
+        image:
+          type: string
+        vendorId:
+          type: string
+        unit:
+          type: string
+      required: [name, price, category, type, vendorId]
+
+    CartItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        quantity:
+          type: number
+        image:
+          type: string
+      required: [productId, name, price, quantity]
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [mart, food]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+        status:
+          type: string
+          enum: [pending, confirmed, preparing, out_for_delivery, delivered, cancelled]
+        total:
+          type: number
+        deliveryAddress:
+          type: string
+        paymentMethod:
+          type: string
+          enum: [cash, wallet]
+        riderId:
+          type: string
+        estimatedTime:
+          type: string
+        createdAt:
+          type: string
+      required: [id, userId, type, items, status, total, paymentMethod, createdAt]
+
+    OrderListResponse:
+      type: object
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        total:
+          type: number
+      required: [orders, total]
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [mart, food, pharmacy, parcel]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+        deliveryAddress:
+          type: string
+        paymentMethod:
+          type: string
+          enum: [cash, wallet]
+      required: [userId, type, items, paymentMethod]
+
+    RideStop:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        nameUrdu:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        category:
+          type: string
+        icon:
+          type: string
+      required: [id, name, lat, lng]
+
+    RideStopsResponse:
+      type: object
+      properties:
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RideStop"
+      required: [locations]
+
+    RideService:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        nameUrdu:
+          type: string
+        icon:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        baseFare:
+          type: number
+        perKm:
+          type: number
+        minFare:
+          type: number
+        maxPassengers:
+          type: number
+        allowBargaining:
+          type: boolean
+      required: [key, name, icon, color, baseFare, perKm, minFare, maxPassengers, allowBargaining]
+
+    RideServicesResponse:
+      type: object
+      properties:
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/RideService"
+      required: [services]
+
+    ParcelEstimateRequest:
+      type: object
+      properties:
+        parcelType:
+          type: string
+        weight:
+          type: number
+      required: [parcelType]
+
+    ParcelEstimateResponse:
+      type: object
+      properties:
+        fare:
+          type: number
+        estimatedTime:
+          type: string
+        parcelType:
+          type: string
+        baseFee:
+          type: number
+        perKgRate:
+          type: number
+        weightKg:
+          type: number
+      required: [fare, estimatedTime]
+
+    ParcelBooking:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        senderName:
+          type: string
+        senderPhone:
+          type: string
+        pickupAddress:
+          type: string
+        receiverName:
+          type: string
+        receiverPhone:
+          type: string
+        dropAddress:
+          type: string
+        parcelType:
+          type: string
+        weight:
+          type: number
+        description:
+          type: string
+        fare:
+          type: number
+        paymentMethod:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, picked_up, in_transit, delivered, cancelled]
+        estimatedTime:
+          type: string
+        riderId:
+          type: string
+        createdAt:
+          type: string
+      required: [id, userId, senderName, senderPhone, pickupAddress, receiverName, receiverPhone, dropAddress, parcelType, fare, paymentMethod, status, createdAt]
+
+    ParcelBookingsResponse:
+      type: object
+      properties:
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParcelBooking"
+        total:
+          type: number
+      required: [bookings, total]
+
+    CreateParcelBookingRequest:
+      type: object
+      properties:
+        senderName:
+          type: string
+        senderPhone:
+          type: string
+        pickupAddress:
+          type: string
+        receiverName:
+          type: string
+        receiverPhone:
+          type: string
+        dropAddress:
+          type: string
+        parcelType:
+          type: string
+        weight:
+          type: number
+        description:
+          type: string
+        paymentMethod:
+          type: string
+          enum: [cash, wallet, cod]
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        dropLat:
+          type: number
+        dropLng:
+          type: number
+      required: [senderName, senderPhone, pickupAddress, receiverName, receiverPhone, dropAddress, parcelType, paymentMethod]
+
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        logo:
+          type: string
+        available:
+          type: boolean
+        mode:
+          type: string
+        description:
+          type: string
+        maxAmount:
+          type: number
+        fee:
+          type: number
+        freeAbove:
+          type: number
+      required: [id, label, available]
+
+    PaymentMethodsResponse:
+      type: object
+      properties:
+        methods:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentMethod"
+      required: [methods]
+
+    UpdateOrderStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, preparing, out_for_delivery, delivered, cancelled]
+        riderId:
+          type: string
+      required: [status]
+
+    WalletTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [credit, debit]
+        amount:
+          type: number
+        description:
+          type: string
+        createdAt:
+          type: string
+      required: [id, type, amount, description, createdAt]
+
+    WalletResponse:
+      type: object
+      properties:
+        balance:
+          type: number
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalletTransaction"
+      required: [balance, transactions]
+
+    TopUpRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        amount:
+          type: number
+      required: [userId, amount]
+
+    Ride:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [car, bike]
+        status:
+          type: string
+          enum: [searching, confirmed, in_progress, completed, cancelled]
+        pickupAddress:
+          type: string
+        dropAddress:
+          type: string
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        dropLat:
+          type: number
+        dropLng:
+          type: number
+        fare:
+          type: number
+        distance:
+          type: number
+        riderId:
+          type: string
+        riderName:
+          type: string
+        riderPhone:
+          type: string
+        paymentMethod:
+          type: string
+          enum: [cash, wallet]
+        tripOtp:
+          type: string
+          nullable: true
+        otpVerified:
+          type: boolean
+        createdAt:
+          type: string
+        riderLat:
+          type: number
+          nullable: true
+          description: Live latitude of the assigned rider (active statuses only)
+        riderLng:
+          type: number
+          nullable: true
+          description: Live longitude of the assigned rider (active statuses only)
+        riderLocAge:
+          type: number
+          nullable: true
+          description: Seconds since the rider's live location was last updated
+        riderAvgRating:
+          type: number
+          nullable: true
+          description: Average star rating of the assigned rider
+        bids:
+          type: array
+          description: Pending bids on this ride (only populated while bargaining)
+          items:
+            $ref: "#/components/schemas/RideBid"
+      required: [id, userId, type, status, fare, distance, paymentMethod, createdAt]
+
+    RideBid:
+      type: object
+      properties:
+        id:
+          type: string
+        rideId:
+          type: string
+        riderId:
+          type: string
+        riderName:
+          type: string
+        riderPhone:
+          type: string
+          nullable: true
+        fare:
+          type: number
+        note:
+          type: string
+          nullable: true
+        status:
+          type: string
+        vehiclePlate:
+          type: string
+          nullable: true
+        vehicleType:
+          type: string
+          nullable: true
+        ratingAvg:
+          type: number
+          nullable: true
+        totalRides:
+          type: number
+        expiresAt:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, rideId, riderId, riderName, fare, status, totalRides, expiresAt, createdAt, updatedAt]
+
+    BookRideRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [car, bike]
+        pickupAddress:
+          type: string
+        dropAddress:
+          type: string
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        dropLat:
+          type: number
+        dropLng:
+          type: number
+        paymentMethod:
+          type: string
+          enum: [cash, wallet]
+      required: [userId, type, pickupAddress, dropAddress, paymentMethod]
+
+    EstimateFareRequest:
+      type: object
+      properties:
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        dropLat:
+          type: number
+        dropLng:
+          type: number
+        type:
+          type: string
+          enum: [car, bike]
+      required: [pickupLat, pickupLng, dropLat, dropLng, type]
+
+    FareEstimate:
+      type: object
+      properties:
+        distance:
+          type: number
+        fare:
+          type: number
+        duration:
+          type: string
+        type:
+          type: string
+      required: [distance, fare, duration, type]
+
+    UpdateLocationRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        role:
+          type: string
+      required: [userId, latitude, longitude, role]
+
+    LocationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        updatedAt:
+          type: string
+      required: [success, updatedAt]
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+        type:
+          type: string
+          enum: [mart, food]
+        productCount:
+          type: number
+      required: [id, name, icon, type]
+
+    CategoryListResponse:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+      required: [categories]
+
+    RideHistoryResponse:
+      type: object
+      properties:
+        rides:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ride"
+      required: [rides]
+
+    SchoolRoute:
+      type: object
+      properties:
+        id:
+          type: string
+        schoolName:
+          type: string
+        area:
+          type: string
+        pickupTime:
+          type: string
+        dropoffTime:
+          type: string
+        monthlyFare:
+          type: number
+      required: [id, schoolName, area, monthlyFare]
+
+    SchoolRoutesResponse:
+      type: object
+      properties:
+        routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchoolRoute"
+      required: [routes]
+
+    SchoolSubscribeRequest:
+      type: object
+      properties:
+        routeId:
+          type: string
+        studentName:
+          type: string
+        studentClass:
+          type: string
+        paymentMethod:
+          type: string
+          enum: [cash, wallet]
+      required: [routeId, studentName, studentClass, paymentMethod]
+
+    GeocodeResponse:
+      type: object
+      properties:
+        formattedAddress:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        placeId:
+          type: string
+
+    ReverseGeocodeResponse:
+      type: object
+      properties:
+        address:
+          type: string
+          description: Concise human-readable address (road + city)
+        formattedAddress:
+          type: string
+          description: Full formatted address from provider
+        source:
+          type: string
+          enum: [google, nominatim, fallback, cache]
+          description: Which geocoding provider resolved the address
+
+    PharmacyOrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        quantity:
+          type: integer
+      required: [id, name, price, quantity]
+
+    CreatePharmacyOrderRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PharmacyOrderItem"
+        prescriptionNote:
+          type: string
+          nullable: true
+        deliveryAddress:
+          type: string
+        contactPhone:
+          type: string
+        paymentMethod:
+          type: string
+          enum: [cash, wallet]
+      required: [items, deliveryAddress, contactPhone, paymentMethod]
+
+    PharmacyOrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        estimatedMinutes:
+          type: integer
+      required: [id, status]

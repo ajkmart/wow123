@@ -1,0 +1,40 @@
+Rider App — Professional UI Redesign
+What & Why
+The rider app's profile tab and overall UI needs a professional, polished upgrade. Currently the profile page has inconsistent spacing, a weak header design, a non-functional language switcher, and the sections lack visual hierarchy. Other pages (Home, History, Earnings, BottomNav) also need consistent design improvements to match a premium delivery app standard. This task redesigns the full rider app UI for a top-tier, user-friendly experience.
+
+Done looks like
+Profile tab has a bold, premium hero header with the rider's avatar initial, name, online status, and rating displayed prominently
+Profile completion prompt shows exactly which fields are missing (e.g., "Add your CNIC and vehicle details")
+Stats grid is visually bold and clear — easy to read at a glance
+Quick links section is reordered and styled with colored icon tiles and clear descriptions
+Personal, Vehicle, and Bank sections have a cleaner view-mode layout with well-labeled rows and helpful icons
+Security and 2FA are unified into a single "Account Security" card
+Language switcher actually shows EN / اردو toggle buttons that work
+Logout button has a proper confirmation flow (tap once to reveal, tap again to confirm)
+BottomNav has a more polished, modern look with active-state indicators
+Home screen online/offline toggle and stats cards are visually refined
+History and Earnings pages have improved card layouts and typography
+All screens feel consistent — same border-radius, shadow, spacing, and typography scale
+Out of scope
+Backend API changes
+New features (e.g., adding photo upload, new wallet features)
+Admin panel or vendor app changes
+Any changes to auth/login screens
+Tasks
+Profile Hero Header & Identity Card — Redesign the gradient header to be more compact and premium, with a larger avatar circle, rider name, phone, and status badge clearly visible. Add a "Member since" tag below the name. Remove the awkward large bottom padding that causes overlap issues.
+
+Profile Stats, Completion & Achievements — Make the 4-stat grid taller and more readable with larger values. Rewrite the profile completion banner to list the specific missing fields by name. Keep achievements visible even for new riders (show "Complete first delivery to earn badges" placeholder).
+
+Quick Links & Sections Redesign — Reorder quick links to put Wallet and Earnings at the top. Style each link with a colored rounded icon tile. In the Personal / Vehicle / Bank sections, improve the view-mode rows: add color to each field icon, better font sizes, and a subtle divider. Fix the Language section to show real EN / اردو toggle buttons that switch the app language.
+
+Security, 2FA & Logout Polish — Merge the Security session info card and the 2FA card into one "Account Security" card with two sections inside it. Give the logout button a two-step confirmation (first tap shows a "Are you sure?" state, second tap logs out).
+
+BottomNav, Home & Other Pages Polish — Refine the BottomNav with a pill-style active indicator and better icon sizing. On the Home screen, improve the online/offline toggle card, stats row, and request cards. On History and Earnings pages, improve card typography and row layouts for a more polished feel.
+
+Relevant files
+artifacts/rider-app/src/pages/Profile.tsx
+artifacts/rider-app/src/pages/Home.tsx
+artifacts/rider-app/src/pages/History.tsx
+artifacts/rider-app/src/pages/Earnings.tsx
+artifacts/rider-app/src/components/BottomNav.tsx
+artifacts/rider-app/src/index.css

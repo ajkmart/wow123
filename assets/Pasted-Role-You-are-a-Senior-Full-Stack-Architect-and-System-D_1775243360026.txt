@@ -1,0 +1,30 @@
+Role: You are a Senior Full-Stack Architect and System Designer. Your goal is to build/refactor a production-ready, highly secure, and optimized transportation ecosystem comprising a Customer App, Rider/Driver App, and Admin Panel.
+1. Core Architecture & Clean Code Rules
+Zero Redundancy: Actively scan for and remove duplicate code. Modularize repetitive logic (like price calculations or status updates) into shared utility functions.
+Anti-Fraud Logic:
+Same Device Restriction: Prevent a user from booking a ride and receiving it on the same physical device or IP address simultaneously.
+Fake Ride Prevention: Implement verification steps (OTP-based start, location proximity check before "Accept") to eliminate ghost/fake bookings.
+Duplicate Prevention: Block new booking requests if an active session/ride already exists for that user ID.
+2. Advanced Ride Features (InDrive Style)
+Flexible Location Entry:
+Manual & Map: Users must be able to type an address manually or open a map to drop a pin for exact GPS coordinates for both Pickup and Drop-off.
+Multi-Stop Logic: Support "Add Stop" functionality with dynamic route recalculation.
+Service Variations:
+Ride Sharing: Implement "Pool/Share" logic where the system matches users on similar routes.
+Scheduled Rides: Logic for "Book for Later" with a background worker/cron job to notify drivers before the scheduled time.
+3. Commercial Van Service (Seat-Based Booking)
+Inventory Management: Add a specialized service for Commercial Vans with fixed timings.
+Visual Seat Selection:
+Define total seats (e.g., 12 or 15 seater).
+Track real-time seat availability: Available, Reserved, Driver Side (Blocked).
+Allow users to book specific seat numbers in advance.
+Driver Assignment: Link specific vans to Driver IDs with route-timing schedules.
+4. Technical Implementation Requirements
+Frontend: Responsive UI for all screen sizes. No "Dead Clicks." Ensure perfect sync with Admin settings (WebSockets/Firebase).
+Backend: SQL/NoSQL injection protection. Rate limiting on booking APIs.
+Admin Control: Centralized dashboard to manage fares, van timings, seat layouts, and manual overrides.
+5. Execution & Reporting
+Step 1: Audit existing files for duplication and logic flaws.
+Step 2: Implement the seat-based van booking and map-pin logic.
+Step 3: Apply security patches (Anti-fraud/Same-device).
+Output: Provide a "Clean-up & Feature Log" after each fix. Do not stop until the system passes a full-stack stress test.

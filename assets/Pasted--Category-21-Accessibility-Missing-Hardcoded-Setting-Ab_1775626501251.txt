@@ -1,0 +1,26 @@
+🔴 Category 21: Accessibility (Missing/Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+81	Font Size Scaling	Sab font sizes hardcoded (h1=28, body=14, caption=12)	User ko app mein font size barhane ka option hona chahiye (Small/Medium/Large)
+82	High Contrast Mode	Exist nahi karta	Color blind / low vision users ke liye high contrast mode
+83	Accessibility Labels	Bahut se components mein missing hain (ActionButton, Input, etc.)	Proper screen reader labels har interactive element pe
+🔴 Category 22: Inventory & Stock Rules (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+84	Low Stock Threshold	10 units hardcoded	Admin se set ho sake (kisi vendor ke liye 5, kisi ke liye 20)
+85	Max Item Quantity Per Order	99 hardcoded	Admin se control
+86	"Back in Stock" Notification	Feature exist nahi karta	Customer ko notify ho jab product wapas aaye
+87	Auto-Disable on Zero Stock	Nahi hota — manual toggle hai	Auto off ho jab stock 0 ho jaye
+🔴 Category 23: Network & Retry Policies (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+88	API Timeout (Rider App)	30 seconds hardcoded	Admin/config se adjust ho sake
+89	API Timeout (Vendor App)	30 seconds hardcoded	Same
+90	Max Retry Attempts (Customer)	3 retries hardcoded	Configurable
+91	Retry Backoff Base	1 second hardcoded	Configurable
+92	Rider GPS Queue Max	500 entries hardcoded in IndexedDB	Admin se control
+93	Dismissed Request TTL	90 seconds hardcoded (Rider)	Admin se set
+🔴 Category 24: App Version & Compliance (Missing)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+94	Force Update Dialog	Exist nahi karta — sirf maintenance mode hai	Proper "Update Required" dialog with store link
+95	Minimum App Version Check	appVersion config mein hai but enforcement logic missing	Client pe version compare + block old versions
+96	Terms Version Tracking	Sirf "accepted yes/no" save hota hai	Version number track ho — jab terms change hon toh re-accept karayen
+97	GDPR Consent Log	Koi dedicated table nahi	Proper consent log — kab, kya, kaise consent liya
+98	Changelog/Release Notes	Exist nahi karta	Admin se release notes manage ho sakein, app mein "What's New" dikhaye

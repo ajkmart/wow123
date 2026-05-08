@@ -1,0 +1,409 @@
+import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  ShieldCheck,
+  ArrowRight,
+} from "lucide-react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/lib/adminAuthContext";
+
+const DOCUMENTED_DEFAULT_PASSWORD = "Toqeerkhan@123.com";
+
+function validateStrength(pw: string): string | null {
+  if (pw.length < 8) return "Password must be at least 8 characters.";
+  if (!/[A-Z]/.test(pw)) return "Password must contain at least 1 uppercase letter.";
+  if (!/[0-9]/.test(pw)) return "Password must contain at least 1 number.";
+  return null;
+}
+
+type StrengthLevel = 0 | 1 | 2 | 3 | 4;
+
+function computeStrength(pw: string): StrengthLevel {
+  if (!pw) return 0;
+  if (pw.length < 8) return 1;
+  if (!/[A-Z]/.test(pw)) return 2;
+  if (!/[0-9]/.test(pw)) return 3;
+  return 4;
+}
+
+const STRENGTH_META: Record<StrengthLevel, { label: string; bar: string; text: string }> = {
+  0: { label: "", bar: "", text: "" },
+  1: { label: "Weak", bar: "bg-red-500", text: "text-red-500" },
+  2: { label: "Fair", bar: "bg-orange-400", text: "text-orange-400" },
+  3: { label: "Good", bar: "bg-amber-400", text: "text-amber-500" },
+  4: { label: "Strong", bar: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+};
+
+export function FirstLoginCredentialsDialog() {
+  const [, setLocation] = useLocation();
+  const { state, changePassword, updateOwnProfile, dismissDefaultCredentialsPrompt } =
+    useAdminAuth();
+  const { toast } = useToast();
+
+  const wantsToShow = useMemo(
+    () =>
+      !!state.accessToken &&
+      !!state.usingDefaultCredentials &&
+      !state.defaultCredentialsDismissed,
+    [state.accessToken, state.usingDefaultCredentials, state.defaultCredentialsDismissed],
+  );
+
+  const [open, setOpen] = useState(wantsToShow);
+
+  useEffect(() => { if (wantsToShow) setOpen(true); }, [wantsToShow]);
+  useEffect(() => { if (!state.accessToken) setOpen(false); }, [state.accessToken]);
+
+  const [username, setUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [passwordSavedThisSession, setPasswordSavedThisSession] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setUsername(state.user?.username ?? "");
+      setNewPassword("");
+      setConfirmPassword("");
+      setFormError(null);
+      setPasswordSavedThisSession(false);
+    }
+  }, [open, state.user?.username]);
+
+  const handleSkip = () => {
+    dismissDefaultCredentialsPrompt();
+    setOpen(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    const trimmedUsername = username.trim();
+    const currentUsername = state.user?.username ?? "";
+    const wantsUsernameChange =
+      trimmedUsername.length > 0 && trimmedUsername !== currentUsername;
+    const wantsPasswordChange =
+      !passwordSavedThisSession &&
+      (newPassword.length > 0 || confirmPassword.length > 0);
+
+    if (!wantsUsernameChange && !wantsPasswordChange) {
+      setFormError(
+        passwordSavedThisSession
+          ? "Pick a new username, or click Skip for now."
+          : "Update your username, password, or both — or click Skip for now.",
+      );
+      return;
+    }
+
+    if (wantsPasswordChange) {
+      if (newPassword !== confirmPassword) {
+        setFormError("The new password and confirmation do not match.");
+        return;
+      }
+      const strengthError = validateStrength(newPassword);
+      if (strengthError) { setFormError(strengthError); return; }
+      if (newPassword === DOCUMENTED_DEFAULT_PASSWORD) {
+        setFormError("The new password must be different from the default.");
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    try {
+      if (wantsPasswordChange) {
+        try {
+          await changePassword(DOCUMENTED_DEFAULT_PASSWORD, newPassword);
+          setPasswordSavedThisSession(true);
+          setNewPassword("");
+          setConfirmPassword("");
+        } catch (err) {
+          setFormError(err instanceof Error ? err.message : "Failed to update your password.");
+          return;
+        }
+      }
+      if (wantsUsernameChange) {
+        try {
+          await updateOwnProfile({ username: trimmedUsername });
+        } catch (err) {
+          const baseMsg = err instanceof Error ? err.message : "Failed to update your username.";
+          setFormError(
+            passwordSavedThisSession
+              ? `Password was updated, but username change failed: ${baseMsg}`
+              : baseMsg,
+          );
+          return;
+        }
+      }
+      toast({
+        title: "Credentials updated",
+        description:
+          wantsPasswordChange && wantsUsernameChange
+            ? "Use your new username and password on next login."
+            : wantsPasswordChange
+              ? "Use your new password on next login."
+              : "Use your new username on next login.",
+      });
+      dismissDefaultCredentialsPrompt();
+      setOpen(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const strengthLevel = computeStrength(newPassword);
+  const sm = STRENGTH_META[strengthLevel];
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => { if (!next && !submitting) handleSkip(); }}
+    >
+      <DialogContent
+        className="sm:max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl
+          [&>button[aria-label='Close\\ dialog']]:top-3.5 [&>button[aria-label='Close\\ dialog']]:right-3.5
+          [&>button[aria-label='Close\\ dialog']]:h-7 [&>button[aria-label='Close\\ dialog']]:w-7
+          [&>button[aria-label='Close\\ dialog']]:rounded-full
+          [&>button[aria-label='Close\\ dialog']]:bg-white/15
+          [&>button[aria-label='Close\\ dialog']]:text-white
+          [&>button[aria-label='Close\\ dialog']]:hover:bg-white/25
+          [&>button[aria-label='Close\\ dialog']]:hover:text-white
+          [&>button[aria-label='Close\\ dialog']]:backdrop-blur-sm"
+        data-testid="dialog-first-login-credentials"
+      >
+        {/* ── Header ───────────────────────────────────────────── */}
+        <div className="relative bg-gradient-to-br from-amber-500 via-amber-400 to-orange-500 px-6 pt-6 pb-5">
+          {/* subtle grid texture */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-10"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(255,255,255,.4) 19px,rgba(255,255,255,.4) 20px),repeating-linear-gradient(90deg,transparent,transparent 19px,rgba(255,255,255,.4) 19px,rgba(255,255,255,.4) 20px)",
+            }}
+          />
+          <div className="relative flex items-start gap-4 pr-7">
+            {/* icon badge */}
+            <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-lg ring-1 ring-white/30 backdrop-blur-sm">
+              <KeyRound className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-bold text-white leading-tight tracking-tight">
+                Secure your admin account
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-[13px] leading-snug text-white/80">
+                You're using default credentials — set a unique username and password.
+              </DialogDescription>
+              {/* security badge */}
+              <span className="mt-2.5 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white/90 backdrop-blur-sm">
+                <ShieldCheck className="h-3 w-3" />
+                Action required
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Body ─────────────────────────────────────────────── */}
+        <form onSubmit={handleSubmit} className="bg-background">
+
+          <div className="px-6 pt-5 pb-1 space-y-5">
+
+            {/* Username */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="flcd-username"
+                className="block text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+              >
+                Username
+              </label>
+              <Input
+                id="flcd-username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder={state.user?.username ?? "admin"}
+                autoComplete="username"
+                disabled={submitting}
+                className="h-10 rounded-lg border-border/70 bg-muted/40 text-sm focus:border-amber-400 focus:ring-amber-400/20 transition-colors"
+                data-testid="input-new-username"
+              />
+              <p className="text-[12px] text-muted-foreground/70">
+                Leave unchanged to keep the current username.
+              </p>
+            </div>
+
+            {/* Password section */}
+            {passwordSavedThisSession ? (
+              <div
+                className="flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/8 px-4 py-3"
+                data-testid="text-password-saved"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/15">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                    Password updated
+                  </p>
+                  <p className="text-[12px] text-emerald-600/70 dark:text-emerald-400/70">
+                    Now save a new username, or skip for now.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* new password */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="flcd-new"
+                    className="block text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+                  >
+                    New password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="flcd-new"
+                      type={showPasswords ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Min 8 chars, 1 uppercase, 1 number"
+                      autoComplete="new-password"
+                      disabled={submitting}
+                      className="h-10 rounded-lg border-border/70 bg-muted/40 pr-10 text-sm focus:border-amber-400 focus:ring-amber-400/20 transition-colors"
+                      data-testid="input-new-password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-muted-foreground/60 hover:text-muted-foreground transition-colors focus-visible:outline-none"
+                      onClick={() => setShowPasswords((v) => !v)}
+                      aria-label={showPasswords ? "Hide password" : "Show password"}
+                      aria-pressed={showPasswords}
+                    >
+                      {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+
+                  {/* strength meter */}
+                  {newPassword.length > 0 && (
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="flex gap-1">
+                        {([1, 2, 3, 4] as const).map((bar) => (
+                          <div
+                            key={bar}
+                            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+                              strengthLevel >= bar ? sm.bar : "bg-border/60"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      {strengthLevel > 0 && (
+                        <p className={`text-[11px] font-semibold ${sm.text}`}>
+                          {sm.label}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* confirm password */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="flcd-confirm"
+                    className="block text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+                  >
+                    Confirm password
+                  </label>
+                  <Input
+                    id="flcd-confirm"
+                    type={showPasswords ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter the new password"
+                    autoComplete="new-password"
+                    disabled={submitting}
+                    className="h-10 rounded-lg border-border/70 bg-muted/40 text-sm focus:border-amber-400 focus:ring-amber-400/20 transition-colors"
+                    data-testid="input-confirm-password"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error */}
+            {formError && (
+              <div
+                className="flex items-start gap-2.5 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-2.5"
+                data-testid="text-credentials-error"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <p className="text-[13px] leading-snug text-destructive">{formError}</p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Footer ─────────────────────────────────────────── */}
+          <div className="mt-4 flex items-center justify-between border-t border-border/60 bg-muted/20 px-6 py-4 gap-3">
+            {/* left: full-screen link */}
+            <button
+              type="button"
+              onClick={() => { handleSkip(); setLocation("/set-new-password"); }}
+              disabled={submitting}
+              className="flex items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded disabled:opacity-40"
+              data-testid="button-open-full-screen"
+            >
+              Full screen
+              <ArrowRight className="h-3 w-3" />
+            </button>
+
+            {/* right: skip + save */}
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSkip}
+                disabled={submitting}
+                className="h-8 rounded-lg border-border/70 px-4 text-[13px] font-medium hover:border-border"
+                data-testid="button-skip-credentials"
+              >
+                Skip
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={submitting}
+                className="h-8 rounded-lg bg-amber-500 px-4 text-[13px] font-semibold text-white hover:bg-amber-600 active:bg-amber-700 focus-visible:ring-amber-400/40 border-0"
+                data-testid="button-save-credentials"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save changes"
+                )}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default FirstLoginCredentialsDialog;

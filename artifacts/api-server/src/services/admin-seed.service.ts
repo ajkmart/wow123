@@ -1,0 +1,226 @@
+/**
+ * admin-seed.service.ts — first-boot super-admin seeding.
+ *
+ * Behaviour:
+ *  - On every startup we check whether **any** admin account exists. If
+ *    one or more rows are present, we do nothing for the seed step
+ *    itself, but the boot reconciliation (`reconcileSeededSuperAdmin`)
+ *    still runs to make sure the bootstrap admin always matches the
+ *    documented default credentials.
+ *  - If the `admin_accounts` table is empty we provision a default
+ *    super-admin using `ADMIN_SEED_PASSWORD` (default
+ *    `Toqeerkhan@123.com`). The account is created with
+ *    `must_change_password = false` and `default_credentials = true` so
+ *    the SPA knows to show the optional "customise your credentials"
+ *    popup on first login — but skipping it keeps the default
+ *    credentials working.
+ *  - The seeded admin is granted the built-in `super_admin` RBAC role so
+ *    `/api/admin/system/rbac/*` and every permission gate works out of
+ *    the box.
+ *
+ * The seed is best-effort: failure logs an error and does not crash boot.
+ */
+import { db } from "@workspace/db";
+import {
+  adminAccountsTable,
+  rolesTable,
+  adminRoleAssignmentsTable,
+} from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+import { hashAdminSecret } from "./password.js";
+import { generateId } from "../lib/id.js";
+import { logAdminAudit } from "../middlewares/admin-audit.js";
+import { recordAdminPasswordSnapshot } from "./admin-password-watch.service.js";
+
+const SUPER_ADMIN_SLUG = "super_admin";
+const DEFAULT_SEED_EMAIL = "admin@ajkmart.local";
+const DEFAULT_SEED_USERNAME = "admin";
+const DEFAULT_SEED_NAME = "Super Admin";
+/**
+ * Hard-coded fallback for the bootstrap super-admin password. Operators
+ * may override via the `ADMIN_SEED_PASSWORD` env var (recommended for
+ * production); the constant is the documented default for fresh installs.
+ */
+const DEFAULT_SEED_PASSWORD = "Toqeerkhan@123.com";
+
+export interface SeedResult {
+  /** True if a new admin was created on this boot. */
+  created: boolean;
+  /** Email of the seeded admin (for log surface). */
+  email?: string;
+}
+
+function resolveSeedPassword(): string {
+  const fromEnv = process.env.ADMIN_SEED_PASSWORD?.trim();
+  return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_SEED_PASSWORD;
+}
+
+/**
+ * Seed the default super-admin if and only if no admin accounts exist.
+ * Idempotent — safe to call on every boot.
+ */
+export async function seedDefaultSuperAdmin(): Promise<SeedResult> {
+  const existing = await db
+    .select({ id: adminAccountsTable.id })
+    .from(adminAccountsTable)
+    .limit(1);
+
+  if (existing.length > 0) {
+    // Idempotent no-op path. Log explicitly so operators can confirm at boot
+    // that seeding ran and decided to leave the existing admin set alone,
+    // instead of having to infer it from the absence of a "created" line.
+    console.log(
+      "[admin-seed] skipped — at least one admin account already exists",
+    );
+    return { created: false };
+  }
+
+  const email = (process.env.ADMIN_SEED_EMAIL ?? DEFAULT_SEED_EMAIL).trim();
+  const username = (process.env.ADMIN_SEED_USERNAME ?? DEFAULT_SEED_USERNAME).trim();
+  const name = (process.env.ADMIN_SEED_NAME ?? DEFAULT_SEED_NAME).trim();
+  const plainPassword = resolveSeedPassword();
+
+  const id = `admin_${generateId()}`;
+  const secret = hashAdminSecret(plainPassword);
+
+  await db.insert(adminAccountsTable).values({
+    id,
+    name,
+    username,
+    email,
+    secret,
+    role: "super",
+    permissions: "",
+    isActive: true,
+    // The forced "you must change your password" gate is gone — the SPA
+    // surfaces an OPTIONAL post-login popup instead. The `defaultCredentials`
+    // flag drives that dialog and flips to false on the first change.
+    mustChangePassword: false,
+    defaultCredentials: true,
+  });
+
+  // Baseline the out-of-band password watchdog so the seeded hash is
+  // not flagged as a direct DB write on the next boot.
+  await recordAdminPasswordSnapshot({
+    adminId: id,
+    secret,
+    passwordChangedAt: null,
+  });
+
+  // Grant the super_admin RBAC role so the new admin has full permissions
+  // even without relying on the legacy `role = 'super'` short-circuit.
+  try {
+    const [superRole] = await db
+      .select()
+      .from(rolesTable)
+      .where(eq(rolesTable.slug, SUPER_ADMIN_SLUG))
+      .limit(1);
+
+    if (superRole) {
+      await db
+        .insert(adminRoleAssignmentsTable)
+        .values({ adminId: id, roleId: superRole.id, grantedBy: "system" })
+        .onConflictDoNothing();
+    } else {
+      console.warn(
+        "[admin-seed] super_admin role not found — RBAC seed must run before admin seed for the new admin to receive role assignment",
+      );
+    }
+  } catch (err) {
+    console.error("[admin-seed] failed to assign super_admin role:", err);
+  }
+
+  // Surface the bootstrap credentials on first boot so an operator that
+  // is bringing the system up for the first time can capture them from
+  // the logs. Subsequent boots are no-ops.
+  console.log("==================================================================");
+  console.log("[admin-seed] default super-admin created");
+  console.log(`[admin-seed]   email:    ${email}`);
+  console.log(`[admin-seed]   username: ${username}`);
+  console.log("[admin-seed]   password: (default — see ADMIN_SEED_PASSWORD env)");
+  console.log("[admin-seed] ℹ  The SPA will offer an OPTIONAL popup on first login");
+  console.log("[admin-seed]    so the super-admin can customise their credentials.");
+  console.log("==================================================================");
+
+  // Persist a permanent audit-log entry so the seeded super-admin shows up
+  // in the same audit trail super-admins use day-to-day. Best-effort: a
+  // failure here is logged but does not abort the seed.
+  await logAdminAudit("admin_seed_super_admin_created", {
+    adminId: id,
+    ip: "system",
+    result: "success",
+    metadata: {
+      email,
+      username,
+      passwordSource: process.env.ADMIN_SEED_PASSWORD ? "env" : "default",
+      defaultCredentials: true,
+    },
+  });
+
+  return { created: true, email };
+}
+
+/**
+ * One-shot reconciliation: re-hash the seeded super-admin to the
+ * documented default password. Runs only when the row is both flagged
+ * stale (`mustChangePassword=true`) AND originally bootstrapped by the
+ * seed path (`defaultCredentials=true`). The two-flag guard prevents
+ * this from overwriting passwords set by the operational reset-link
+ * flow, which arms `mustChangePassword` but never touches
+ * `defaultCredentials`. Idempotent.
+ */
+export async function reconcileSeededSuperAdmin(): Promise<{ reset: boolean }> {
+  const username = (process.env.ADMIN_SEED_USERNAME ?? DEFAULT_SEED_USERNAME).trim();
+
+  const [seeded] = await db
+    .select()
+    .from(adminAccountsTable)
+    .where(eq(adminAccountsTable.username, username))
+    .limit(1);
+
+  if (!seeded) return { reset: false };
+  if (!seeded.mustChangePassword) return { reset: false };
+  if (!seeded.defaultCredentials) return { reset: false };
+
+  const plainPassword = resolveSeedPassword();
+  const secret = hashAdminSecret(plainPassword);
+  const now = new Date();
+
+  await db
+    .update(adminAccountsTable)
+    .set({
+      secret,
+      mustChangePassword: false,
+      defaultCredentials: true,
+      // Intentionally leave passwordChangedAt untouched — it tracks
+      // genuine user-initiated changes, not this server-side reset.
+    })
+    .where(eq(adminAccountsTable.id, seeded.id));
+
+  // Refresh the out-of-band watchdog snapshot so the new hash is not
+  // misread as a direct DB write on the next startup scan.
+  await recordAdminPasswordSnapshot({
+    adminId: seeded.id,
+    secret,
+    passwordChangedAt: now,
+  });
+
+  await logAdminAudit("admin_seed_super_admin_reset_to_default", {
+    adminId: seeded.id,
+    ip: "system",
+    result: "success",
+    metadata: {
+      username,
+      passwordSource: process.env.ADMIN_SEED_PASSWORD ? "env" : "default",
+    },
+  });
+
+  console.log("==================================================================");
+  console.log("[admin-seed] seeded super-admin reconciled to default credentials");
+  console.log(`[admin-seed]   username: ${username}`);
+  console.log("[admin-seed]   password: (default — see ADMIN_SEED_PASSWORD env)");
+  console.log("[admin-seed] ℹ  The SPA will surface the optional credentials popup.");
+  console.log("==================================================================");
+
+  return { reset: true };
+}

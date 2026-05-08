@@ -1,0 +1,615 @@
+ AJKMart 360° Full-Stack Monorepo Audit
+
+## What & Why
+Complete audit of every module across the AJKMart super-app monorepo — API server, Admin panel, Rider PWA, Vendor PWA, Customer Expo app, and all shared libraries. Documents every gap, missing function, invalid/broken pattern, security loophole, and optimisation opportunity found during investigation. This is a planning document; no code is changed here.
+
+## Done looks like
+- Every finding is categorised by layer and severity
+- Each item is actionable (can be assigned as a fix task)
+- Nothing is omitted — even minor issues are listed
+
+## Out of scope
+- New features not yet designed
+- EAS/native build pipeline issues
+- Third-party vendor APIs (JazzCash, EasyPaisa internals)
+
+---
+
+## AUDIT FINDINGS
+
+---
+
+### 1. API SERVER — Routes
+
+#### 1.1 `stats.ts` — Stub-level implementation
+- Only returns `productCount` and `restaurantCount` (active vendors)
+- No revenue totals, order counts, ride counts, user growth, or any real admin stat
+- Admin dashboard almost certainly fetches from other endpoints and ignores this route
+- **Gap:** Either wire real metrics here or delete the route — it is misleading dead weight
+
+#### 1.2 `cart.ts` — Server-side cart is only a raw JSON snapshot
+- GET/PUT/DELETE `/cart/snapshot` — persists a JSON blob, zero validation of contents
+- No price verification on save (client can store any price)
+- No item quantity cap enforced (MAX_ITEM_QUANTITY = 99 exists in `orders.ts` but not in cart)
+- No stock check on cart save — user can save out-of-stock items silently
+- No atomic cart-to-order conversion endpoint; ordering reads the snapshot independently
+- **Gap:** Cart snapshot should validate product IDs, prices, and stock at save time; or be fully server-side
+
+#### 1.3 `orders.ts` — No dedicated refund endpoint
+- Refunds are done by manually crediting the wallet (via admin panel)
+- No `POST /orders/:id/refund` endpoint; no refund state machine
+- `order_audit_log` schema exists but no customer-facing order timeline endpoint
+- Auto-cancel `setInterval` mentioned in platform config but not implemented in code
+- **Gap:** Add refund endpoint + order event timeline endpoint
+
+#### 1.4 `recommendations.ts` — No caching, DB hit on every request
+- `GET /recommendations/for-you` runs three separate DB queries on every call
+- No Redis or in-memory TTL cache around results
+- Weight-based collaborative filtering is correct logic but will not scale
+- `POST /recommendations/track` has no deduplication (same event can be stored many times in quick succession)
+- **Gap:** Add a short TTL cache (60 s) around recommendation results; deduplicate track events
+
+#### 1.5 `payments.ts` — No callback/webhook for automatic payment confirmation
+- JazzCash and EasyPaisa hash generation is implemented
+- Manual payment verification only — no `POST /payments/callback` endpoint to auto-confirm on gateway redirect
+- `resolvePayment()` and `confirmOrder()` helpers exist but are never called from a webhook handler
+- **Gap:** Add a gateway callback route with signature verification for each enabled gateway
+
+#### 1.6 `promotions.ts` — 1 212-line god file
+- Handles campaigns, offers, offer templates, promo codes, and participation in a single file
+- No sub-router split, all logic inline
+- `marketingAuth` and `managerAuth` are duplicated helper functions that already exist in admin-shared
+- **Gap:** Split into `campaigns.ts`, `offers.ts`, `promo-codes.ts` sub-modules
+
+#### 1.7 `school.ts` — No admin CRUD for subscriptions
+- Admin can manage school routes but there is no admin endpoint to view/cancel/refund school subscriptions
+- Subscription payment deducts from wallet but no refund path exists
+- **Gap:** Add `GET /admin/school/subscriptions` and `POST /admin/school/subscriptions/:id/cancel`
+
+#### 1.8 `van.ts` — Tracking emits but no persistent location trail
+- `emitVanLocation` and `emitVanTripUpdate` are called but van driver location is not persisted to `live_locations`
+- Customer tracking screen (`/van/tracking.tsx`) polls but has no fallback if socket disconnects
+- **Gap:** Persist van driver location to `live_locations` table same as ride-hailing riders
+
+#### 1.9 `wallet.ts` — In-memory idempotency cache not shared across restarts
+- Idempotency cache is a `Map<string, IdempotencyEntry>` in module scope
+- Server restart clears all in-flight keys — duplicate charges possible if server restarts during a payment
+- Redis-backed idempotency (using `idempotencyKeysTable`) exists in `orders.ts` but not in `wallet.ts`
+- **Gap:** Migrate wallet deposit/send/withdraw idempotency to `idempotencyKeysTable` (DB-backed, restart-safe)
+
+#### 1.10 `rides.ts` — 2 142-line god file
+- Contains ride booking, bargaining, OTP, bid management, cancellation, and status update all inline
+- Rate limiters are defined per-file with `rateLimit()` instead of using the central `rate-limit.ts`
+- `broadcastWalletUpdate` import is declared at the top but also redeclared inside the file body (duplicate)
+- **Gap:** Split into `rides/booking.ts`, `rides/dispatch.ts`, `rides/otp.ts`, `rides/bids.ts`
+
+#### 1.11 `rider.ts` — 3 240-line god file
+- Contains rider profile, GPS ping, location history, OTP, earnings, ride actions, van driver logic, penalties, and withdrawal all in one file
+- `normalizeVehicleType()` function is duplicated between `rider.ts` and the admin fleet routes
+- Cursor pagination is implemented here but unused in all other list endpoints
+- **Gap:** Split into `rider/profile.ts`, `rider/location.ts`, `rider/earnings.ts`, `rider/rides.ts`
+
+#### 1.12 `auth.ts` — 4 546-line god file (largest in codebase)
+- Handles OTP send/verify, username/password login, social OAuth, magic links, TOTP setup/verify, refresh, logout, account merge, password reset, and 2FA challenge all in one file
+- `isRiderSession()` duplicated across auth.ts and other places
+- `TODO(remove-after-v1)` comment on refresh token body field has been present since task #1
+- **Gap:** Split into `auth/otp.ts`, `auth/password.ts`, `auth/oauth.ts`, `auth/totp.ts`, `auth/session.ts`
+
+#### 1.13 `pharmacy.ts` — Prescription photo stored as text in `prescriptionNote`
+- Photo URL embedded as `[photo: url]` markup inside a text field
+- `prescriptionRefMap` is a module-level `Map` — lost on server restart
+- No image expiry or cleanup for uploaded prescription photos
+- **Gap:** Add dedicated `prescriptionPhotoUrl` column; persist ref map to DB or Redis
+
+#### 1.14 Missing: Loyalty points customer-facing endpoints
+- `admin/loyalty.ts` admin route exists, schema has `loyalty` feature flag
+- No `GET /users/me/loyalty` or `POST /loyalty/redeem` endpoint for customers
+- Loyalty is configured in admin but customers have no API to query their points
+- **Gap:** Add customer loyalty endpoints
+
+#### 1.15 Missing: Customer personal data export UI trigger
+- `POST /api/users/export-data` exists (audit-logged, admin-alerted)
+- No frontend in the Expo app — customers cannot self-trigger their data export
+- **Gap:** Add "Download My Data" button in customer profile → calls existing endpoint
+
+#### 1.16 Missing: Referral system backend
+- `features.referral` flag exists in platform config
+- No `referral_codes` table in schema, no `POST /referrals/apply` endpoint, no reward logic
+- Feature flag is wired to nothing
+- **Gap:** Either implement referral backend or remove the feature flag from platform config
+
+---
+
+### 2. API SERVER — Services & Lib
+
+#### 2.1 `communicationAI.ts` — Uses `console.log`/`console.warn` instead of `logger`
+- `console.log("✅ Gemini API key loaded.")` and `console.warn("⚠️ GEMINI_API_KEY not set…")` at module level
+- Inconsistent with rest of codebase which uses `pino` logger
+- These logs will not have `x-request-id` correlation or structured JSON output
+- **Fix:** Replace all `console.log`/`console.warn` with `logger.info`/`logger.warn`
+
+#### 2.2 `healthAlertMonitor.ts` — No teardown / signal handling
+- `setInterval` stored in `monitorTimer` but `clearInterval` is never called
+- On `SIGTERM`/`SIGINT` the interval fires one last time during shutdown, potentially after DB pool is closed
+- **Fix:** Register `process.on('SIGTERM', ...)` to call `clearInterval(monitorTimer)`
+
+#### 2.3 `encryption.ts` — Dead code in production
+- AES-256-GCM helpers are implemented correctly
+- Schema columns (`encrypted_*`) are not added (noted in replit.md as "not yet migrated")
+- `deriveKey()` runs expensive PBKDF2 (100k iterations) on first call — no warm-up at startup
+- **Gap:** Either migrate columns and activate encryption, or add a clear TODO with a tracking issue; add a startup warm-up call
+
+#### 2.4 `schemaDrift.service.ts` — Not scheduled, only on-demand
+- Schema drift check is exposed as an API endpoint but never run automatically
+- Silent drift accumulates between deploys
+- **Gap:** Run `schemaDriftCheck()` once at startup and log the result (warn if drift detected)
+
+#### 2.5 `fees.ts` — `calcDeliveryFee` always returns 0 for parcel when called from `orders.ts`
+- `orders.ts` calls `calcDeliveryFee(s, type, itemsTotal)` without `weightKg` argument
+- For parcel orders, this means weight surcharge is always zero even if weight was provided
+- **Bug:** Pass `weightKg` from request body when calling `calcDeliveryFee` in orders.ts
+
+#### 2.6 `metrics/responseTime.ts` — Only tracks p95; no histogram or export
+- `getP95Ms()`, `getMemoryPct()`, `getDiskPct()` exist
+- No Prometheus endpoint (`/metrics`) — cannot be scraped by any monitoring system
+- **Gap:** Add `GET /api/metrics` (admin-auth-protected) returning current stats in a stable format
+
+#### 2.7 Multiple `setInterval` cleanup timers in route files
+- `orders.ts` has idempotency key cleanup every 5 min
+- `wallet.ts` has in-memory idempotency sweep every 5 min
+- `rider.ts` has OTP attempt cleanup every 5 min
+- `rides.ts` has no cleanup timer despite managing rideBids
+- These are orphaned if routes are hot-reloaded and multiply in test environments
+- **Fix:** Centralise all cleanup jobs in `index.ts` or a dedicated `scheduler.ts`
+
+#### 2.8 `geofence.ts` — Stale zone cache is silently returned on DB error
+- On DB error during zone refresh, stale (possibly empty) cache is returned
+- Delivery eligibility check passes with no zones — all locations appear eligible
+- **Fix:** Log a warning and optionally block new orders if zone cache is empty and DB is unreachable
+
+#### 2.9 TOR exit node list fetched at startup from external URL
+- `security.ts` calls `refreshTorExitNodes()` which fetches `https://check.torproject.org/torbulkexitlist`
+- This is a synchronous dependency on an external resource at boot
+- If the URL is slow or blocked, startup logs error but boot continues — subsequent checks use empty set
+- **Fix:** Pre-seed a static fallback list; make the refresh non-blocking after first interval
+
+#### 2.10 `payment-providers.ts` — Hash functions not tested
+- `buildJazzCashHash` and `buildEasyPaisaHash` implement HMAC-SHA256 but have zero unit tests
+- A wrong hash silently fails at the gateway (customer sees "payment failed" with no explanation)
+- **Gap:** Add unit tests for hash builders with known good/bad vectors
+
+---
+
+### 3. API SERVER — Middleware & Security
+
+#### 3.1 `verifyOwnership.ts` — Missing coverage for `parcel` and `pharmacy` order types
+- `verifyOwnership("order")` checks `ordersTable` (mart/food orders)
+- No ownership guard for `parcelBookingsTable` or `pharmacyOrdersTable`
+- Pharmacy and parcel routes use `idorGuard` (user ID check) but it is less strict
+- **Gap:** Extend `verifyOwnership` to support `"parcel"` and `"pharmacy"` resources
+
+#### 3.2 `suspiciousPatternDetector.ts` — In-memory counter lost on restart
+- Per-IP request count tracked in-memory; resets on every restart
+- Attacker can force a restart to reset their count
+- **Fix:** Back counter with Redis (same pattern as rate-limit store); degrade gracefully if Redis unavailable
+
+#### 3.3 GPS spoof detection not applied to all location endpoints
+- `detectGPSSpoof()` is imported in `security.ts` but only called in `rider.ts` GPS ping
+- `/locations` route and `/parcel` live location updates don't run spoof detection
+- **Gap:** Apply `detectGPSSpoof` in the locations middleware or as a shared guard
+
+#### 3.4 `requireRole` middleware — `vendorApprovalCheck` only checks `kycStatus`
+- `kycStatus !== 'approved'` blocks vendor but ignores `isActive` flag
+- A manually deactivated vendor (isActive=false) with approved KYC can still use vendor endpoints
+- **Bug:** Also check `isActive === true` in vendor approval gate
+
+#### 3.5 Admin CSRF protection missing on some sub-routes
+- `csrfProtection` is applied after `adminAuth` in `admin.ts` router
+- But `adminAuthV2Router` in `index.ts` is mounted before the CSRF middleware chain
+- Admin auth V2 endpoints (login, refresh) are intentionally CSRF-exempt (correct)
+- However `POST /admin/auth/v2/password-reset-confirm` modifies state without CSRF — should verify this is safe
+- **Review:** Confirm all state-modifying admin auth V2 endpoints are protected or explicitly exempt for good reason
+
+---
+
+### 4. EXPO CUSTOMER APP (ajkmart)
+
+#### 4.1 `app/index.tsx` — Redirect bypasses onboarding check
+- `RootIndex` always redirects to `/(tabs)` regardless of whether onboarding has been seen
+- Onboarding is shown from `_layout.tsx` via `hasSeenOnboarding()` async check
+- On slow devices the `/(tabs)` route may render briefly before the layout gate fires
+- **Fix:** Move onboarding check to `index.tsx` before redirect; show splash or spinner while checking
+
+#### 4.2 `app/_Screen.tsx` in ride module — uses raw `fetch` instead of shared API client
+- `const res = await fetch(\`${API_BASE}/rides/${urlRideId}\`, ...)` — direct fetch with manual token header
+- `@workspace/api-client-react` handles auth headers, refresh, and error normalisation automatically
+- **Fix:** Replace with the typed `getRide(id)` call from the shared client
+
+#### 4.3 `app/(tabs)/index.tsx` — `API_BASE` hardcoded again at file top
+- `const API_BASE = \`https://${process.env.EXPO_PUBLIC_DOMAIN}/api\`` — duplicated from `utils/api.ts`
+- If the base URL logic ever changes, this file will not benefit from the fix
+- **Fix:** Import `API_BASE` from `@/utils/api`
+
+#### 4.4 `context/AuthContext.tsx` — Socket created on login but never destroyed on token expiry
+- `socket` is created in `login()` callback and stored in context
+- If the access token expires and is silently refreshed, the socket continues with the old auth
+- Socket does not reconnect with a new token after silent refresh
+- **Fix:** Disconnect and reconnect socket when `onTokenRefreshed` fires
+
+#### 4.5 Missing: review submission screen after order delivery
+- `my-reviews.tsx` exists (lists user's reviews)
+- No UI to submit a new review from the order detail screen post-delivery
+- Backend `POST /reviews` endpoint exists
+- **Gap:** Add "Leave a Review" CTA in order detail after status becomes `delivered`
+
+#### 4.6 Missing: school transport screen
+- `/api/school/*` routes are fully implemented
+- No Expo screen exists for school transport booking
+- `serviceRegistry` likely does not include school as a service
+- **Gap:** Add school transport to service registry and build booking screen
+
+#### 4.7 `app/weather.tsx` — No weather data hook or API integration visible
+- Screen file exists but actual data fetching implementation not confirmed in components
+- `weather_config` table and admin settings exist; `/api/weather-config` public endpoint exists
+- **Verify:** Confirm weather screen fetches from the correct endpoint; if not, wire it up
+
+#### 4.8 `RecentlyViewedSection` in home tab — reads raw AsyncStorage without abstraction
+- `AsyncStorage.getItem(RECENTLY_VIEWED_KEY)` called directly in render-phase `useEffect`
+- No write path visible in product detail screen — recently viewed may never be populated
+- **Fix:** Create `utils/recentlyViewed.ts` with `addRecentItem()` / `getRecentItems()` helpers; call `addRecentItem` in `product/[id].tsx`
+
+#### 4.9 Missing: SOS button in ride tracking screen
+- `features.sos` flag exists in platform config
+- `RideTracker` component renders ride state but no emergency/SOS button
+- Backend `POST /sos` endpoint is fully implemented
+- **Gap:** Add SOS button to `RideTracker` component, gated by `features.sos` flag
+
+#### 4.10 `app/van/tracking.tsx` — No socket/real-time connection
+- Van tracking screen exists but van driver location is not persisted to `live_locations` (see API gap 1.8)
+- Tracking screen likely shows a static last-known position
+- **Gap:** Fix API side first (1.8), then wire socket room to van tracking screen
+
+#### 4.11 `CartContext` — Offline cart merging not defined
+- Cart is synced to server snapshot on change
+- No merge strategy defined when user logs in on a new device with an existing server snapshot vs. a local cart
+- **Fix:** Define and implement a merge strategy (e.g., server wins, or union of items, or last-write-wins)
+
+#### 4.12 Missing: push notification deep-link routing
+- `registerPush()` utility exists in `utils/push.ts`
+- No `Linking.addEventListener` or notification response handler to deep-link to order/ride on tap
+- **Gap:** Handle `lastNotificationResponse` from Expo Notifications to route to correct screen
+
+---
+
+### 5. VENDOR PWA (vendor-app)
+
+#### 5.1 `Products.tsx` — CSV import runs in the browser main thread
+- `Papa.parse()` with large files blocks the UI
+- No file size limit enforced before parsing
+- No validation of CSV column names before bulk insert
+- **Fix:** Enforce a max row count (e.g., 500), validate headers, run parse in a Web Worker or with `worker: true` papaparse option
+
+#### 5.2 `Orders.tsx` — No audio notification unlock strategy
+- Vendor app connects via socket.io and receives `order:new` events
+- No `unlockAudio()` / `playRequestSound()` mechanism (rider app has this)
+- New orders arrive silently if the tab is in the background
+- **Gap:** Add audio notification on `order:new` event (same pattern as rider app)
+
+#### 5.3 Missing: vendor schedule management UI
+- `vendor_schedules` table exists in DB schema
+- `PATCH /vendor/store` accepts `storeHours` JSON
+- No dedicated schedule editor UI in the vendor app (only a JSON field in profile)
+- **Gap:** Add a time-slot schedule editor component (day-of-week × open/close time)
+
+#### 5.4 Missing: stock alert / low-stock notification UI
+- `stock_subscriptions` table exists in schema
+- No vendor UI to set low-stock thresholds or view stock alerts
+- **Gap:** Add low-stock threshold input per product; show alert badge when stock falls below it
+
+#### 5.5 `Analytics.tsx` — No data caching, refetches on every mount
+- `useQuery` with no `staleTime` — refetches every time the tab is switched
+- Large date-range queries (90 days) repeat unnecessarily
+- **Fix:** Set `staleTime: 5 * 60 * 1000` (5 min) on analytics queries
+
+#### 5.6 `Wallet.tsx` — Withdrawal confirmation has no server-side receipt display
+- After `api.withdrawWallet()` succeeds, shows a "done" step with no transaction ID
+- User has no reference number to quote when following up
+- **Fix:** Return and display the wallet transaction ID in the confirmation step
+
+#### 5.7 Missing: bulk price/stock update from vendor app
+- Vendor can update products one at a time via edit modal
+- No bulk update or spreadsheet-style inline edit
+- **Gap:** Add bulk stock/price edit mode (checkbox → edit → apply)
+
+---
+
+### 6. RIDER PWA (rider-app)
+
+#### 6.1 `Home.tsx` — GPS dismiss queue not persisted between page refreshes
+- `sweepAndLoadDismissed()` loads from `sessionStorage` (volatile)
+- Rider refreshing the page loses all dismissed request IDs — already-dismissed requests reappear
+- **Fix:** Use `localStorage` instead of `sessionStorage` for dismissed request IDs
+
+#### 6.2 `VanDriver.tsx` — Integration with van routes unclear
+- Page exists for van drivers but whether it fetches from `/api/van/driver/*` endpoints is unconfirmed
+- Van driver location emission (see API gap 1.8) feeds into this page
+- **Verify:** Confirm `VanDriver.tsx` is wired to correct van driver endpoints
+
+#### 6.3 Missing: rider document expiry alerts
+- KYC status is checked (`kycStatus`) but no expiry date tracking for CNIC, license, or vehicle registration
+- Riders with expired documents can still accept orders
+- **Gap:** Add document expiry dates to `kyc_verifications` / `rider_profiles`; warn rider and block acceptance when expired
+
+#### 6.4 `Earnings.tsx` — Polling instead of socket-driven updates
+- `refetchInterval: 60000` — earnings refresh every 60 seconds via polling
+- Socket.io is connected in rider app; `wallet:update` event could trigger immediate refetch
+- **Fix:** Add `queryClient.invalidateQueries(['rider-earnings'])` on `wallet:update` socket event
+
+#### 6.5 Missing: earnings CSV export
+- Riders can see earnings breakdown but cannot download a statement
+- Backend has all the data in `wallet_transactions`
+- **Gap:** Add `GET /rider/earnings/export?period=month` → CSV download
+
+#### 6.6 `SecuritySettings.tsx` — 2FA setup exists but TOTP recovery codes not shown
+- Rider can enable TOTP but there is no recovery code display or download
+- If rider loses authenticator app, account is locked out permanently
+- **Gap:** Generate and display one-time recovery codes on TOTP setup
+
+---
+
+### 7. ADMIN PANEL (admin)
+
+#### 7.1 `audit-logs.tsx` — Unclear which audit tables are shown
+- Page exists for audit logs but it may only show `admin_action_audit_log`
+- `auth_audit_log`, `otp_bypass_audit`, and `order_audit_log` tables also exist
+- **Fix:** Confirm and document which tables feed this page; add tabs for each log type if needed
+
+#### 7.2 `experiments.tsx` — A/B test results have no metrics visualisation
+- A/B experiment schema (`ab_experiments`) exists with variant data
+- No chart or conversion funnel visible in the experiments page
+- **Gap:** Add experiment results panel showing conversion rate per variant
+
+#### 7.3 `health-dashboard.tsx` — Schema drift not auto-checked
+- Schema drift check runs only when explicitly triggered from the UI
+- Silent drift accumulates between deploys
+- **Fix:** Auto-run drift check on health dashboard load (or on API server startup — see API gap 2.4)
+
+#### 7.4 Missing: bulk user management actions
+- Users page allows individual actions (suspend, activate, KYC review)
+- No multi-select checkbox for bulk suspend/activate/export
+- **Gap:** Add checkbox column and bulk action bar to users table
+
+#### 7.5 Missing: product bulk import from admin
+- Vendor app has CSV product import
+- Admin panel has no equivalent tool to seed or bulk-update products across all vendors
+- **Gap:** Add admin-level product bulk import (CSV → dry-run preview → confirm)
+
+#### 7.6 `revenue-analytics.tsx` — No export to CSV/Excel
+- Revenue charts are rendered with Recharts
+- No download button for the underlying data
+- **Gap:** Add `Export CSV` button that downloads the current date-range data
+
+#### 7.7 `orders` sub-pages — No auto-refresh on new orders
+- Orders table requires manual refresh or pull-to-refresh
+- Socket.io is connected in admin but `order:new` event not hooked to invalidate orders query
+- **Fix:** Listen for `order:new` socket event and call `queryClient.invalidateQueries(['admin-orders'])`
+
+#### 7.8 `webhook-manager.tsx` — No webhook delivery log UI
+- `webhook_registrations` table exists; webhooks are emitted via `webhook-emitter.ts`
+- No delivery log table (`webhook_deliveries`) or retry tracking
+- Failed webhooks are silently dropped
+- **Gap:** Add `webhook_delivery_log` table; show per-webhook delivery history in admin
+
+---
+
+### 8. SHARED LIBRARIES
+
+#### 8.1 `api-client-react` — Generated client may be out of sync with routes
+- `generated/` directory exists in `lib/api-client-react/src/`
+- Many new routes added (van, school, cart, weather-config, broadcasts, etc.) since last generation
+- **Gap:** Re-run codegen; add codegen to CI/pre-commit hook
+
+#### 8.2 `i18n` — New feature strings likely missing Urdu/Roman Urdu translations
+- English strings are primary; Urdu and Roman Urdu are secondary
+- Features added since Task #1 (van, school, weather, referral) have English strings only
+- **Gap:** Audit `lib/i18n/src/` for missing Urdu/Roman Urdu translation keys; fill gaps
+
+#### 8.3 `auth-utils` — `isAuthMethodEnabled` vs `isAuthMethodEnabledStrict` undocumented
+- Two exported functions with similar names and no JSDoc explaining the difference
+- `auth.ts` imports both but usage context is unclear without reading implementation
+- **Fix:** Add JSDoc comments explaining the difference and when to use each
+
+#### 8.4 `service-constants` — `RIDE_VALID_STATUSES` only used in admin fleet
+- Exported from the shared lib but only consumed in one place
+- Other places that check ride status (rides.ts, rider.ts) use inline string arrays
+- **Fix:** Replace all inline ride-status arrays with the shared constant
+
+#### 8.5 `phone-utils` — `canonicalizePhone` called in auth.ts but not in all phone-accepting routes
+- `parcel.ts`, `pharmacy.ts`, `van.ts`, `rider.ts` all accept phone numbers
+- Only `auth.ts` canonicalises via `canonicalizePhone` before storage/lookup
+- **Fix:** Apply `canonicalizePhone` in every route that accepts a phone number field
+
+---
+
+### 9. DATABASE / SCHEMA
+
+#### 9.1 `data_export_logs` and `sentry_known_issues` tables — Not in Drizzle schema
+- Created at runtime via `ensureSecurityTables()` using raw SQL
+- Not tracked by Drizzle Kit migrations — cannot be rolled back or diffed
+- **Fix:** Add these tables to the Drizzle schema and generate a migration
+
+#### 9.2 Cursor pagination implemented but only used in one route
+- `lib/pagination/cursor.ts` has `buildCursorPage` / `encodeCursor` / `decodeCursor`
+- Only `rider.ts` uses cursor pagination
+- `orders.ts`, `products.ts`, `users.ts`, wallet transactions all use offset pagination
+- Large tables will degrade with offset pagination
+- **Gap:** Migrate high-volume list endpoints (orders, wallet transactions, products) to cursor pagination
+
+#### 9.3 Missing cascade deletes on foreign keys
+- `orders.items` references product IDs but there is no cascade rule
+- Deleting a product does not null-out order line items
+- `rides` references `rideServiceTypesTable` — deleting a service type may leave orphaned rides
+- **Fix:** Audit all FK constraints; add `ON DELETE SET NULL` or `ON DELETE RESTRICT` as appropriate
+
+#### 9.4 `product_stock_history` only written from vendor update path
+- Schema has `product_stock_history` table
+- Stock decrements in `orders.ts` (via `decrementStock()`) do not write a history entry
+- **Fix:** Write a stock history entry in `decrementStock()` with `reason: 'order'` and `orderId`
+
+#### 9.5 `idempotency_keys` table not used in wallet or rides
+- DB-backed idempotency is only implemented in orders
+- Wallet deposit, send, and withdraw use an in-memory cache (see API gap 1.9)
+- Ride booking has its own in-memory mechanism too
+- **Fix:** Standardise on `idempotency_keys` table for all payment-critical operations
+
+#### 9.6 `flash_deals` table schema — No admin CRUD route visible in flash-deals.tsx
+- `flash_deals.tsx` admin page exists
+- No API route `GET/POST/PATCH/DELETE /api/admin/flash-deals` found in route index
+- **Verify:** Confirm flash deals CRUD is wired up; if routed elsewhere, document it
+
+#### 9.7 Missing: soft-delete pattern for products and users
+- Hard deletes are used; deleted products break order history references
+- Deleted users leave orphaned orders, rides, and wallet transactions
+- **Gap:** Add `deletedAt` column to `products` and `users`; replace DELETE with soft-delete; add `isDeleted` filter to all list queries
+
+---
+
+### 10. PERFORMANCE & SCALABILITY
+
+#### 10.1 `admin/finance/wallets.ts` — Hardcoded `.limit(200)` and `.limit(300)` on transaction queries
+- No pagination; 200-300 rows returned in a single response on every load
+- Will degrade as transaction volume grows
+- **Fix:** Add cursor/offset pagination to both transaction endpoints
+
+#### 10.2 `admin/fleet/rides.ts` — `.limit(500)` hard cap on enriched rides
+- 500 rides fetched with user JOINs on every admin fleet page load
+- **Fix:** Add cursor pagination; fetch only the current page
+
+#### 10.3 Multiple N+1 query patterns in admin routes
+- `admin.ts` `formatSvc` and user enrichment loops do per-row DB lookups in some places
+- `recommendations.ts` runs three sequential queries that could be parallelised with `Promise.all`
+- **Fix:** Use `Promise.all` for parallel independent queries; batch user lookups with `inArray`
+
+#### 10.4 Socket.io rooms not cleaned up on rider disconnect
+- Riders join `rider:{id}` and `admin-fleet` rooms on connect
+- No cleanup handler ensures room membership is cleared on disconnect if the server restarts
+- Stale socket room memberships can cause duplicated push events
+- **Fix:** Add `socket.on('disconnect', () => socket.leave(...))` handlers in socket setup
+
+#### 10.5 Platform settings fetched on every request in some routes
+- `getPlatformSettings()` is called inside individual route handlers (per-request)
+- `getCachedSettings()` with a 30s TTL exists but is not used consistently
+- `healthAlertMonitor.ts` calls `getCachedSettings()` on each interval tick — correct, but the monitor also calls `getPlatformSettings()` in inner helpers
+- **Fix:** Audit all route files; replace `getPlatformSettings()` calls inside handlers with `getCachedSettings()`
+
+---
+
+### 11. MISSING TEST COVERAGE
+
+#### 11.1 API server — Only 2 test files
+- `api.test.ts` and `security.test.ts` in `artifacts/api-server/src/tests/`
+- No tests for: orders, wallet, rides, recommendations, payments, school, van, pharmacy, parcel
+- Hash-building functions (`buildJazzCashHash`, `buildEasyPaisaHash`) have zero tests
+- **Gap:** Add integration tests for all critical payment and order flows
+
+#### 11.2 Rider app — 3 test files, limited scope
+- `auth-logout.test.ts`, `offline.test.ts`, `security.test.ts`
+- No tests for GPS queue logic, earnings calculation, or bid acceptance
+- **Gap:** Add unit tests for GPS queue, offline action queue, and earnings display logic
+
+#### 11.3 Vendor app — No test files
+- `artifacts/vendor-app/src/` has no `tests/` directory
+- **Gap:** Add at minimum a smoke test for login and order status flow
+
+#### 11.4 Shared libs — No tests
+- `lib/fees.ts`, `lib/geofence.ts`, `lib/pagination/cursor.ts` have zero tests
+- Fee calculation bugs are silent; geofence logic errors let out-of-zone orders through
+- **Gap:** Add unit tests for all shared calculation utilities
+
+---
+
+## Steps
+
+1. **Triage and prioritise findings** — Categorise each finding as Bug (B), Gap (G), or Refactor (R); assign severity (Critical / High / Medium / Low).
+
+2. **Fix Critical Bugs first** — Address items 2.5 (fees.ts wrong parcel delivery fee), 3.4 (vendor isActive bypass), 9.4 (stock history not written on order), and 1.9 (wallet idempotency).
+
+3. **Security hardening** — Address items 3.1–3.5, 2.9 (TOR list), 2.3 (encryption dead code), and 6.6 (TOTP recovery codes).
+
+4. **God-file splits** — Break up auth.ts (4546 lines), rider.ts (3240 lines), rides.ts (2142 lines), and promotions.ts (1212 lines) into sub-modules.
+
+5. **Performance fixes** — Cursor pagination on high-volume endpoints (10.1–10.3), caching for recommendations (1.4), platform settings consistency (10.5).
+
+6. **Missing features** — Implement refund endpoint (1.3), referral backend (1.16), loyalty customer endpoints (1.14), review submission in Expo (4.5), school transport Expo screen (4.6).
+
+7. **Schema fixes** — Move runtime-created tables into Drizzle schema (9.1), add soft-delete (9.7), add cascade rules (9.3), standardise idempotency (9.5).
+
+8. **Test coverage** — Add tests for fee calculations, geofence, payment hash builders, and critical order/wallet flows.
+
+9. **Shared library sync** — Re-run API client codegen (8.1), fill i18n translation gaps (8.2), standardise phone canonicalisation (8.5).
+
+10. **Frontend gaps** — Wire recently-viewed write path (4.8), push notification deep-link routing (4.12), vendor audio notifications (5.2), admin orders auto-refresh (7.7).
+
+---
+
+## Relevant files
+
+- `artifacts/api-server/src/routes/auth.ts`
+- `artifacts/api-server/src/routes/rides.ts`
+- `artifacts/api-server/src/routes/rider.ts`
+- `artifacts/api-server/src/routes/orders.ts`
+- `artifacts/api-server/src/routes/wallet.ts`
+- `artifacts/api-server/src/routes/promotions.ts`
+- `artifacts/api-server/src/routes/cart.ts`
+- `artifacts/api-server/src/routes/pharmacy.ts`
+- `artifacts/api-server/src/routes/school.ts`
+- `artifacts/api-server/src/routes/van.ts`
+- `artifacts/api-server/src/routes/payments.ts`
+- `artifacts/api-server/src/routes/recommendations.ts`
+- `artifacts/api-server/src/routes/stats.ts`
+- `artifacts/api-server/src/routes/admin.ts`
+- `artifacts/api-server/src/routes/index.ts`
+- `artifacts/api-server/src/routes/admin/finance/wallets.ts`
+- `artifacts/api-server/src/routes/admin/fleet/rides.ts`
+- `artifacts/api-server/src/middleware/security.ts`
+- `artifacts/api-server/src/middleware/verifyOwnership.ts`
+- `artifacts/api-server/src/middleware/rate-limit.ts`
+- `artifacts/api-server/src/middleware/suspiciousPatternDetector.ts`
+- `artifacts/api-server/src/services/communicationAI.ts`
+- `artifacts/api-server/src/services/healthAlertMonitor.ts`
+- `artifacts/api-server/src/services/schemaDrift.service.ts`
+- `artifacts/api-server/src/lib/fees.ts`
+- `artifacts/api-server/src/lib/geofence.ts`
+- `artifacts/api-server/src/lib/crypto/encryption.ts`
+- `artifacts/api-server/src/lib/metrics/responseTime.ts`
+- `artifacts/api-server/src/lib/pagination/cursor.ts`
+- `artifacts/ajkmart/app/_layout.tsx`
+- `artifacts/ajkmart/app/index.tsx`
+- `artifacts/ajkmart/app/(tabs)/index.tsx`
+- `artifacts/ajkmart/app/(tabs)/_layout.tsx`
+- `artifacts/ajkmart/app/ride/_Screen.tsx`
+- `artifacts/ajkmart/app/van/tracking.tsx`
+- `artifacts/ajkmart/context/AuthContext.tsx`
+- `artifacts/ajkmart/context/CartContext.tsx`
+- `artifacts/ajkmart/context/PlatformConfigContext.tsx`
+- `artifacts/ajkmart/components/ride/RideTracker.tsx`
+- `artifacts/ajkmart/utils/api.ts`
+- `artifacts/vendor-app/src/pages/Products.tsx`
+- `artifacts/vendor-app/src/pages/Orders.tsx`
+- `artifacts/vendor-app/src/pages/Analytics.tsx`
+- `artifacts/vendor-app/src/pages/Wallet.tsx`
+- `artifacts/rider-app/src/pages/Home.tsx`
+- `artifacts/rider-app/src/pages/Earnings.tsx`
+- `artifacts/rider-app/src/pages/VanDriver.tsx`
+- `artifacts/rider-app/src/pages/SecuritySettings.tsx`
+- `artifacts/admin/src/pages/audit-logs.tsx`
+- `artifacts/admin/src/pages/experiments.tsx`
+- `artifacts/admin/src/pages/health-dashboard.tsx`
+- `artifacts/admin/src/pages/webhook-manager.tsx`
+- `lib/api-client-react/src/`
+- `lib/i18n/src/`
+- `lib/db/src/schema/`
+- `lib/auth-utils/`
+- `lib/service-constants/`
+- `lib/phone-utils/`
+- `lib/fees.ts`

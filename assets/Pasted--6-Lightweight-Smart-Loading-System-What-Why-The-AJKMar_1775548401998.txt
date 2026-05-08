@@ -1,0 +1,37 @@
+#6 - Lightweight & Smart Loading System
+What & Why
+The AJKMart customer app needs to be optimized for low-resource phones and slow networks common in the AJK region. Currently, all service screens and assets load upfront regardless of whether the user uses them or admin has enabled them. The app needs a smart system where only the features the user actually uses (or admin has enabled) get loaded, and everything works smoothly on 2G/3G networks and phones with 1-2GB RAM.
+
+Done looks like
+App opens significantly faster — splash screen time is reduced
+Home screen (currently 1756 lines in one file) is broken into smaller, lazy-loaded sections
+Service modules (Mart, Food, Rides, Pharmacy, Parcel, Van) only load their code when the user navigates to them — disabled services don't load at all
+Images load progressively: tiny placeholder first, then thumbnail, then full image — all based on network speed
+API responses are smaller — server sends only essential fields for list views, full data only on detail views
+Offline resilience: if network drops, cached data is shown instead of a crash or blank screen
+Slow network detection: the app detects connection quality and adjusts behavior (fewer images, simpler animations, smaller payloads)
+Heavy animations are automatically reduced on low-RAM devices
+Admin feature flags are respected at the loading level — if admin disables Pharmacy, that module's code is never loaded, not just hidden behind a guard screen
+Out of scope
+Changing the admin panel or admin settings structure (already complete)
+Rewriting service screens from scratch (only optimizing their loading)
+App Store / Play Store bundle splitting (OTA update strategies)
+Server-side infrastructure changes (CDN, edge caching)
+Tasks
+Break up the Home screen — Split the 1756-line home screen into independent lazy-loaded section components (ServiceGrid, BannerCarousel, ActiveTracker, QuickActions, FlashDeals, TrendingSection, StatsBar, etc). Each section loads independently so the core home renders instantly and sections appear as they're ready.
+
+Service-aware lazy loading — Create a smart loader that checks PlatformConfig feature flags before importing service modules. If admin has disabled a service (e.g., pharmacy=false), its screen code is never imported. Use React.lazy with Suspense for each service route so only the active services load their JavaScript.
+
+Network-aware image system — Build a wrapper around expo-image that detects network quality (NetInfo) and serves appropriate image quality: on slow connections, request smaller thumbnails from the API; show blurhash/skeleton placeholders while loading; cache aggressively so repeat views are instant.
+
+Slim API responses — Add a fields or slim=true query parameter to key list endpoints (products, stores, orders) so the server returns only essential fields for list/card views. Full details load only when user opens a detail screen. This reduces payload sizes by 50-70% for list views.
+
+Offline data layer — Persist critical React Query cache to AsyncStorage so when the app opens with no/slow network, the last known data (home screen, cart, recent orders) appears instantly. Add a subtle "offline" indicator bar when disconnected.
+
+Network quality detector & adaptive UI — Create a useNetworkQuality hook that monitors connection type (2G/3G/4G/WiFi) and speed. Based on quality: reduce image resolutions, disable heavy animations (LinearGradient transitions, parallax), reduce API polling frequency (e.g., tracker refresh from 30s to 60s on slow networks), and show a "slow connection" indicator.
+
+Low-device performance mode — Detect available device memory and CPU. On low-end devices: disable gradient backgrounds and use flat colors, simplify list item rendering, reduce the number of concurrent image loads, and turn off non-essential visual effects.
+
+Optimize provider tree and startup — Audit the provider stack in _layout.tsx. Defer non-critical providers (Cart, Toast) until after the home screen renders. Lazy-load Sentry, analytics, and push notification initialization so they don't block startup.
+
+Relevant files

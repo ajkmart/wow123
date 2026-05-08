@@ -1,0 +1,129 @@
+VENDOR-SPECIFIC SECURITY
+ Debug Statement Cleanup
+
+ Remove all console.log(), console.alert(), console.table()
+ Remove DEBUG flags
+ No hardcoded API keys
+ Add ESLint: "no-console": "error"
+ RBAC for Vendors
+
+ Vendor can only see their own store data
+ Vendor CANNOT access admin/rider data
+ Vendor CANNOT modify other vendor's products/orders
+ Test: Try accessing other vendor's orders → 403
+ Test: Change user ID in request → 403
+ File: Verify backend has ownership checks
+ Order Management Security
+
+ Vendor can only accept/reject own orders
+ Vendor cannot modify order price
+ Vendor can only cancel within time window (e.g., 5 min)
+ All order changes logged to audit trail
+ Customer gets notification on order status change
+ Inventory Management
+
+ Prevent overselling: Check stock before confirming order
+ Auto-update inventory on order confirmation
+ Prevent negative stock
+ Low stock alert (threshold configurable)
+ Bulk inventory update with history
+ Payment & Wallet
+
+ Vendor wallet balance visible
+ Daily settlement report
+ Withdrawal form with:
+ Min amount check
+ Bank account verification
+ Withdrawal history
+ Commission deduction shown clearly
+ Platform fees breakdown
+ Analytics & Reporting
+
+ Daily orders count
+ Daily revenue
+ Top selling products
+ Customer ratings
+ Cancellation rate
+ Response time metrics
+ Error Boundaries
+
+ File: App.tsx - ErrorBoundary already exists (good!)
+ Verify fallback shows helpful message in Urdu + English
+ Add retry button
+ Push Notifications
+
+ New order notification with sound
+ Order cancellation notification
+ Payment settlement notification
+ Foreground notification shows banner
+ Tap notification → navigate to order detail
+ Offline Support
+
+ Show cached orders
+ Queue order updates when offline
+ Sync when back online
+ Toast: "Syncing..." when reconnecting
+📊 VENDOR DASHBOARD
+ Homepage
+
+ Quick stats: Today's orders, revenue, ratings
+ Active orders list (not completed)
+ Quick action buttons: Accept order, view chat, manage inventory
+ Notifications list
+ Orders Page
+
+ Filter: Active, pending, completed, cancelled
+ Sort: By time, revenue
+ Search: By order ID, customer name
+ Bulk actions: Accept multiple, reject multiple
+ Order detail: Items, address, customer contact, payment status
+ Products Page
+
+ List all products
+ Edit product: name, description, price, image, stock
+ Bulk upload CSV
+ Set offer price
+ Set category and tags
+ Disable product (hide from customers)
+ Wallet & Payouts
+
+ Balance display (with last update time)
+ Transaction history
+ Withdrawal form
+ Payout schedule display
+ Tax deduction (if applicable)
+ Reviews Page
+
+ Customer ratings and feedback
+ Filter by rating (5⭐, 4⭐, etc.)
+ Reply to review
+ Trend: Average rating over time
+ Campaigns & Promos
+
+ Create promotion (discount %)
+ Set validity period
+ Set max usage
+ View campaign performance
+ Chat with Customers
+
+ Incoming messages from customers
+ Reply with quick actions
+ File upload in chat
+ Chat history persistent
+🧪 VENDOR TESTING
+ Security Tests
+
+ Test IDOR: Vendor A tries to see Vendor B's orders → 403
+ Test IDOR: Vendor tries to edit another vendor's product → 403
+ Test XSS: Enter product name with <script> → rendered safe
+ Test: Vendor tries to withdraw negative amount → error
+ Test: Oversell product → order rejected
+ Test: Vendor modifies product price → rejected, server-side used
+ Workflow Tests
+
+ New order comes in → notification fires
+ Vendor accepts order → order moved to active
+ Vendor marks as ready → rider notified
+ Rider completes → order moved to completed
+ Revenue updated correctly
+ Payment settled next day

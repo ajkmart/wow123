@@ -1,0 +1,131 @@
+You are tasked with completing the OTP Control System across all apps (rider, vendor, customer) and backend. The admin panel and backend APIs for OTP control are already working (global disable, per-user bypass, whitelist, audit log). However, the apps do not yet respect the bypass settings. You must implement the missing pieces to make the system fully functional end‑to‑end.
+
+Current State (Given)
+✅ Backend APIs:
+
+POST /admin/otp/disable , DELETE /admin/otp/disable → global OTP suspension
+
+POST /admin/otp/bypass , DELETE /admin/otp/bypass/:userId → per‑user bypass
+
+GET /admin/whitelist , POST /admin/whitelist , PUT /admin/whitelist/:id , DELETE /admin/whitelist/:id → whitelist management
+
+GET /admin/audit/otp → audit logs
+
+✅ Admin UI (otp-control.tsx) – complete and professional
+
+❌ Apps (rider, vendor, customer/ajkmart) – no integration
+
+❌ Auth endpoints do not check bypass status before sending/skipping OTP
+
+Required Changes
+1. Backend – Add Bypass Check to Auth Endpoints
+Modify POST /auth/send-otp and POST /auth/verify-otp:
+
+Create a reusable helper checkOtpBypass(phone: string) that returns:
+
+ts
+{ active: boolean, expiresAt?: Date, reason?: 'global' | 'user' | 'whitelist' }
+Logic:
+
+Global suspension from platform_settings (key otp_disabled_until)
+
+Per‑user bypass from otp_bypass table (check user_id via phone lookup)
+
+Whitelist from otp_whitelist (check if phone matches any entry with enabled=true)
+
+/auth/send-otp :
+
+Call checkOtpBypass(phone)
+
+If active === true → DO NOT send SMS. Return:
+
+json
+{ "bypass": true, "expiresAt": "...", "message": "OTP bypass active, no SMS sent" }
+Else → proceed with normal OTP generation & SMS.
+
+/auth/verify-otp :
+
+Call checkOtpBypass(phone)
+
+If active === true → skip OTP code validation, generate auth tokens and return success immediately.
+
+Else → validate OTP code as usual.
+
+Add a new endpoint (or reuse config) for apps to fetch bypass status without triggering SMS:
+GET /auth/otp-status?phone=... → returns { bypassActive, bypassExpiresAt }
+
+2. Apps – Create useOTPBypass Hook (rider / vendor / ajkmart)
+In each app at:
+artifacts/rider-app/src/hooks/useOTPBypass.ts
+artifacts/vendor-app/src/hooks/useOTPBypass.ts
+artifacts/ajkmart/hooks/useOTPBypass.ts
+
+The hook should:
+
+Accept the user’s phone number (from auth context or login input).
+
+Call GET /auth/otp-status?phone=... (or fetch from /api/auth/config if extended).
+
+Return:
+
+ts
+{ bypassActive: boolean, bypassExpiresAt: Date | null, isLoading: boolean, refetch: () => void }
+Handle loading/error states, use useEffect to fetch on mount / phone change.
+
+Use the same API client as the rest of the app (with authentication token if available).
+
+3. Apps – Integrate into Login Flow
+Modify the login screen (where user enters phone → requests OTP):
+
+Before calling sendOtp, call useOTPBypass or fetch status.
+
+If bypassActive === true:
+
+Show a warning banner (non‑modal, at top of screen):
+“OTP verification is temporarily disabled for your account. You will be logged in automatically.”
+Optionally show expiry countdown: “Bypass ends in 2h 15m”.
+
+Automatically skip the OTP entry screen and directly call verifyOtp with a dummy/empty code – backend will skip validation.
+
+Or, automatically proceed to the next step (dashboard) without any SMS.
+
+If bypass is not active, proceed normally: send OTP, show code input, verify.
+
+If the user manually requests OTP while bypass is active, the backend will not send SMS – app must handle the response’s bypass: true flag and behave accordingly (auto‑verify without requiring code).
+
+4. Verify and Fix Whitelist Route Path
+Ensure the backend actually mounts /admin/whitelist (check server/src/routes/admin.ts or otp.ts).
+
+If missing, add the router. The frontend otp-control.tsx already posts to /admin/whitelist – confirm it works.
+
+5. Database Migrations (if needed)
+The platform_settings, otp_bypass, otp_whitelist tables already exist (from initial setup). No new migration required, but verify columns:
+
+platform_settings: key (string), value (jsonb)
+
+otp_bypass: user_id, expires_at, granted_by, granted_at, reason
+
+otp_whitelist: identifier (phone/email), enabled, note
+
+6. TypeScript & Error Handling
+All new code must have explicit types, no any.
+
+Use the existing isApiError() utility where applicable.
+
+Add proper error messages for API failures (e.g., network error, 500).
+
+Deliverables
+You must output the exact code changes for:
+
+Backend – modifications to server/src/routes/auth.ts (or wherever /send-otp, /verify-otp live). Create the helper function and new endpoint.
+
+Rider App – new useOTPBypass.ts hook + login screen changes.
+
+Vendor App – same as above.
+
+Customer App (ajkmart) – same as above.
+
+Any router fixes for /admin/whitelist.
+
+Use the project’s existing patterns (React Native / Expo, Tailwind, React Query if present).
+Assume the backend is Node.js + Express + Drizzle ORM.

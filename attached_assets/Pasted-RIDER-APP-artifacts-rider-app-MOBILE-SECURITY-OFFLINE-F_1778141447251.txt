@@ -1,0 +1,76 @@
+RIDER APP (artifacts/rider-app/)
+✅ MOBILE SECURITY & OFFLINE-FIRST
+ Debug & Leakage Prevention
+
+ Remove all console.log() statements
+ Remove all alert() calls (use toast instead)
+ Remove DEBUG flags
+ Ensure no API keys in bundle
+ Check .env example
+ Add ESLint: "no-console": "error"
+ GPS & Location Security ⚠️ CRITICAL
+
+ Implement server-side GPS validation:
+ Speed check (max 200 km/h impossible)
+ Accuracy check (GPS accuracy > 2m is fake)
+ Geofence check (stay within delivery zone)
+ Timestamp check (no future timestamps)
+ Reject rides if:
+ Speed > 200 km/h between two pings
+ Accuracy < 2m (unrealistic)
+ Location outside city bounds
+ Timestamp > now + 5 seconds
+ Log suspicious activity for audit
+ Optionally lock account after N rejections
+ File to create: lib/gps/validation.ts
+ Offline-to-Online Transition
+
+ Queue actions when offline (AsyncStorage)
+ Sync queue when back online
+ Prevent duplicate transaction entries (idempotency keys)
+ Show sync status to user
+ File to create: lib/offline/queueManager.ts
+ Test: Go offline, accept ride, go online → should sync
+ Wallet & Balance Integrity ⚠️ CRITICAL FRAUD PREVENTION
+
+ NEVER allow negative balance
+ Check: balance - withdrawal_amount > 0 before any debit
+ Prevent promo stacking:
+ Max 1 active promo per order
+ Validate promo expiry
+ Validate promo max uses (per user + global)
+ Transaction limits:
+ Max daily withdrawal amount
+ Max daily transaction count
+ All wallet operations require server confirmation
+ File: lib/wallet/validation.ts
+ End-to-End Encryption (If sensitive data)
+
+ Encrypt sensitive data in AsyncStorage
+ Use expo-secure-store or react-native-keychain
+ Never store tokens in AsyncStorage (use secure store)
+ Master key in device secure enclave
+ Error Boundaries & Resilience
+
+ File: components/ErrorBoundary.tsx - VERIFY EXISTS
+ Global error fallback
+ API timeout handling (30 seconds)
+ Show retry button on error
+ Don't crash on data parsing error
+ Push Notifications
+
+ File: lib/push.ts - VERIFY EXISTS
+ Only accept from known servers
+ Validate notification payload
+ Handle cold-start (app killed) → navigate to correct screen
+ Handle foreground notification → show banner
+ Test: Send FCM notification → verify it navigates correctly
+ State Persistence
+
+ Persist auth token (secure storage)
+ Persist last known location
+ Persist ride status
+ Recover on app restart without losing data
+ Test: Kill app → restart → should be in same state
+
+

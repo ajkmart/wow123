@@ -1,0 +1,51 @@
+2 - Fix App Startup Bugs
+What & Why
+Admin panel, rider app, vendor app, and the ajkmart customer Expo app currently either don't start cleanly or show a broken/blank screen once loaded. This task fixes the per-app bugs so all four apps boot without errors and are immediately usable end-to-end (login, navigate, hit the API). The unified launcher task handles environment wiring and the API server's SSL warning; this task focuses on bugs inside each app.
+
+Done looks like
+Starting all five workflows (api-server, admin, rider-app, vendor-app, ajkmart) leaves every one in a healthy "running" state with no startup errors in the logs.
+Opening /admin/, /rider/, /vendor/ in the Replit Webview shows the real login/landing screen — no white screen, no 401-driven redirect loop, no console errors on first paint.
+The ajkmart Expo web build loads to its onboarding/home screen, no "App Not Configured" screen when EXPO_PUBLIC_DOMAIN is set by the workflow, no "WebSocket closed / 6000ms timeout" hang, and no missing-native-module crashes from web-incompatible Expo packages.
+Logging into each app and navigating one or two screens succeeds against the running api-server (8080) — auth works, the platform-config fetch resolves, and protected pages load their data.
+Map screens in rider-app render with proper Leaflet marker icons (no broken-image placeholders).
+Re-running the workflows from a fresh shell brings everything up cleanly without manual env tweaks.
+Out of scope
+Building new features, screens, or business logic in any of the four apps.
+Changing the .replit workflow definitions or the Replit-assigned ports.
+The shell launcher commands (replit-start etc.) and the pg-connection-string SSL warning fix — those are owned by the in-progress "Unified environment launchers" task.
+Production deployment, EAS native builds, or Capacitor packaging of the rider app.
+Mockup-sandbox workflow.
+Steps
+Admin panel boot path. Reconcile the API base used by the admin client with what the Vite proxy and api-server actually expose, so the very first requests (/api/platform-config, login, CSRF) succeed without 401-driven side effects. Make the unauthenticated startup path silent — no global error toasts, no redirect loops — and ensure the CSRF cookie is read defensively so image upload and other authed flows don't crash on first use.
+
+Rider-app dev-server resilience. Make the rider Vite config fall back to a sane default port and base path when PORT / BASE_PATH aren't set, instead of throwing on startup. Align the in-app API base with the proxy rules so /api/* calls work whether served at /rider/ or at root. Make sure the Leaflet default-icon fix is actually imported from the app entry so map markers render in the browser.
+
+Vendor-app dev-server resilience and router base. Same PORT / BASE_PATH fallback as rider. Fix the Wouter base-path resolver so it correctly uses import.meta.env.BASE_URL (/vendor/) without silently falling back when the value is /. Add a safety check around the maintenance overlay so an accidental appStatus: maintenance in platform config can be cleared without locking vendors out (e.g. an admin/dev override or a clearer dismiss path).
+
+Ajkmart Expo web boot. Ensure the Expo web bundle loads end-to-end:
+
+When EXPO_PUBLIC_DOMAIN is set by the workflow, do not render the "App Not Configured" screen; only render it when the value is truly absent.
+Harden the Expo Router startup so the documented "WebSocket closed / 6000ms timeout" path recovers automatically instead of leaving a blank screen.
+Soften AuthGuard so unauthenticated users land on the marketing/onboarding screen without a flicker-then-redirect, and so guest-browsable routes stay reachable.
+Add web shims (or guard imports) for any Expo native modules that currently break the web bundle, so pnpm --filter @workspace/ajkmart run dev:web starts cleanly and the page renders.
+End-to-end smoke test. With api-server running, restart each of the four app workflows and verify in the Webview: each app loads, login works against the api-server, the post-login landing page renders without console errors, and the workflow logs stay clean. Document the smoke-test result in the task PR description.
+
+Relevant files
+artifacts/admin/vite.config.ts
+artifacts/admin/src/main.tsx
+artifacts/admin/src/App.tsx
+artifacts/admin/src/lib/api.ts
+artifacts/admin/src/lib/platformConfig.ts
+artifacts/rider-app/vite.config.ts
+artifacts/rider-app/src/main.tsx
+artifacts/rider-app/src/lib/api.ts
+artifacts/rider-app/src/lib/leafletIconFix.ts
+artifacts/vendor-app/vite.config.ts
+artifacts/vendor-app/src/App.tsx
+artifacts/ajkmart/package.json
+artifacts/ajkmart/app/_layout.tsx
+artifacts/ajkmart/utils/api.ts
+artifacts/ajkmart/lib/firebase.ts
+artifacts/ajkmart/metro.config.js
+artifacts/ajkmart/shims
+.replit

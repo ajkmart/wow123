@@ -1,0 +1,29 @@
+Dynamic Service Visibility
+What & Why
+Currently, when admin disables a service (Mart, Food, Taxi/Rides, Pharmacy, Parcel) from the admin panel, the customer app shows it as a greyed-out "Unavailable" card. The user wants disabled services to be completely hidden from the customer app, and the remaining active services should dynamically rearrange into a clean, professional layout.
+
+The admin toggle system already exists and works correctly (feature flags via platform_settings table, served through /api/platform-config). The change is in how the customer app renders the service grid and related sections when services are disabled.
+
+Done looks like
+When admin disables any service (e.g., Pharmacy), it completely disappears from the customer app home screen — no grey card, no "Unavailable" label, nothing
+The Bento grid layout dynamically adjusts so there are no empty gaps or broken rows when services are hidden (e.g., if only 2 services are active, they fill the space cleanly; if only 1 is active, it gets a full-width hero treatment)
+Quick access pills related to disabled services are also hidden (e.g., "Pharmacy" pill hidden when pharmacy is off, "Bike"/"Car" pills hidden when rides are off)
+Banner carousel slides related to disabled services are filtered out
+The bottom tab navigation and any other screens referencing disabled services gracefully handle them (no broken routes, no empty sections)
+If ALL services are off, the home screen shows a friendly "no services available" state
+Layout looks professional at every combination of active services — no awkward spacing, no orphaned single cards in a row
+Out of scope
+Changes to the admin panel toggle UI (already works fine)
+Changes to the API/backend platform-config endpoint (already serves correct feature flags)
+Adding new services beyond the existing 5 (Mart, Food, Rides, Pharmacy, Parcel)
+Tasks
+Modify the home screen service grid to completely hide disabled service cards instead of showing greyed-out "Unavailable" states, and implement dynamic layout logic that adapts the Bento grid rows based on how many services are active (full-width hero for single items, balanced rows for pairs, etc.)
+Filter quick access pills to only show pills for active services, and filter banner carousel slides to exclude promotions for disabled services
+Add an empty state for when all services are disabled, showing a friendly message
+Ensure any direct navigation to a disabled service's route (e.g., /pharmacy) redirects back or shows an appropriate "service unavailable" screen, so users can't access disabled services via deep links or saved bookmarks
+Relevant files
+artifacts/ajkmart/app/(tabs)/index.tsx:130-210,420-620
+artifacts/ajkmart/context/PlatformConfigContext.tsx:7-21
+artifacts/ajkmart/app/(tabs)/_layout.tsx
+artifacts/admin/src/pages/app-management.tsx:46-53,196-200
+artifacts/api-server/src/routes/platform-config.ts

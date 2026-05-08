@@ -1,0 +1,220 @@
+/**
+ * Push notification registration — vendor app.
+ *
+ * Strategy:
+ *   • Native (Capacitor on Android/iOS): uses @capacitor/push-notifications
+ *     to obtain an FCM device token and registers it with the server as
+ *     type="fcm".  Foreground notifications are surfaced via a listener
+ *     returned from registerPush() so the App can display an in-app banner.
+ *   • Browser (PWA): falls back to the existing VAPID / Web Push path.
+ *
+ * APNs (iOS): No additional server-side code is required.  Upload your APNs
+ * auth key to the Firebase Console → Project Settings → Cloud Messaging →
+ * iOS app configuration.  The Firebase Admin SDK routes FCM messages to APNs
+ * automatically.  The google-services.json (Android) and
+ * GoogleService-Info.plist (iOS) must be placed in the respective native
+ * project roots before building.
+ */
+
+import { Capacitor } from "@capacitor/core";
+import { vendorEnv, vendorIsDev } from "./envValidation";
+
+/* API origin for native Capacitor builds; empty string falls through to
+   relative paths in web-proxy mode. Sourced from the validated env singleton. */
+const API_ORIGIN = vendorEnv.isCapacitor && vendorEnv.apiBaseUrl
+  ? vendorEnv.apiBaseUrl.replace(/\/+$/, "")
+  : "";
+
+/** Listener cleanup handle returned to callers for foreground messages. */
+export interface PushCleanup {
+  remove: () => void;
+}
+
+/** Called when the vendor taps a push notification. Receives the raw data payload. */
+export type NotificationTapHandler = (data: Record<string, string>) => void;
+
+/* ─── Cold-start tap capture ──────────────────────────────────────────────────
+ * When the app is launched from a killed state by tapping a notification,
+ * pushNotificationActionPerformed fires before auth is rehydrated.  We
+ * capture it eagerly at module load time so it can be consumed later, after
+ * the user session is available (see consumePendingNotificationTap in App.tsx).
+ * ────────────────────────────────────────────────────────────────────────── */
+let _pendingTapData: Record<string, string> | null = null;
+
+/** Returns and clears any notification tap data captured before auth loaded. */
+export function consumePendingNotificationTap(): Record<string, string> | null {
+  const d = _pendingTapData;
+  _pendingTapData = null;
+  return d;
+}
+
+if (Capacitor.isNativePlatform()) {
+  import("@capacitor/push-notifications").then(({ PushNotifications }) => {
+    PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+      const data = (action.notification?.data ?? {}) as Record<string, string>;
+      if (Object.keys(data).length > 0) {
+        _pendingTapData = data;
+      }
+    }).catch(() => {});
+  }).catch(() => {});
+}
+
+export async function registerPush(
+  onForegroundMessage?: (title: string, body: string, data?: Record<string, string>) => void,
+  onNotificationTap?: NotificationTapHandler,
+): Promise<PushCleanup | void> {
+  if (Capacitor.isNativePlatform()) {
+    return registerFcmPush(onForegroundMessage, onNotificationTap);
+  }
+  return registerVapidPush();
+}
+
+/* ─── Native FCM path ─────────────────────────────────────────────────────── */
+
+function getAuthToken(): string {
+  return localStorage.getItem("ajkmart_vendor_token") ?? "";
+}
+
+async function registerFcmPush(
+  onForegroundMessage?: (title: string, body: string, data?: Record<string, string>) => void,
+  onNotificationTap?: NotificationTapHandler,
+): Promise<PushCleanup | void> {
+  try {
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+
+    const permResult = await PushNotifications.requestPermissions();
+    if (permResult.receive !== "granted") {
+      if (vendorIsDev) console.warn("[push] FCM permission denied");
+      return;
+    }
+
+    const cleanups: Array<{ remove: () => void }> = [];
+
+    /* Helper: send (or refresh) the FCM token with the server.  Called both on
+       initial registration and whenever FCM rotates the token (reinstall, OS
+       update, app data clear, etc.).  The server-side handler deletes all old
+       FCM rows for this user+role before inserting the new token. */
+    const registerTokenWithServer = async (token: string) => {
+      const authToken = getAuthToken();
+      if (!authToken) return;
+      const res = await fetch(`${API_ORIGIN}/api/push/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ type: "fcm", token, role: "vendor" }),
+      });
+      if (!res.ok) {
+        if (vendorIsDev) console.warn("[push] FCM token registration failed:", res.status, res.statusText);
+      }
+    };
+
+    /* Attach ALL listeners BEFORE calling register() so no token/error events
+       are missed if they fire synchronously or very quickly after register(). */
+    const tokenPromise = new Promise<string>((resolve, reject) => {
+      PushNotifications.addListener("registration", async (newToken) => {
+        /* resolve() is idempotent — subsequent calls (token rotation) are no-ops
+           on the promise but we still re-register the new token with the server. */
+        resolve(newToken.value);
+        await registerTokenWithServer(newToken.value).catch(() => {});
+      }).then((h) => cleanups.push(h)).catch(reject);
+
+      PushNotifications.addListener("registrationError", (err) => {
+        reject(new Error(err.error));
+      }).then((h) => cleanups.push(h)).catch(() => {});
+    });
+
+    /* Token refresh listener — fires when FCM rotates the device token without
+       the app explicitly calling register() again (e.g. device restore, certain
+       OS upgrades).  The official @capacitor/push-notifications types do not
+       expose this event yet, but the underlying native layer does emit it on
+       some configurations; we handle it defensively alongside the registration
+       event so no rotation is missed. */
+    (PushNotifications as unknown as {
+      addListener(e: "tokenRefresh", fn: (t: { registration?: string; value?: string }) => void): Promise<{ remove: () => void }>;
+    }).addListener("tokenRefresh", async (newToken) => {
+      const token = newToken.registration ?? newToken.value;
+      if (token) await registerTokenWithServer(token).catch(() => {});
+    }).then((h) => cleanups.push(h)).catch(() => {});
+
+    if (onForegroundMessage) {
+      PushNotifications.addListener("pushNotificationReceived", (notification) => {
+        const data = (notification.data ?? {}) as Record<string, string>;
+        onForegroundMessage(notification.title ?? "", notification.body ?? "", data);
+      }).then((h) => cleanups.push(h)).catch(() => {});
+    }
+
+    /* Handle notification tap — fires when vendor taps the notification in the
+       system tray (background / killed app state).  data.orderId is included by
+       the server so the vendor app can deep-link straight to /orders on tap.
+       We also clear _pendingTapData here so the cold-start auth effect doesn't
+       replay the same tap a second time. */
+    if (onNotificationTap) {
+      PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+        _pendingTapData = null;
+        const data = (action.notification?.data ?? {}) as Record<string, string>;
+        onNotificationTap(data);
+      }).then((h) => cleanups.push(h)).catch(() => {});
+    }
+
+    /* Now trigger registration — token/error events may fire after this. */
+    await PushNotifications.register();
+
+    /* Wait for the initial FCM token (with a reasonable timeout).
+       Token delivery and server registration are handled by the registration listener. */
+    const TOKEN_TIMEOUT_MS = 15_000;
+    await Promise.race<void>([
+      tokenPromise.then(() => {}),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("FCM registration timeout")), TOKEN_TIMEOUT_MS),
+      ),
+    ]);
+
+    return { remove: () => cleanups.forEach((h) => h.remove()) };
+  } catch (e) {
+    if (vendorIsDev) console.warn("[push] FCM registration failed:", e);
+  }
+}
+
+/* ─── Browser VAPID path ──────────────────────────────────────────────────── */
+
+async function registerVapidPush(): Promise<void> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  try {
+    const base = (vendorEnv.baseUrl || "/").replace(/\/$/, "");
+    const reg = await navigator.serviceWorker.register(`${base}/sw.js`);
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) return;
+
+    const vapidRes = await fetch(`${base}/api/push/vapid-key`);
+    if (!vapidRes.ok) return;
+    const vj = await vapidRes.json();
+    const { publicKey } = (vj?.success === true && "data" in vj ? vj.data : vj) as { publicKey: string };
+    if (!publicKey) return;
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+    });
+
+    const authToken = getAuthToken();
+    await fetch(`${base}/api/push/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({
+        type: "vapid",
+        endpoint: sub.endpoint,
+        p256dh: sub.toJSON().keys?.p256dh,
+        auth: sub.toJSON().keys?.auth,
+        role: "vendor",
+      }),
+    });
+  } catch (e) {
+    if (vendorIsDev) console.warn("[push] VAPID registration failed:", e);
+  }
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}

@@ -1,0 +1,37 @@
+#45 - Rider App — Critical Bugs & Logic Flaws Fix
+What & Why
+Fix 7 bugs and logic flaws in the rider PWA that cause double wallet transactions, silent delivery failures, broken timers, stale sockets, memory leaks, and lost admin messages. All changes are confined to the rider-app artifact and must be production-ready.
+
+Done looks like
+Offline queue never enqueues the same status update twice — no double delivery, no double wallet transaction
+Proof photo upload failure shows an explicit, actionable error; photoUrl is validated before the delivery mutation fires
+Admin chat messages persist when the rider navigates Home ↔ Active and back; chat list renders with stable keys
+AcceptCountdown timer does not reset when the parent re-renders due to a GPS ping
+stopSound() immediately silences the synthesized notification chime
+Battery level is read from a single shared source; the duplicate getBattery() listener in Home.tsx is removed
+Socket heartbeat connect listener is always bound to the current (post-reconnect) socket instance
+Out of scope
+Server-side / API changes
+Vendor app or super app changes
+UI redesign or visual changes
+Steps
+Fix offline queue double-enqueue in updateOrderMut and updateRideMut — In Active.tsx, the onMutate callback already returns { enqueued: true } when !navigator.onLine, and onError already checks !context?.enqueued before re-queuing. Audit both mutations end-to-end and confirm the guard is airtight: the context object returned from onMutate must always be passed through to onError. If there are any code paths where context could be undefined despite onMutate having enqueued, add a module-scoped enqueuedRef boolean set in onMutate and checked in onError as a belt-and-suspenders guard.
+
+Guard proof photo URL before delivery mutation — After api.uploadProof(proofFile), assert that uploadRes.url is a non-empty string before assigning photoUrl. If not, throw "Photo upload succeeded but server returned no URL — please retake" so the rider sees an actionable message. This guard already exists at line 1062–1064 of Active.tsx; verify it is reached on all code paths and that the catch block surfaces the thrown message correctly.
+
+Persist admin chat messages across navigation — adminMessages state is currently local to Active.tsx (line 724) and is lost on unmount. Lift it into a Zustand atom, a React context, or a module-level store so messages survive Home ↔ Active navigation. Ensure the socket admin:message listener is also moved (or remains) at a level that keeps appending to the shared store while the socket is alive. Replace key={\${m.ts}-${m.text}`}with a stable unique key (e.g.m.idif the API provides one, otherwisem.createdAt + m.from + m.text`).
+
+Stabilize AcceptCountdown onExpired callback — AcceptCountdown.tsx re-runs its useEffect (and resets the interval) whenever onExpired changes reference (dep array line 50). In Home.tsx, every GPS-triggered re-render creates a new onExpired arrow function. Wrap each onExpired prop passed to OrderRequestCard and RideRequestCard with useCallback so its reference is stable across GPS pings. The deps of each useCallback should only include the stable dismiss helper and the item id.
+
+Implement stopSound() properly — notificationSound.ts already maintains activeNodes and has a stopSound() that calls osc.stop() and disconnects. Verify the implementation actually silences mid-playback tones: osc.stop() requires no argument (stops immediately), and nodes must be removed from activeNodes before the onended callback fires to avoid double-disconnect errors. Confirm callers in Home.tsx (order accept handler) invoke stopSound() at the right moment.
+
+Deduplicate battery listener — Home.tsx (lines 371–384) has its own navigator.getBattery() call and levelchange listener that duplicates the one already in SocketProvider (socket.tsx lines 104–111). Remove the getBattery block from Home.tsx entirely. Export a useBatteryLevel() hook (or expose the value via SocketContext) from socket.tsx so Home.tsx can read the already-tracked batteryLevelRef.current for location pings. Update the locationData object in Home's watchPosition callback to use this shared value.
+
+Fix stale socket heartbeat connect listener — In socket.tsx, the heartbeat effect (lines 113–139) captures socketRef.current at run time (const s = socketRef.current). The effect deps are [user?.isOnline] — so if the socket reconnects while user?.isOnline is unchanged, s is the old, pre-reconnect socket instance and the connect listener is never re-bound. Fix by making the heartbeat effect depend on the socket state value (not the ref) so it re-runs and re-binds s.on("connect", emitHeartbeat) whenever a new socket instance is created. Remove the old listener before registering the new one to avoid accumulating stale handlers.
+
+Relevant files
+artifacts/rider-app/src/pages/Active.tsx
+artifacts/rider-app/src/lib/socket.tsx
+artifacts/rider-app/src/pages/Home.tsx
+artifacts/rider-app/src/lib/notificationSound.ts
+artifacts/rider-app/src/components/dashboard/AcceptCountdown.tsx

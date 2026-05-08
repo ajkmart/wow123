@@ -1,0 +1,123 @@
+import { Pool } from "pg";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { buildPgPoolConfig } from "@workspace/db/connection-url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * Applies all pending SQL migrations at startup.
+ *
+ * Two migration tracks are applied in order:
+ *
+ * 1. Drizzle-generated migrations (`lib/db/drizzle/`): tracked in
+ *    `_drizzle_migrations`. These are the Drizzle schema source-of-truth files
+ *    and contain all column additions and table creations (including the
+ *    security tables `data_export_logs` and `sentry_known_issues`).
+ *
+ * 2. Custom SQL migrations (`lib/db/migrations/`): tracked in
+ *    `_schema_migrations`. These handle FK rewrites, index additions, and any
+ *    DDL that Drizzle cannot express (DO blocks, conditional logic, etc.).
+ *
+ * Both directories are sorted alphabetically so migrations are applied in
+ * version order. Files already recorded in their tracking table are skipped.
+ */
+export async function runSqlMigrations() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error("[migrations] DATABASE_URL not set, skipping migrations");
+    return;
+  }
+  const pool = new Pool(buildPgPoolConfig(databaseUrl));
+  try {
+    await pool.query("SELECT 1");
+    console.log("[migrations] Database connection successful");
+
+    // Tracking tables for both migration tracks
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS _drizzle_migrations (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS _schema_migrations (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // ── Track 1: Drizzle-generated migrations ──────────────────────────────
+    // These files are the Drizzle ORM schema source-of-truth. From this file
+    // (artifacts/api-server/src/services) the drizzle dir is four or three
+    // levels up depending on build layout (tsx dev vs dist). Both paths are
+    // checked so the runner works in all environments.
+    const drizzleCandidateDirs = [
+      path.join(__dirname, "../../../../lib/db/drizzle"),
+      path.join(__dirname, "../../../lib/db/drizzle"),
+    ];
+    const drizzleDir = drizzleCandidateDirs.find((dir) => fs.existsSync(dir));
+    if (drizzleDir) {
+      const files = fs.readdirSync(drizzleDir).filter(f => f.endsWith(".sql")).sort();
+      for (const file of files) {
+        const { rows } = await pool.query(
+          "SELECT 1 FROM _drizzle_migrations WHERE filename = $1",
+          [file]
+        );
+        if (rows.length) continue;
+        const sql = fs.readFileSync(path.join(drizzleDir, file), "utf8");
+        // Drizzle files use --> statement-breakpoint comments as separators.
+        // Strip them and run the file as a single transaction-compatible block.
+        const cleaned = sql.replace(/--> statement-breakpoint/g, "");
+        try {
+          await pool.query(cleaned);
+        } catch (err) {
+          console.error(`[migrations:drizzle] FAILED applying ${file}`, err);
+          throw err;
+        }
+        await pool.query(
+          "INSERT INTO _drizzle_migrations (filename) VALUES ($1)",
+          [file]
+        );
+        console.log(`[migrations:drizzle] Applied ${file}`);
+      }
+    } else {
+      console.warn("[migrations:drizzle] Drizzle migrations directory not found, skipping");
+    }
+
+    // ── Track 2: Custom SQL migrations ────────────────────────────────────
+    // FK rewrites, conditional DO blocks, index additions, and any DDL that
+    // Drizzle cannot express directly.
+    const customCandidateDirs = [
+      path.join(__dirname, "../../../../lib/db/migrations"),
+      path.join(__dirname, "../../../lib/db/migrations"),
+    ];
+    const migrationsDir = customCandidateDirs.find((dir) => fs.existsSync(dir));
+    if (migrationsDir) {
+      const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith(".sql")).sort();
+      for (const file of files) {
+        const { rows } = await pool.query(
+          "SELECT 1 FROM _schema_migrations WHERE filename = $1",
+          [file]
+        );
+        if (rows.length) continue;
+        const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+        try {
+          await pool.query(sql);
+        } catch (err) {
+          console.error(`[migrations] FAILED applying ${file}`, err);
+          throw err;
+        }
+        await pool.query(
+          "INSERT INTO _schema_migrations (filename) VALUES ($1)",
+          [file]
+        );
+        console.log(`[migrations] Applied ${file}`);
+      }
+    }
+  } finally {
+    await pool.end();
+  }
+}

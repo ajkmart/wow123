@@ -1,0 +1,35 @@
+#2 - Step 2: Auth System — Full-Stack Polish
+What & Why
+Authentication is the first experience for new users. Both the backend auth logic and frontend auth screens must be bulletproof. This step polishes the full auth stack: backend endpoints, OTP delivery, token management, AND frontend Login, Register, OTP, and Forgot Password screens.
+
+Done looks like
+Backend: Auth routes (/auth/check-identifier, /auth/verify-otp, /auth/login, /auth/register, /auth/refresh-token, /auth/forgot-password) all validate inputs with Zod, return consistent responses, handle edge cases (expired OTP, duplicate phone, invalid token, locked account). Token refresh is silent and reliable. Rate limiting prevents brute force on OTP. Audit log captures all auth events. Social login (Google/Facebook) endpoints work correctly.
+Frontend: Login screen has premium branded header, phone field with +92 auto-selected, password toggle, biometric option, and "Forgot Password" link. Register is a clean multi-step flow (Phone → OTP → Profile). OTP screen has 6-digit pin input with auto-submit and resend countdown. Forgot Password guides through phone → OTP → new password. All screens handle keyboard overlap, network errors, field-level validation errors, and loading states. Social login buttons displayed correctly.
+All API errors mapped to user-friendly bilingual messages (EN/UR)
+No crashes, no blank screens, no unhandled rejections in any auth flow
+Out of scope
+Admin auth changes
+KYC verification backend
+Tasks
+Audit and fix backend auth routes — Ensure check-identifier, verify-otp, login, register, refresh-token, forgot-password all have complete Zod validation, proper error codes, rate limiting, and audit logging.
+Harden token management — Verify access token (15min) + refresh token (30 days) flow works seamlessly. Handle expired tokens, revoked tokens, concurrent device sessions.
+Fix OTP delivery and validation — Ensure SMS/WhatsApp/Email OTP delivery works, expiry is enforced (5 min), retry limits are applied, and rate limiting prevents abuse.
+Redesign Login screen — Premium header with AJKMart logo and brand gradient, polished phone + password fields, biometric button, keyboard-aware scroll.
+Redesign Register screen — Multi-step progress indicator (Step 1/3, 2/3, 3/3), each step validated before advancing, smooth animated transitions.
+Redesign OTP screen — 6-box OTP input, auto-focus next box, auto-submit on last digit, resend timer (60s), clear error display.
+Redesign Forgot Password screen — Same OTP component reused, new password + confirm with strength indicator, success animation.
+Wire all frontend auth screens to backend — Ensure all API calls use correct endpoints, handle all error codes, show bilingual error messages, and redirect correctly after success.
+Relevant files
+artifacts/api-server/src/routes/auth.ts
+artifacts/api-server/src/middleware/
+artifacts/api-server/src/services/
+lib/db/src/schema/users.ts
+lib/db/src/schema/pending_otps.ts
+lib/db/src/schema/refresh_tokens.ts
+lib/db/src/schema/auth_audit_log.ts
+lib/db/src/schema/login_history.ts
+lib/auth-utils/
+artifacts/ajkmart/app/auth/index.tsx
+artifacts/ajkmart/app/auth/register.tsx
+artifacts/ajkmart/app/auth/forgot-password.tsx
+artifacts/ajkmart/components/ui/

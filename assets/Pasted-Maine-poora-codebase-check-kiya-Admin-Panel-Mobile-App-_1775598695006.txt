@@ -1,0 +1,35 @@
+Maine poora codebase check kiya — Admin Panel, Mobile App, Vendor App, Rider App, aur API Server. Bahut cheezein already admin ke control mein hain (feature toggles, pricing, payment gateways, etc.), lekin kuch important settings abhi bhi hardcoded hain jo professional standard ke mutabiq admin panel se control honi chahiyen:
+
+🔴 Category 1: Dispatch & Operations (Hardcoded)
+#	Setting	Abhi Kya Hai	Kahan Hona Chahiye
+1	Rider Accept Timeout	90 seconds hardcoded	Admin Settings → Dispatch
+2	Dispatch Radius	5 KM default hardcoded	Admin Settings → Dispatch
+3	Average Speed for ETA	25 km/h hardcoded	Admin Settings → Dispatch
+4	Max Fare Limit	100,000 hardcoded	Admin Settings → Ride Rules
+5	Counter Offer Max Multiplier	3x hardcoded in Rider App	Admin Settings → Bargaining
+🔴 Category 2: Financial Fallbacks (Hardcoded)
+#	Setting	Abhi Kya Hai	Issue
+6	Base Delivery Fee	80 hardcoded fallback	Agar DB setting missing ho toh ye use hota hai
+7	Parcel Per KG Rate	40 hardcoded	Same issue
+8	Free Delivery Threshold	1000 hardcoded	Admin se sync nahi
+9	GST Percentage	17% hardcoded fallback	Critical — tax rate hardcode nahi hona chahiye
+10	COD Fee & Threshold	0 / free above 2000	Admin se control hona chahiye
+11	Rider Default Earning %	80% hardcoded in Rider App	Should come from API
+12	Min Fares (Bike/Car/Rickshaw/Daba)	Hardcoded in Rider App	Should sync with admin settings
+🔴 Category 3: Branding & UI (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+13	Service Colors	Hex codes hardcoded (Mart=#00C48C, Food=#FF9500)	Admin se brand colors change ho sakein
+14	Service Icons & Descriptions	Emojis & text hardcoded	Admin se update ho sakein bina deploy ke
+15	Default Map Center	Muzaffarabad coords hardcoded	Admin se set ho sake — city expansion ke liye zaroori
+16	Ride UI Theme	Dark mode colors hardcoded	Admin se theme control
+🔴 Category 4: Data Retention & System (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+17	Location Logs Cleanup	30 days hardcoded	Admin se configurable hona chahiye
+18	Service Keys Cache TTL	5 minutes hardcoded	Admin se adjust ho sake
+19	JSON Body Size Limit	256kb hardcoded	Admin se set ho sake
+20	Upload Size Limit	10mb hardcoded	Admin se control ho
+🔴 Category 5: Validation & Regional (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+21	Phone Number Format	Pakistani format (03xxxxxxxxx) hardcoded	Admin se country/format add ho sake — future expansion ke liye
+22	Timezone	Asia/Karachi hardcoded	Admin se configurable — multi-region support ke liye
+23	Vehicle Type Registry	bike, car, rickshaw, daba hardcoded strings	Admin se new vehicle types add ho sakein

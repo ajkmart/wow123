@@ -1,0 +1,30 @@
+{
+  "name": "AJKMart Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20",
+      "pnpmVersion": "9"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  },
+  "postCreateCommand": "pnpm install",
+  "postStartCommand": "node scripts/secure-start.mjs",
+  "forwardPorts": [5000, 5173, 5174, 5175, 19006],
+  "portsAttributes": {
+    "5000": { "label": "API Server" },
+    "5173": { "label": "Admin Panel" },
+    "5174": { "label": "Vendor App" },
+    "5175": { "label": "Rider App" },
+    "19006": { "label": "Customer App" }
+  }
+}

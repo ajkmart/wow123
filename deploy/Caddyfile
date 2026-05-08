@@ -1,0 +1,43 @@
+{$AJKMART_DOMAIN:localhost} {
+	encode zstd gzip
+
+	handle /api/socket.io/* {
+		reverse_proxy 127.0.0.1:{$API_PORT:8080}
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:{$API_PORT:8080}
+	}
+
+	handle /vendor/api/* {
+		uri replace /vendor/api /api
+		reverse_proxy 127.0.0.1:{$API_PORT:8080}
+	}
+
+	handle /rider/api/* {
+		uri replace /rider/api /api
+		reverse_proxy 127.0.0.1:{$API_PORT:8080}
+	}
+
+	handle_path /admin/* {
+		root * {$APP_ROOT:/srv/ajkmart}/artifacts/admin/dist/public
+		try_files {path} /index.html
+		file_server
+	}
+
+	handle_path /vendor/* {
+		root * {$APP_ROOT:/srv/ajkmart}/artifacts/vendor-app/dist/public
+		try_files {path} /index.html
+		file_server
+	}
+
+	handle_path /rider/* {
+		root * {$APP_ROOT:/srv/ajkmart}/artifacts/rider-app/dist/public
+		try_files {path} /index.html
+		file_server
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:{$MOBILE_WEB_PORT:19006}
+	}
+}

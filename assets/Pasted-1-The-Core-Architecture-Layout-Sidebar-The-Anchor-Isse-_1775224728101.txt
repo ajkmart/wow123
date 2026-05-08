@@ -1,0 +1,30 @@
+1. The Core Architecture (Layout)
+Sidebar (The Anchor): Isse Fixed rakhein. Color: Deep Slate (#0F172A). Isme icons ke liye Lucide-React use karein kyunki wo pixel-perfect lagte hain.
+Sticky Header: Glassmorphism (backdrop-filter: blur(10px)) ke saath. Isme center mein Command Palette (Ctrl+K) ka search bar rakhein jo hamesha accessible ho.
+Main Canvas: Background ko Off-White (#F8FAFC) rakhein taake cards aur tables "pop-out" karein.
+2. Grouping & Navigation (Logic)
+Admin ko confuse hone se bachane ke liye modules ko 5 buckets mein divide karein:
+Operations: Orders (Food/Mart), Rides, Pharmacy, aur Live Tracking Map.
+Inventory: Vendors, Products, Categories, aur Flash Deals.
+Financials: Wallets, Payouts, Transactions, aur KYC.
+Safety & Security: SOS Alerts (Top Priority), Audit Logs, aur User Permissions.
+Config: App Settings, Feature Toggles (ON/OFF switch), aur Banners.
+3. High-Tech UI Elements (The "Wow" Factor)
+SOS Pulsing Effect: Jab koi emergency ho, to sidebar mein SOS ka icon aur top bar mein ek Red Banner "Ripple Effect" ke saath chamke. Isse admin ka dhyan foran jayega.
+Micro-Interactions:
+Stat Cards: Har card ke kone mein ek Sparkline (Mini-chart) ho.
+Skeleton Loaders: Data load hote waqt blank page ke bajaye "shimmering blocks" dikhayein.
+Modern Tables: Tables mein border ke bajaye Horizontal Spacing aur Row Hover (Light Indigo) use karein. Status ko hamesha Pills (Rounded Badges) mein rakhein.
+4. Mobile-First Experience (App Feel)
+Bottom Nav: Desktop ka sidebar mobile par Bottom Bar ban jaye.
+Bottom Sheets: Jab admin kisi User ya Order details par click kare, to screen side se nahi balki neeche se upar (Drawer style) slide ho kar aaye.
+Haptic Feedback: Agar possible ho, to SOS alert par mobile vibrate kare.
+5. Final Tech-Spec Palette
+Element	Color Hex	Style
+Primary/Action	#6366F1 (Indigo)	Modern & Trustworthy
+Sidebar/Dark	#0F172A (Slate)	High-contrast Professional
+Emergency/SOS	#EF4444 (Fire Red)	Pulsing Animation
+Success/Active	#22C55E (Emerald)	Soft Green Pill
+Typography	Inter or Geist	Sans-serif, Clean
+Final Recommendation:
+Aapka layout "Command Center" jaisa hona chahiye. Dashboard par sab se upar 4 main stats (Total Revenue, Active Rides, Pending Orders, Active SOS) rakhein. Baaki sab secondary tabs mein jaye.

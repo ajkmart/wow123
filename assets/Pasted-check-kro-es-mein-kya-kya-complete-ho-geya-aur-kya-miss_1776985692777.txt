@@ -1,0 +1,65 @@
+check kro es mein kya kya complete ho geya aur kya miss hai jo miss hai us ko  proper stracture ke sath full stack complete kro make sure koi bugs na aey
+
+#1 - Finalize Admin Login System (Binance-Grade)
+What & Why
+The new secure admin auth system from admin-login-guide.md is ~70% built. The backend v2 endpoints, session service, JWT/CSRF utils, middleware, audit logging, rate limiting, the AdminAuthProvider context, the adminFetcher, and the new login page with MFA flow all exist and are wired into App.tsx. However the migration is incomplete and the security goal is defeated because most of the admin UI still uses the old sessionStorage + x-admin-token fetcher. This task closes every remaining gap, fixes the bugs in the new code, removes the legacy auth path, and validates the full flow end-to-end.
+
+Done looks like
+No file in artifacts/admin/src reads or writes ajkmart_admin_token / sessionStorage, and no request sends x-admin-token.
+All admin pages and components fetch through adminFetcher (or its adminGet/Post/Put/Patch/Delete helpers), so every request carries Authorization: Bearer <accessToken> + X-CSRF-Token and benefits from auto-refresh.
+The legacy /auth route and the old lib/api.ts token helpers are removed (or lib/api.ts becomes a thin re-export of the new helpers for backward compatibility).
+AdminLayout uses useAdminAuth().logout() and state.user instead of the old token utilities.
+Image upload (uploadAdminImage) and any other ad-hoc fetch calls (CommandPalette, MapsMgmtSection, communication, otp-control, reviews) use the new fetcher.
+A new "Active Sessions" admin page (or tab inside app-management.tsx) lists the admin's sessions from GET /api/admin/auth/sessions and supports per-session and "revoke all" actions.
+The refreshPromise race-guard in adminAuthContext is stored in a ref (not a per-render let) so concurrent refresh calls actually share one in-flight promise.
+adminFetcher redirects to the correct login URL (uses import.meta.env.BASE_URL + 'login', matching the rest of the app), not a hard-coded /admin/login.
+Backend has app.set('trust proxy', 1) and helmet() applied; security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy) are sent on admin responses.
+A user logging in with MFA enabled is forced through the TOTP step; brute-force on /auth/login is blocked after 5 failures per 15 min per IP.
+After a successful login, a hard refresh keeps the user signed in (refresh-on-mount works), and clicking logout clears cookies + state and redirects to login.
+Manual smoke test passes: login (no MFA), login (with MFA), token auto-refresh after 15 min, 401 → silent refresh + retry, logout, revoke-all-sessions forces re-login, CSRF header missing → 403.
+Out of scope
+WebAuthn / passkeys.
+Per-route fine-grained RBAC beyond what requireRole already provides.
+Migrating the customer-app or vendor/rider apps' auth — admin only.
+Visual redesign of the login page beyond what's needed for the MFA step.
+Steps
+Audit & inventory — Enumerate every import of getToken, clearToken, setToken, isTokenExpired, fetcher, fetcherWithMeta, apiFetch, uploadAdminImage, getApiBase across artifacts/admin/src. Produce a definitive list of pages/components to migrate.
+Bridge lib/api.ts to the new system — Rewrite the legacy helpers so fetcher, fetcherWithMeta, apiFetch, uploadAdminImage delegate to adminFetcher (Bearer + CSRF + auto-refresh) and getToken/setToken/clearToken/isTokenExpired become no-ops or thin shims, eliminating all sessionStorage access in one place. This unblocks every page without editing each individually.
+Migrate components that bypass the fetcher — Update CommandPalette.tsx, MapsMgmtSection.tsx, pages/communication.tsx, pages/otp-control.tsx, pages/reviews.tsx, and any others doing raw fetch with getToken() to use adminFetcher/helpers. Replace base64 image upload to also go through the new fetcher.
+Update AdminLayout — Replace getToken/isTokenExpired/clearToken checks with useAdminAuth(). Logout button calls logout() then navigates to login. Show state.user.name/role from context instead of decoded token.
+Fix bugs in the new auth code — In adminAuthContext.tsx, move refreshPromise into a useRef so it survives re-renders. In adminFetcher.ts, replace the hard-coded /admin/login redirect with import.meta.env.BASE_URL + 'login'. Stop passing password into the MFA-step login() call (only tempToken + totp are needed). Tighten the login page's hardcoded default username if appropriate.
+Backend hardening verification — Confirm app.set('trust proxy', 1), helmet(), cookieParser(), and CORS with credentials: true are active in artifacts/api-server/src/app.ts. Add any missing pieces. Add the security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy) via helmet config so they ship even without an external reverse proxy.
+Retire the legacy /auth route — Remove or gate routes/auth.ts so there is a single source of truth (admin-auth-v2.ts). Update routes/index.ts accordingly. Ensure no client code targets the old endpoint.
+Active Sessions UI — Add a "Sessions" tab to pages/app-management.tsx (or a new pages/sessions.tsx route) that calls GET /auth/sessions, lists IP/user-agent/created/last-used, and provides per-session DELETE /auth/sessions/:id and a "Sign out everywhere" button calling DELETE /auth/sessions.
+Validation & smoke test — Walk through every flow (no-MFA login, MFA login, refresh, 401 retry, logout, revoke-all, CSRF-missing 403, rate-limit lockout) against the running dev API. Confirm devtools shows no sessionStorage token, only Authorization: Bearer headers and refresh_token/csrf_token cookies. Fix anything that breaks.
+Final report — Produce a short markdown report at artifacts/admin/admin-login-status.md enumerating: items completed before this task, items completed in this task, every bug fixed, and the smoke-test results.
+Architectural constraints:
+
+Do not reintroduce sessionStorage or localStorage token storage anywhere.
+Access tokens must remain in-memory only; refresh tokens stay in HttpOnly cookies; CSRF cookie stays readable for the double-submit pattern.
+All state-changing requests (POST/PUT/PATCH/DELETE) must send X-CSRF-Token.
+Keep public function signatures of fetcher/fetcherWithMeta unchanged so no consumer page needs editing for the bridge step.
+Relevant files
+artifacts/admin/admin-login-guide.md
+artifacts/admin/src/App.tsx:13-220
+artifacts/admin/src/lib/api.ts
+artifacts/admin/src/lib/adminAuthContext.tsx
+artifacts/admin/src/lib/adminFetcher.ts
+artifacts/admin/src/pages/login.tsx
+artifacts/admin/src/components/layout/AdminLayout.tsx
+artifacts/admin/src/components/CommandPalette.tsx
+artifacts/admin/src/components/MapsMgmtSection.tsx
+artifacts/admin/src/pages/communication.tsx
+artifacts/admin/src/pages/otp-control.tsx
+artifacts/admin/src/pages/reviews.tsx
+artifacts/admin/src/pages/app-management.tsx
+artifacts/admin/src/hooks/use-admin.ts
+artifacts/api-server/src/routes/admin-auth-v2.ts
+artifacts/api-server/src/routes/auth.ts
+artifacts/api-server/src/routes/index.ts
+artifacts/api-server/src/services/admin-auth.service.ts
+artifacts/api-server/src/middlewares/admin-auth.ts
+artifacts/api-server/src/middleware/security.ts
+artifacts/api-server/src/utils/admin-jwt.ts
+artifacts/api-server/src/utils/admin-csrf.ts
+artifacts/api-server/src/app.ts

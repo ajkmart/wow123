@@ -1,0 +1,32 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "4ORQw7Nt_A0MZh3fLvf9E"
+uri = "file://screenshots/otp-control-full.jpg"
+type = "image"
+title = "OTP Control Center — Full Page Design"
+
+[[outputs]]
+id = "jadjF245UeNgAA3uR9QAl"
+uri = "file://ajkmart.md"
+type = "text"
+title = "AJKMart Super-App — Complete 360° Documentation Book"
+
+[[outputs]]
+id = "WNwtNZYSv_jzPei9DwlSo"
+uri = "file://ajkmart-customer-app.md"
+type = "text"
+title = "AJKMart Customer App — Complete Screen-by-Screen Documentation"
+
+[[outputs]]
+id = "dWHMY7OK6l48wTgTuPdwI"
+uri = "file://ajkmart-admin-panel.md"
+type = "text"
+title = "AJKMart Admin Panel — Complete Documentation"
+
+[[outputs]]
+id = "_LLf7qm1UN-Kl5J9EIN_2"
+uri = "file://ajkmart-rider-vendor-apps.md"
+type = "text"
+title = "AJKMart Rider & Vendor Apps — Complete Documentation"

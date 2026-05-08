@@ -1,0 +1,29 @@
+#1 - Fix All Broken Functions in Admin/Users
+What & Why
+A full audit of the admin/users section revealed 3 confirmed broken functions and 2 data display bugs. These need to be fixed so bulk moderation, rider/vendor profile display, and user activity detail all work correctly.
+
+Done looks like
+Bulk Ban and Bulk Unban work correctly when selecting users and clicking the buttons
+Rider vehicle info (type, plate, emergency contact) shows in the user activity / detail drawer
+Vendor business info (business type, bank details) shows in the user activity / detail drawer
+Vehicle plate badge in the main user table row renders for riders
+Bank details (name, account, title) appear in the activity modal for riders and vendors
+Out of scope
+Pagination UI for the users table (no "next page" control exists; not part of this audit)
+Adding the "admin" role option to the Create User dialog
+KYC routes (on a separate path, appear functional)
+Any changes outside admin/users and its backend route file
+Steps
+Fix bulk-ban route order conflict (critical) — In artifacts/api-server/src/routes/admin/system/users.ts, move the router.patch("/users/bulk-ban", ...) block (currently at line ~944) to be registered before router.patch("/users/:id", ...) (currently at line ~294). Express matches routes in order; with "bulk-ban" after the :id route, the string "bulk-ban" is treated as a user ID and the real handler is never reached.
+
+Fix nested profile field access in UserActivityModal — In artifacts/admin/src/pages/users.tsx, update the direct field reads userData.vehicleType, userData.vehiclePlate, userData.emergencyContact, userData.businessType, userData.bankName, userData.bankAccountTitle, userData.bankAccount to read from the nested profile objects the API actually returns: userData.riderProfile?.vehicleType, userData.riderProfile?.vehiclePlate, userData.vendorProfile?.businessType, etc.
+
+Expand enriched user response to include missing fields — In the enrich function in artifacts/api-server/src/routes/admin/system/users.ts (around line ~227), add the missing fields to the riderProfile block (e.g. emergencyContact if the column exists on riderProfilesTable) and to the vendorProfile block (bank-related fields like bankName, bankAccount, bankAccountTitle if they exist on vendorProfilesTable or usersTable). Check the actual DB schema columns and only add fields that genuinely exist. If bank/emergency fields live directly on usersTable, they already come through ...stripUser(u) — in that case just fix the frontend access path in step 2 instead.
+
+Fix vehicle plate display in user table row — In artifacts/admin/src/pages/users.tsx at the desktop table row (around line ~2071), user.vehiclePlate is accessed directly. Update this to user.riderProfile?.vehiclePlate to match the actual API response shape, so the vehicle plate badge renders correctly in the table.
+
+Relevant files
+artifacts/api-server/src/routes/admin/system/users.ts:294,321,944-976
+artifacts/admin/src/pages/users.tsx:96-128,2071
+artifacts/api-server/src/routes/admin/user-addresses.ts
+artifacts/api-server/src/routes/admin.ts:87

@@ -1,0 +1,67 @@
+Admin Panel Security & Resilience Gaps
+What & Why
+Close the genuine gaps identified in the admin panel security/resilience audit. Many items in the checklist already exist — this task covers only what is truly missing so no work is duplicated.
+
+Already Done — Do Not Reimplement
+ErrorBoundary.tsx — exists with error reporting + retry CTA
+OnlineStatusBanner.tsx — exists with offline detection
+usePermissions / PermissionGate — fully implemented
+All 47+ routes in App.tsx have requiredPermission guards (including /audit-logs → system.audit.view)
+JWT stored in-memory (not localStorage) via adminAuthContext.tsx
+Auto-refresh on 401 + clear tokens on logout in adminFetcher.ts
+CSRF protection (X-CSRF-Token header)
+Sentry (initSentry, captureError, setSentryUser, clearSentryUser) — tracesSampleRate is already 0.1
+analytics.ts — trackEvent, trackPageView, identifyUser, resetUser
+error-reporter.ts — never includes auth headers; already safe
+Zod validation — extensively used across all forms
+ConfirmDialog component — exists and used in many pages
+SubmitButton — already disables during loading
+Done Looks Like
+All fetchAdmin / fetchAdminAbsolute calls abort after 30 seconds and show a toast with a retry option instead of hanging indefinitely
+The three spinners in App.tsx (auth-checking state) show an error fallback with a reload button after 10 seconds instead of spinning forever
+Critical destructive actions (role change, user suspend/delete, withdrawal approve, promo delete) require the admin to re-enter their password before proceeding
+A non-intrusive banner or toast warns the admin ~1 minute before their session expires, with a "Stay logged in" action
+OnlineStatusBanner shows a "Restoring connection…" transitional state after coming back online, and triggers a React Query invalidateQueries to refresh stale data
+sentry.ts lowers sampleRate from 1.0 to 0.2 in production so error-event volume is manageable
+Core Web Vitals (LCP, FCP, CLS, TTFB, FID/INP) are captured and forwarded to trackEvent via the web-vitals package
+Images loaded from external URLs use crossOrigin="anonymous" and have a broken-image fallback icon and loading="lazy" below the fold
+Out of Scope
+TLS / Nginx / reverse-proxy configuration (infrastructure, not frontend code)
+Certificate pinning (not applicable to a browser app)
+Rewriting or replacing any existing component that already works
+Creating a route-permission matrix document (the code already enforces permissions)
+New Sentry source-map upload pipeline (build/CI concern)
+Steps
+Request timeout wrapper in adminFetcher.ts — Wrap every fetch call with an AbortController that fires after 30 seconds (configurable via a constant). On timeout, throw a typed TimeoutError. In the calling layer (or a thin wrapper), catch TimeoutError, show a toast ("Request timed out — check your connection"), and expose a retry callback. Apply the same pattern to fetchAdminAbsolute and fetchAdminAbsoluteResponse.
+
+Stuck-loader fallback in App.tsx — For each of the three animate-spin loading states (initial auth check, permission wait, MFA loading), add a useEffect timer (10 seconds). If still loading after the timeout, replace the spinner with a minimal error message and a "Reload page" button. Use the existing ErrorRetry component for consistency.
+
+Token expiration warning — Read the exp claim from the in-memory access token inside adminAuthContext.tsx. Set a setTimeout to fire 60 seconds before expiry and dispatch a toast/banner: "Your session expires in 1 minute" with a "Stay logged in" button that calls the existing refreshToken() action. Clear the timer on logout or successful refresh.
+
+OnlineStatusBanner reconnection state — Add a third state: after the browser fires the online event, show "Restoring connection…" for 2 seconds, then call queryClient.invalidateQueries() to refresh stale data, then hide the banner. Import useQueryClient from React Query for the invalidation call.
+
+Password-confirmation dialog for sensitive actions — Create a reusable SensitiveActionDialog component that renders a modal asking the admin to type their current password before proceeding. Wire it into: admin role modification (roles-permissions page), user suspend/delete (users page), withdrawal approval (withdrawals page), and promo deletion (promo-codes / flash-deals pages). On confirmation, POST the password to a dedicated /api/admin/auth/verify-password endpoint; proceed with the original action only on a 200 response. Log the verified action to the existing audit log.
+
+Sentry sampleRate fix — In sentry.ts, change the default sampleRate from 1.0 to 0.2 so only 20 % of non-error events are sampled in production. Keep tracesSampleRate at its current 0.1.
+
+Core Web Vitals tracking — Install the web-vitals package. In main.tsx, after initAnalytics, import and call onCLS, onFCP, onLCP, onTTFB, onINP and forward each metric to trackEvent("web_vital", { name, value, rating }). Only run in production to avoid polluting analytics with dev noise.
+
+Image safety conventions — Audit image <img> tags across the admin panel. For any image whose src comes from an external URL or CDN env var: add crossOrigin="anonymous", loading="lazy" (for below-fold images), and an onError handler that swaps in a neutral broken-image icon from Lucide (ImageOff). Centralise this in a shared <SafeImage> component so future images automatically get the behaviour.
+
+Relevant Files
+artifacts/admin/src/lib/adminFetcher.ts
+artifacts/admin/src/lib/adminAuthContext.tsx
+artifacts/admin/src/lib/sentry.ts
+artifacts/admin/src/lib/analytics.ts
+artifacts/admin/src/components/ErrorBoundary.tsx
+artifacts/admin/src/components/OnlineStatusBanner.tsx
+artifacts/admin/src/components/ui/ErrorRetry.tsx
+artifacts/admin/src/components/ConfirmDialog.tsx
+artifacts/admin/src/App.tsx
+artifacts/admin/src/pages/roles-permissions.tsx
+artifacts/admin/src/pages/users.tsx
+artifacts/admin/src/pages/withdrawals.tsx
+artifacts/admin/src/pages/promo-codes.tsx
+artifacts/admin/src/pages/flash-deals.tsx
+artifacts/admin/src/main.tsx
+artifacts/api-server/src/middlewares/admin-auth.ts

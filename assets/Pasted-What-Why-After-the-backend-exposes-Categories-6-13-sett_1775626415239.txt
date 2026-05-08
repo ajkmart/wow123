@@ -1,0 +1,24 @@
+What & Why
+After the backend exposes Categories 6–13 settings (upload limits, pagination, order rules, templates, etc.) via the platform config API, the client apps (Mobile, Rider, Vendor) still use their own hardcoded values. This task updates all three apps to fetch and respect admin-controlled values so changes take effect without code deploys.
+
+Done looks like
+Vendor App: Image upload limit, video upload limit, video duration, and allowed formats are read from platform config. Product video validation uses admin-set limits. The vendor dashboard shows the weekly auto-open/close schedule editor.
+Rider App: Profile image upload limit reads from config. Max simultaneous deliveries shown in UI reflects admin setting.
+Mobile App: Flash deals count, trending searches limit, and products-per-page use config values. Onboarding screens display admin-managed slides/images. Support chat shows "offline" notice outside admin-configured support hours.
+All apps gracefully fall back to current hardcoded values if the API is unreachable.
+Out of scope
+Backend setting keys or admin UI (handled in the parent task)
+Email template rendering (server-side only)
+Fraud rule enforcement (server-side only)
+Tasks
+Vendor App – Dynamic upload limits — Update Products.tsx and ImageUploader.tsx to read max image size, max video size, video duration limit, and allowed formats from platform config instead of hardcoded constants.
+
+Vendor App – Weekly schedule UI — Add a schedule management section to the vendor Dashboard where vendors can set their weekly open/close hours per day, using the storeHours JSON field.
+
+Mobile App – Dynamic pagination and display limits — Update search, flash deals, and product listing screens to use admin-configured page sizes and limits from platform config.
+
+Mobile App – Admin-managed onboarding slides — Read onboarding slide content (images, text) from platform config and render dynamically instead of hardcoded registration flow screens.
+
+Mobile App – Support hours enforcement — Show an "offline" notice or adjusted UI in the support chat screen when the current time falls outside admin-configured support hours.
+
+Rider App – Upload and delivery limits from config — Update profile image upload to use config-driven limits. Display max simultaneous deliveries from platform config.

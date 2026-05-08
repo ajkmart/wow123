@@ -1,0 +1,157 @@
+
+Ride is active
+Track →
+Hello, toqeer 👋
+What do you need today?
+Muzaffarabad, AJK, Pakistan
+Search products, food, restaurants...
+Our Services
+Everything in one place
+Free delivery on your first order! 🎉
+Bike & Car Ride
+Safe & fast booking
+Instant
+AJKMart Wallet
+Rs. 0
+Top Up
+Quick Access
+Bike
+Car
+Track
+Today's Deals
+Auto slides
+🏍️ Weekend Deal
+Bike Ride 10% Off
+Book a bike from just Rs. 45 — anywhere in AJK!
+Book a Ride
+T
+toqeer
++92 03235006729
+topfx75@gmail.com
+Customer
+0
+Orders
+0
+Rides
+Rs.0
+Spent
+AJKMart Wallet
+Rs. 0
+Manage
+Loyalty Points
+Earn 5 points for every Rs. 100 spent
+You can earn:
+5 pts / Rs.100
+Account
+Edit Profile
+Update name, email
+Notifications
+No new notifications
+Privacy & Security
+Toggles, biometric, location
+Secure
+Language / زبان
+English Only
+My Activity
+My Orders
+0 total orders
+Rides
+0 total rides
+Pharmacy
+Medicine order history
+Parcel Bookings
+Courier delivery history
+Saved Addresses
+Home, office & other addresses
+Help & Support
+Contact Support
+Mon–Sat, 8AM–10PM
+Terms of Service
+Read terms and conditions
+AJKMart
+v1.0.0 • Muzaffarabad, AJK, Pakistan
+Sign Out
+Home
+Orders
+Wallet
+Profile
+!
+
+Log 1 of 1
+Uncaught Error
+Failed to fetch
+Call Stack
+
+Source Map
+This call stack is not symbolicated. Some features are unavailable such as viewing the function name or tapping to open files.
+Object.apply
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/__replco/static/devtools/injected.js:214:39
+<unknown>
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:139849:7
+react-stack-bottom-frame
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:16716:20
+runWithFiberInDEV
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:4635:70
+commitHookEffectListMount
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:9625:620
+commitHookPassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:9662:58
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10564:27
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10604:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10563:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10563:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10596:362
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10589:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10604:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10604:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10563:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10563:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10563:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10604:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10604:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10563:11
+recursivelyTraversePassiveMountEffects
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10555:106
+commitPassiveMountOnFiber
+https://0e450da8-ec19-4050-8f03-8c20e3c4cac9-00-2q7hgaf1u2wf0.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle:10604:11
+Showing all frames

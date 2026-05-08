@@ -1,0 +1,64 @@
+You are an expert TypeScript/Node.js developer. Fix ALL the following issues in my Turborepo project (API server at `artifacts/api-server/`). Do not ask for confirmation, just apply fixes.
+
+## 1️⃣ TypeScript Errors (65+ `any` types)
+- `artifacts/api-server/src/routes/communication.ts` lines 417,429,432,440: Add proper types for parameters `r`, `e`, `u`. Create interfaces: `ChatRequest`, `ErrorWithMessage`, etc.
+- `artifacts/api-server/src/lib/admin-jwt.ts` line 124: Replace `as any` with interface `ChallengePayload { sub: string; type: '2fa-challenge'; iat?: number; exp?: number; }`
+- `artifacts/api-server/src/routes/maps.ts`: Create `GeocodingResponse` interface, remove all `as any` from geocoding/routing responses.
+- `artifacts/api-server/src/routes/conditions.ts`: Create `ConditionType` interface for condition types and severity, remove unsafe casts.
+- `artifacts/api-server/src/routes/admin-orders.ts`: Replace `(req as any).admin?.id` with proper `req.admin.id` after extending Express Request type. Add declaration merging in `src/types/express.d.ts`.
+- Run `pnpm --filter @workspace/api-server typecheck` and fix all remaining errors until 0 errors.
+
+## 2️⃣ Port Already in Use (EADDRINUSE)
+- Modify `artifacts/api-server/src/index.ts` to:
+  - Check if port is in use using `isPortReachable` or similar logic.
+  - If in use, kill the process on that port using `npx kill-port <port>` (add `kill-port` to devDependencies).
+  - Also allow `PORT` environment variable override.
+  - Fallback to next available port if killing fails.
+
+## 3️⃣ Missing Routes (40 endpoints returning 404)
+- In `artifacts/api-server/src/app.ts`, scan `src/routes/` for all `.ts` files that export Express router.
+- Automatically mount all found routers with prefix `/api`. For example:
+  - `productRoutes` → `app.use('/api/products', productRoutes)`
+  - `ordersRoutes` → `app.use('/api/orders', ordersRoutes)`
+  - `ridesRoutes`, `vendorRoutes`, `adminRoutes`, `customerRoutes`, `riderRoutes`, `paymentsRoutes`, `chatRoutes`, `notificationsRoutes`, etc.
+- Ensure no route file is left unmounted.
+
+## 4️⃣ Database SSL Deprecation Warning
+- In `artifacts/api-server/src/lib/db.ts`, replace SSL config with:
+  ```ts
+  ssl: process.env.NODE_ENV === 'production' 
+    ? { rejectUnauthorized: true } 
+    : false
+5️⃣ Remove Leaked .env.backup from Git History
+Delete file artifacts/api-server/.env.backup from disk.
+
+Run these commands to purge from git history:
+
+bash
+git filter-branch --tree-filter 'rm -f artifacts/api-server/.env.backup' HEAD
+git push origin --force-with-lease
+Also add *.backup to .gitignore at project root.
+
+6️⃣ Global Error Handler
+In artifacts/api-server/src/app.ts, add after all routes and before app.listen:
+
+ts
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('Global error:', err);
+  res.status(err.status || 500).json({ 
+    error: err.message || 'Internal Server Error' 
+  });
+});
+7️⃣ i18n Duplicate Keys (30 duplicates)
+In lib/i18n/src/index.ts, find all duplicate translation keys across locales.
+
+Merge duplicates: keep the latest or most complete value, remove duplicates, ensure unique keys.
+
+Run pnpm --filter @workspace/i18n build to verify.
+
+8️⃣ Build & Verify
+Run pnpm build – must pass with 0 errors.
+
+Run pnpm --filter @workspace/api-server start:dev – server should start without warnings.
+
+Verify at least 5 random API endpoints return non-404.

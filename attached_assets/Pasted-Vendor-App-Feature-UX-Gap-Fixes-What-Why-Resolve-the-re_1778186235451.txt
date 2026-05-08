@@ -1,0 +1,32 @@
+Vendor App — Feature & UX Gap Fixes
+What & Why
+Resolve the remaining MEDIUM and LOW severity vendor app gaps: confirming and fixing campaign endpoints, adding per-row bulk CSV import feedback, adding analytics data export, showing the "delivery access pending" state, verifying the voice note upload endpoint, adding a vendor wallet top-up/deposit flow, displaying chat read-receipt ticks, and showing the store verification badge.
+
+Done looks like
+Campaign join and withdraw buttons call the correct existing endpoints (/promotions/vendor/campaigns/:id/participate and DELETE /promotions/vendor/participations/:id); if an endpoint is missing from the backend a clear error is raised with the HTTP status rather than a silent failure.
+Bulk CSV import shows a per-row progress list as rows are processed, with individual pass/fail indicators instead of a single all-or-nothing result.
+The Analytics page has an "Export CSV" button that downloads the currently displayed metrics data as a CSV file.
+Vendors in "pending" delivery access state see a clear informational UI ("Your delivery access request is under review") with no confusing blank or broken state.
+Voice note messages in Chat use the correct upload endpoint; if the endpoint is unreachable a toast error is shown.
+Vendors can initiate a wallet deposit (top-up) request — either via manual bank transfer details or a payment link — mirroring the existing withdrawal flow in structure.
+Chat messages show a read-receipt tick (single for delivered, double for read) based on the existing deliveryStatus field.
+Verified vendors see a badge indicator (e.g., a checkmark chip) next to their store name on the Dashboard and Profile screens, based on user.isVerified.
+Out of scope
+WebRTC TURN server and offline queue (handled in the network & reliability task)
+Backend endpoint creation beyond wiring up existing routes
+Steps
+Campaign endpoint verification — Audit Campaigns.tsx joinMut and withdrawMut calls; verify the correct endpoint paths against the API server routes. Fix any path mismatches and ensure errors surface as user-visible toasts rather than swallowed exceptions.
+Bulk CSV import progress — Refactor the bulk import in Products.tsx to process rows and report per-row success/failure in a result list rendered in the UI as import progresses.
+Analytics CSV export — Add an "Export CSV" button to Analytics.tsx that serialises the current chart dataset into a CSV blob and triggers a browser download.
+Delivery access pending UI — In the delivery access section of Dashboard.tsx, add a distinct "Pending review" state card when the status is "pending", explaining that the request is under review and no action is needed.
+Voice note endpoint check — Confirm the /uploads/audio endpoint exists in the API server; if it does not, add a minimal audio file upload route. Update Chat.tsx to show a toast on upload failure.
+Vendor wallet deposit flow — Add a "Deposit / Top-Up" section to Wallet.tsx that lets the vendor submit a deposit request (amount + payment reference), mirroring the existing withdrawal request structure.
+Chat read-receipt ticks — In Chat.tsx, render single-tick (sent/delivered) and double-tick (read) icons on outgoing messages based on the deliveryStatus field value.
+Store verification badge — Display a verified badge next to the store name on Dashboard.tsx and the vendor profile screen when user.isVerified is true.
+Relevant files
+artifacts/vendor-app/src/pages/Campaigns.tsx
+artifacts/vendor-app/src/pages/Products.tsx
+artifacts/vendor-app/src/pages/Analytics.tsx
+artifacts/vendor-app/src/pages/Dashboard.tsx
+artifacts/vendor-app/src/pages/Chat.tsx
+artifacts/vendor-app/src/pages/Wallet.tsx

@@ -1,0 +1,135 @@
+ADMIN PANEL (artifacts/admin/)
+✅ FRONTEND SECURITY & CODE QUALITY
+
+ TLS 1.3 Enforcement
+
+ Configure reverse proxy (Nginx/ALB) for TLS 1.3 only
+ Disable TLS 1.0, 1.1, 1.2
+ Enable HSTS header: max-age=31536000; includeSubDomains; preload
+ Certificate pinning for APIs
+ Sensitive Data Leakage
+
+ Scan main.tsx - verify no credentials passed to Sentry
+ Check lib/sentry.ts - ensure PII not captured
+ Verify analytics lib doesn't track sensitive data
+ Review error-reporter.ts - strip auth headers from logs
+ Ensure localStorage/sessionStorage don't store PII
+ Check indexedDB usage (if any)
+🔐 ERROR BOUNDARIES & RESILIENCE
+ Global Error Boundary (Already partial - ENHANCE)
+
+ File: artifacts/admin/src/components/ErrorBoundary.tsx - VERIFY EXISTS
+ Add fallback for CSS-in-JS crashes
+ Add fallback for infinite render loops
+ Implement error reporting to Sentry (non-blocking)
+ Add recovery CTA (reload, go home, contact support)
+ Test: Throw error from deep component, verify boundary catches it
+ Test: Network error during load, verify UI graceful
+ API Request Timeouts
+
+ Set global timeout: 30 seconds (configurable)
+ Implement AbortController for each request
+ Show toast on timeout (not crash)
+ Provide retry button
+ Log timeout events to Sentry
+ File: Check lib/adminFetcher.ts or lib/api.ts
+ Loader Lock (Prevent Double-Click)
+
+ Implement request debouncing (500ms minimum)
+ Disable buttons during requests
+ Lock entire page during critical operations (create order, withdraw, etc.)
+ Show visual indicator (loading skeleton, opacity, spinner)
+ Cleanup: Unlock on error/success
+ Network Status Banner
+
+ File: artifacts/admin/src/components/OnlineStatusBanner.tsx - VERIFY EXISTS
+ Show when offline: "You are offline"
+ Show when reconnecting: "Restoring connection..."
+ Auto-refresh data when back online
+ Cache failed requests, retry when online
+🔑 AUTHENTICATION & AUTHORIZATION
+ RBAC Implementation (Already partial - VERIFY & EXPAND)
+
+ File: Check lib/adminAuthContext.tsx or similar
+ Verify usePermissions hook exists and works
+ Audit ALL routes in App.tsx:
+ /dashboard → Admin only
+ /users → Requires "users.view"
+ /orders → Requires "orders.view"
+ /riders → Requires "fleet.rides.view"
+ /audit-logs → Requires "system.audit.view" ← MOST CRITICAL
+ /security → Requires "system.settings.view"
+ Create matrix document of all 47 routes + their required permissions
+ Test: Try accessing restricted page with limited role → should 403
+ JWT Token Security
+
+ File: Check how tokens stored (should be HttpOnly cookie or memory)
+ Verify short-lived access tokens (15 min)
+ Verify refresh token rotation
+ Verify token sent via HTTPS only
+ Add token expiration UI (warning 1 min before logout)
+ Clear tokens on logout
+ Clear tokens on 401 response
+ Sensitive Action Confirmation
+
+ Require password confirmation for:
+ Admin password change
+ Admin role modification
+ User suspension/deletion
+ Withdraw approval
+ Promo creation/deletion
+ Show email/phone of affected user
+ Log action to audit logs immediately
+🧹 COMPONENTS AUDIT
+ Stuck Loaders Fix
+
+ Search: <div.*animate-spin in all .tsx files
+ Review each loader: add timeout + error state
+ Add fallback UI if loader > 10 seconds
+ Example fix:
+TSX
+const [loadingTooLong, setLoadingTooLong] = useState(false);
+useEffect(() => {
+  const timer = setTimeout(() => setLoadingTooLong(true), 10000);
+  return () => clearTimeout(timer);
+}, [isLoading]);
+
+if (loadingTooLong) return <ErrorFallback />;
+ Form Validation
+
+ All forms use Zod schemas
+ Client-side validation (UX)
+ Server-side validation (Security)
+ Show clear error messages
+ Disable submit button on validation error
+ Image Handling
+
+ Set crossorigin="anonymous" if loading from CDN
+ Add fallback broken-image icon
+ Compress images (< 200KB)
+ Lazy-load images below fold
+📊 MONITORING & TELEMETRY
+ Sentry Integration (Already partial - VERIFY)
+
+ File: lib/sentry.ts - CHECK CONTENTS
+ Set environment (dev/staging/prod)
+ Set sample rate < 1.0 for traces (0.1 = 10%)
+ Add source maps (upload to Sentry)
+ Verify user context set correctly
+ Test: Throw error → verify in Sentry dashboard
+ Analytics (Already partial - VERIFY)
+
+ File: lib/analytics.ts - CHECK CONTENTS
+ Track: Page views, user actions, errors
+ NOT tracking: Passwords, OTPs, card numbers
+ Set user ID for cohort analysis
+ Performance Monitoring
+
+ Add Web Vitals tracking (Core Web Vitals)
+ Monitor: First Contentful Paint, Largest Contentful Paint, Cumulative Layout Shift
+ Set budgets: LCP < 2.5s, CLS < 0.1
+
+
+check kro duplicate kuch na ho
+
+

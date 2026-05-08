@@ -1,0 +1,109 @@
+You are an expert full-stack developer. I have a production system with OTP bypass features (admin panel, backend API, and mobile apps: Rider, Vendor, Customer). I need to make this system 100% professional. Below are all the issues based on a thorough code review. Fix each one. Show me the exact code changes and explain why each fix is needed.
+
+🔴 CRITICAL FIXES (Do these first):
+
+1. File: `admin/otp.ts` (lines 215-236)
+   - Problem: Per-user bypass update uses two separate database operations (update + insert) without a transaction. If the update succeeds but the insert fails, data becomes inconsistent.
+   - Fix: Wrap both operations in a database transaction. Both commit together or rollback together.
+
+2. File: `auth-otp-bypass.ts` (lines 155-158)
+   - Problem: `hashOtp()` returns plain text OTP. This is a security risk – OTPs stored in plain text.
+   - Fix: Use bcrypt to hash OTPs. Implement `hashOtp(otp: string): Promise<string>` and `verifyOtp(otp: string, hash: string): Promise<boolean>`.
+
+3. Rider & Vendor apps – files where `localStorage.setItem` is used (e.g., line 56)
+   - Problem: Using `localStorage` directly on the server (SSR) causes "localStorage is not defined" crash.
+   - Fix: Add `if (typeof localStorage !== "undefined")` before any localStorage access.
+
+4. File: `admin/otp.ts` (lines 10-12) - `generateBypassCode()`
+   - Problem: `Math.random()` is not cryptographically secure. Codes are predictable.
+   - Fix: Use `crypto.randomBytes(3)` to generate a secure 6-digit code.
+
+🟠 BACKEND ROBUSTNESS:
+
+5. File: `admin/otp.ts` (lines 195-261) – per-user bypass endpoint
+   - Problem: If a user already has an active bypass, the new bypass overwrites it without warning.
+   - Fix: Check existing `otpBypassUntil`. If it's a future date, return `409 Conflict` with the existing expiry time.
+
+6. File: `admin/otp.ts` (lines 257-260) – error handling
+   - Problem: Database error details are sent to the client, leaking internals.
+   - Fix: Send generic error messages (e.g., "Database operation failed") for server errors. Keep specific errors for validation only.
+
+7. File: `admin/otp.ts` (lines 234, 294) – user-agent casting
+   - Problem: `req.headers["user-agent"] as string` assumes a string always exists, but it could be undefined or an array.
+   - Fix: Use `(req.headers["user-agent"] ?? "unknown") as string`.
+
+🟡 ADMIN PANEL FRONTEND FIXES:
+
+8. File: `otp-control.tsx` (lines 162-165) – user search race condition
+   - Problem: Multiple API requests when typing fast – stale responses can overwrite newer ones.
+   - Fix: Implement AbortController. Cancel the previous request before starting a new one.
+
+9. File: `otp-control.tsx` (lines 460-462) – `handleToggle` function
+   - Problem: No success toast after toggling whitelist entry. User doesn't get confirmation.
+   - Fix: Add a toast notification on success.
+
+10. File: `otp-control.tsx` (line 460) – `handleToggle(entry: any)`
+    - Problem: Using `any` type – no type safety, potential runtime errors.
+    - Fix: Change parameter type to `OtpWhitelistEntry`.
+
+11. File: `otp-control.tsx` (line 301) – date parsing for bypass status
+    - Problem: `new Date(user.otpBypassUntil) > new Date()` returns `false` if the date string is invalid, but logic is wrong.
+    - Fix: Use `new Date(user.otpBypassUntil).getTime() > Date.now()` and check for `isNaN()`.
+
+12. File: `otp-control.tsx` (line 268) – custom minutes validation
+    - Problem: `parseInt(customMinutes, 10)` may return `NaN`, but comparison `NaN > 0` is silently false.
+    - Fix: Add `Number.isNaN(m)` check and show toast for invalid input.
+
+13. File: `otp-control.tsx` (line 104) – `AuditRow` type definition
+    - Problem: `event` field is just `string` – too loose.
+    - Fix: Use a union type: `"login_otp_bypass" | "login_global_otp_bypass" | "otp_send_bypassed"`.
+
+🟢 MOBILE APPS INTEGRATION:
+
+14. Customer app – file: `ajkmart/app/auth/index.tsx` (signup screen)
+    - Problem: The `useOTPBypass()` hook exists but is not used. Users still see OTP form even when bypass is active.
+    - Fix: Import `useOTPBypass`, check `bypassActive`, and conditionally show a "No OTP required" message instead of the OTP form.
+
+15. Rider and Vendor apps – all `localStorage` usage
+    - Problem: Same SSR crash risk as mentioned in #3.
+    - Fix: Add `typeof localStorage !== "undefined"` guards everywhere.
+
+🟣 TYPESCRIPT STRICTNESS:
+
+16. File: `admin/otp.ts` (line 429) – `Record<string, any>` usage
+    - Problem: `any` defeats TypeScript. Update data shape is unknown.
+    - Fix: Define `interface WhitelistUpdate { label?: string | null; bypassCode?: string; isActive?: boolean; expiresAt?: Date | null; }` and use `Partial<WhitelistUpdate>`.
+
+17. File: `use-admin.ts` (lines 1515-1542) – `useOtpWhitelist` hook
+    - Problem: No generic type for `useQuery`, so return type is `unknown`.
+    - Fix: Add `useQuery<OtpWhitelistResponse>` and define the response interface.
+
+18. File: `otp-control.tsx` (line 21, 456) – error handling types
+    - Problem: `catch (e: any)` – unsafe.
+    - Fix: Use `catch (e: unknown)` and create a custom `ApiError` interface with `status` and `message`.
+
+19. File: `otp-control.tsx` (line 61) – `UserRow` type
+    - Problem: `otpBypassUntil` is `string | null | undefined`. Optional and nullable is redundant.
+    - Fix: Make it `string | null` (remove optional). Also ensure `email` is `string | null`, not optional.
+
+20. File: `otp-control.tsx` (line 437) – regex for bypass code
+    - Problem: Regex defined inline, and backend uses different regex (`\d` vs `[0-9]`).
+    - Fix: Define a shared constant `const BYPASS_CODE_REGEX = /^[0-9]{6}$/` and use it everywhere.
+
+21. File: `otp-control.tsx` (line 483) – datetime-local input value
+    - Problem: `expiresAt` from `<input type="datetime-local">` returns a string like `"2026-04-30T12:30"`, but backend expects ISO string with timezone.
+    - Fix: Convert to ISO string: `expiresAt ? new Date(expiresAt + "Z").toISOString() : undefined`.
+
+🔵 FINAL CHECKS TO VERIFY:
+
+- Run `npm run type-check` and `npm run build` – no errors.
+- Enable `"strict": true` in `tsconfig.json`.
+- Test production build locally (SSR, localStorage, API calls).
+
+For each fix above, give me:
+- The exact file path and line numbers
+- The original code block
+- The fixed code block
+- A brief explanation of what the fix solves
+
+Start fixing now.

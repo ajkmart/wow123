@@ -1,0 +1,134 @@
+#1 - Admin Panel Restructure & UX Polish
+What & Why
+The admin panel has grown organically and now has duplicate/overlapping pages, a disorganised sidebar, and missing quality-of-life features. This task consolidates the duplicates, rewires the sidebar to the recommended 9-group hierarchy, and adds the UX improvements listed in section 10.5 — resulting in a single coherent, easy-to-navigate admin panel.
+
+Done looks like
+No duplicate destinations: every feature lives in exactly one place
+Sidebar follows the recommended 9-group structure (Dashboard / Operations / People / Catalog / Finance / Marketing / Communications / Analytics / Security & Compliance / Health & Monitoring / Configuration)
+/analytics is a tabbed page: Revenue | Search | Users (wishlist insights merged in)
+/business-rules is a tabbed page: Account Conditions | Automation Rules (merges account-conditions + condition-rules)
+/security (Security Dashboard) is the single place for all security config; settings-security.tsx no longer duplicates it — the Security & Access tab in Settings links out to the Security Dashboard
+/communications tab structure: Notifications | Broadcast | Settings (SMS Gateways tab) — no separate sidebar entries for broadcast or notifications
+All old routes (/revenue-analytics, /search-analytics, /account-conditions, /condition-rules) redirect cleanly to their new homes
+Global search bar in the header searches across orders, users, and riders by ID or name, hitting existing /api/admin endpoints
+Dashboard has a "Quick Actions" card: Assign Rider, Approve Deposit, Send Notification
+Breadcrumbs component present on every protected page
+Keyboard shortcuts active: / focuses global search, N opens new-item flow context-sensitively, Esc closes any open drawer/modal
+Every data table has sortable column headers (client-side for already-loaded data; server-side sort param for paginated tables)
+Every list page (Orders, Users, Riders, Transactions, Vendors, Products, KYC, Withdrawals, Deposit Requests) has an "Export CSV" button that calls the relevant API endpoint and triggers a browser download
+Status badges are colour-coded consistently: green=delivered/active, yellow=pending/in-progress, red=cancelled/suspended, blue=assigned
+"Last updated" relative timestamp shown on every page's header
+Mobile bottom nav updated to reflect new structure
+Out of scope
+Redesigning individual page content beyond what is needed for the merges
+New backend API endpoints beyond minimal ones needed for CSV export and global search
+Changes to rider-app, vendor-app, or customer app
+A/B experiment engine changes
+Any billing or payment gateway logic
+Steps
+Phase 1 — Page Merges
+Create /analytics tabbed page — New analytics.tsx page with three tabs: Revenue (port content from revenue-analytics.tsx), Search (port content from search-analytics.tsx), Users (port content from wishlist-insights.tsx). All three source pages become thin wrappers that redirect to the new page with the correct tab query param.
+
+Create /business-rules tabbed page — New business-rules.tsx page with two tabs: Account Conditions (port content from account-conditions.tsx) and Automation Rules (port content from condition-rules.tsx). Source pages redirect to the new page with the correct tab.
+
+Consolidate security config — security.tsx already contains all security management content. In settings-security.tsx, replace the body with a ManageInSettingsLink-style callout and a button that navigates to /security. This removes the duplication without breaking the Settings tab structure.
+
+Verify Communications hub — communications.tsx already has three tabs (Notifications, Broadcast, KPIs). Add a fourth Settings sub-tab that embeds the SMS Gateway controls currently on /sms-gateways, keeping /sms-gateways as a redirect. Confirm the nav config has no separate entries for /broadcast or /notifications.
+
+Phase 2 — Sidebar Restructure
+Rewrite navConfig.ts — Replace the existing 7-group structure with the 9-group recommended hierarchy below, preserving all existing href, icon, requirePermission, and badge fields. Map every existing item to its new group. New groups and their items:
+
+Dashboard — Overview (/dashboard)
+Operations — Orders, Rides, Parcel, Pharmacy
+People — Users, Riders, KYC Verification
+Catalog — Products, Categories, Reviews, Vendor Inventory Settings
+Finance — Transactions, Withdrawals, Deposit Requests, Wallet Transfers, Revenue (link to /analytics?tab=revenue)
+Marketing — Promotions Hub, Promo Codes, Flash Deals, Banners, Popups, Loyalty
+Communications — Notifications, Broadcast, Support Chat, SMS Gateways (all pointing to /communications with tab param)
+Analytics — Revenue, Search, A/B Experiments (/analytics, /experiments)
+Security & Compliance — Security Dashboard, Audit Logs, Consent Log, SOS Alerts, Roles & Permissions
+Health & Monitoring — Health Dashboard, Error Monitor, Live Riders Map, Chat Monitor
+Configuration — Settings (tabbed), Auth Methods, Launch Control, OTP Control, Deep Links, QR Codes, Delivery Access, Business Rules, FAQ Management, Vendors, Webhooks, WhatsApp Log
+Update App.tsx routes — Register the two new routes (/analytics, /business-rules). Add <Redirect> entries for all retired paths: /revenue-analytics → /analytics?tab=revenue, /search-analytics → /analytics?tab=search, /wishlist-insights → /analytics?tab=users, /account-conditions → /business-rules?tab=conditions, /condition-rules → /business-rules?tab=rules, /sms-gateways → /communications?tab=settings. Update BOTTOM_NAV to reflect the new structure.
+
+Phase 3 — UX Improvements
+Global search bar — Add a GlobalSearch component to AdminLayout's top header. On query, it debounce-calls existing endpoints (/api/admin/users?search=, /api/orders?search=, /api/admin/riders?search=) and shows a dropdown with grouped results (Users / Orders / Riders), each row linking to the relevant detail page.
+
+Quick Actions card on Dashboard — Add a QuickActions card component to dashboard.tsx with three primary action buttons: Assign Rider (opens the existing rider-assignment drawer), Approve Deposit (links to /deposit-requests?filter=pending), Send Notification (opens the broadcast composer drawer). These use existing API hooks.
+
+Breadcrumbs component — Create components/layout/Breadcrumbs.tsx that reads the current wouter location and maps it against NAV_ITEMS and the new group structure to build a path array. Integrate it at the top of AdminLayout's main content area. For settings sub-routes, include the section name.
+
+Keyboard shortcuts — Add a useKeyboardShortcuts hook in hooks/useKeyboardShortcuts.ts. Register: / → focus the global search input, Esc → close the active drawer/modal (via existing UI context), N → trigger a context-aware "new item" action (e.g., on /orders page it opens the new-order drawer). Mount the hook in AdminLayout.
+
+Sortable table columns — Create a useSortableTable hook that manages sortBy / sortDir state. For client-side tables (small datasets already in memory), sort the array. For server-side paginated tables, append sort and dir query params to the existing API calls. Apply to Orders, Users, Riders, Transactions, KYC, Withdrawals, and Deposit Requests tables. Add visual sort indicators (↑/↓ icons) to column headers.
+
+CSV export button — Create a useExportCsv hook that calls the relevant list endpoint with format=csv (add this query-param handling to the API server's list handlers for Orders, Users, Riders, Transactions, Vendors, Products, KYC, Withdrawals, Deposit Requests) and triggers URL.createObjectURL download. Add an "Export CSV" button to the toolbar of each list page.
+
+Colour-coded status badges — Create/update a shared StatusBadge component in components/ui/StatusBadge.tsx with a consistent colour map: delivered|active|approved → green, pending|in_progress → yellow/amber, cancelled|suspended|rejected → red, assigned|processing → blue. Replace inline status chips across Orders, Rides, KYC, Withdrawals, and Transactions pages with this component.
+
+"Last updated" timestamp — Add a LastUpdated component that accepts the React Query dataUpdatedAt timestamp and displays a human-readable relative string (e.g. "Updated 2 min ago") with a manual refresh icon. Mount it in the page header area of every main list/detail page via a consistent PageHeader wrapper component.
+
+Relevant files
+artifacts/admin/src/lib/navConfig.ts
+artifacts/admin/src/App.tsx
+artifacts/admin/src/components/layout/AdminLayout.tsx
+artifacts/admin/src/pages/settings.tsx
+artifacts/admin/src/pages/settings-security.tsx
+artifacts/admin/src/pages/settings-system.tsx
+artifacts/admin/src/pages/settings-payment.tsx
+artifacts/admin/src/pages/settings-render.tsx
+artifacts/admin/src/pages/settings-integrations.tsx
+artifacts/admin/src/pages/settings-weather.tsx
+artifacts/admin/src/pages/security.tsx
+artifacts/admin/src/pages/account-conditions.tsx
+artifacts/admin/src/pages/condition-rules.tsx
+artifacts/admin/src/pages/revenue-analytics.tsx
+artifacts/admin/src/pages/search-analytics.tsx
+artifacts/admin/src/pages/wishlist-insights.tsx
+artifacts/admin/src/pages/communications.tsx
+artifacts/admin/src/pages/broadcast.tsx
+artifacts/admin/src/pages/notifications.tsx
+artifacts/admin/src/pages/sms-gateways.tsx
+artifacts/admin/src/pages/dashboard.tsx
+artifacts/admin/src/pages/orders/index.tsx
+artifacts/admin/src/pages/users.tsx
+artifacts/admin/src/pages/riders.tsx
+artifacts/admin/src/pages/transactions.tsx
+artifacts/admin/src/pages/kyc.tsx
+artifacts/admin/src/pages/withdrawals.tsx
+artifacts/admin/src/pages/deposit-requests.tsx
+artifacts/admin/src/pages/vendors.tsx
+artifacts/admin/src/pages/products.tsx
+artifacts/admin/src/pages/experiments.tsx
+artifacts/admin/src/pages/audit-logs.tsx
+artifacts/admin/src/pages/consent-log.tsx
+artifacts/admin/src/pages/sos-alerts.tsx
+artifacts/admin/src/pages/roles-permissions.tsx
+artifacts/admin/src/pages/health-dashboard.tsx
+artifacts/admin/src/pages/error-monitor.tsx
+artifacts/admin/src/pages/live-riders-map.tsx
+artifacts/admin/src/pages/chat-monitor.tsx
+artifacts/admin/src/pages/faq-management.tsx
+artifacts/admin/src/pages/auth-methods.tsx
+artifacts/admin/src/pages/launch-control.tsx
+artifacts/admin/src/pages/otp-control.tsx
+artifacts/admin/src/pages/deep-links.tsx
+artifacts/admin/src/pages/qr-codes.tsx
+artifacts/admin/src/pages/delivery-access.tsx
+artifacts/admin/src/pages/promotions-hub.tsx
+artifacts/admin/src/pages/promo-codes.tsx
+artifacts/admin/src/pages/flash-deals.tsx
+artifacts/admin/src/pages/banners.tsx
+artifacts/admin/src/pages/popups.tsx
+artifacts/admin/src/pages/loyalty.tsx
+artifacts/admin/src/pages/support-chat.tsx
+artifacts/admin/src/pages/webhook-manager.tsx
+artifacts/admin/src/pages/whatsapp-delivery-log.tsx
+artifacts/admin/src/pages/categories.tsx
+artifacts/admin/src/pages/reviews.tsx
+artifacts/admin/src/pages/vendor-inventory-settings.tsx
+artifacts/admin/src/pages/parcel.tsx
+artifacts/admin/src/pages/pharmacy.tsx
+artifacts/admin/src/pages/van.tsx
+artifacts/admin/src/pages/wallet-transfers.tsx
+artifacts/api-server/src/routes/admin.ts

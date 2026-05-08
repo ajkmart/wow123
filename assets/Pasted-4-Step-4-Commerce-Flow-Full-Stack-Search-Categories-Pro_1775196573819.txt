@@ -1,0 +1,42 @@
+4 - Step 4: Commerce Flow — Full-Stack (Search, Categories, Product Detail, Cart & Checkout)
+What & Why
+The commerce flow (browse → product → cart → checkout) is the core revenue path. Backend APIs for search, products, cart, promo codes, and order placement must be robust, AND frontend screens must be seamless and bug-free.
+
+Done looks like
+Backend: Search endpoint supports full-text search with relevance ranking, category filtering, and pagination. Products endpoint returns complete product data (images, variants, pricing, stock status, reviews summary). Cart operations (add, remove, update quantity) are validated server-side (stock check, service consistency). Promo code validation endpoint checks expiry, usage limits, minimum order, and applicable services. Order creation endpoint validates stock, calculates totals (subtotal + delivery fee + service fee - discount), creates order record, and handles payment method selection. Checkout calculates delivery estimates based on distance.
+Frontend: Search screen with recent searches, trending items, real-time results with product cards. Categories with grid and subcategory drill-down. Product Detail with image carousel + zoom, variant selector, quantity stepper, reviews, "Frequently Bought Together." Cart with quantity controls, fee breakdown, promo code, sticky checkout button. Checkout with address picker, payment selector, order summary, place order with loading state. Order success screen with tracking CTA.
+All edge cases: empty cart, out-of-stock items, promo errors, payment failures, service mixing warnings
+Out of scope
+Vendor-side product management
+Backend payment gateway integration changes (use existing)
+Tasks
+Audit and improve search API — Full-text search with ranking, category filters, pagination, response includes product images and pricing.
+Audit products and categories APIs — Ensure product detail includes all fields (images, variants, stock, reviews summary, related products). Categories endpoint returns hierarchy correctly.
+Build/improve cart API — Server-side cart management with stock validation, service consistency check, quantity limits, and real-time total calculation.
+Audit promo code and order creation APIs — Promo validation with all business rules. Order creation with idempotency key, stock re-check, total calculation, payment method handling, delivery fee calculation.
+Redesign Search screen — Animated search bar, recent searches with clear-all, trending chips, real-time results with skeleton loading, empty and error states.
+Redesign Categories screen — Category image headers, subcategory chips, product grid with filter/sort controls.
+Upgrade Product Detail screen — Image carousel with zoom, variant selector with availability, quantity stepper, reviews section with pagination, "Frequently Bought Together."
+Upgrade Cart screen — Swipe-to-remove, quantity stepper inline, fee breakdown, promo code with instant validation, sticky checkout button.
+Upgrade Checkout screen — Address picker (list + map), payment method cards with logos, order summary, place order with double-tap protection.
+Build Order success screen — Success animation, order details card, track order and continue shopping CTAs.
+Relevant files
+artifacts/api-server/src/routes/products.ts
+artifacts/api-server/src/routes/categories.ts
+artifacts/api-server/src/routes/orders.ts
+artifacts/api-server/src/routes/recommendations.ts
+artifacts/api-server/src/routes/reviews.ts
+artifacts/api-server/src/routes/wishlist.ts
+lib/db/src/schema/products.ts
+lib/db/src/schema/product_variants.ts
+lib/db/src/schema/categories.ts
+lib/db/src/schema/orders.ts
+lib/db/src/schema/promo_codes.ts
+lib/db/src/schema/flash_deals.ts
+lib/db/src/schema/wishlist.ts
+lib/db/src/schema/reviews.ts
+artifacts/ajkmart/app/search.tsx
+artifacts/ajkmart/app/categories.tsx
+artifacts/ajkmart/app/product/[id].tsx
+artifacts/ajkmart/app/cart.tsx
+artifacts/ajkmart/app/wishlist.tsx

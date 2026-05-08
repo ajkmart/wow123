@@ -1,0 +1,82 @@
+1. API SERVER — Routes
+1.1 stats.ts — Stub-level implementation
+Only returns productCount and restaurantCount (active vendors)
+No revenue totals, order counts, ride counts, user growth, or any real admin stat
+Admin dashboard almost certainly fetches from other endpoints and ignores this route
+Gap: Either wire real metrics here or delete the route — it is misleading dead weight
+1.2 cart.ts — Server-side cart is only a raw JSON snapshot
+GET/PUT/DELETE /cart/snapshot — persists a JSON blob, zero validation of contents
+No price verification on save (client can store any price)
+No item quantity cap enforced (MAX_ITEM_QUANTITY = 99 exists in orders.ts but not in cart)
+No stock check on cart save — user can save out-of-stock items silently
+No atomic cart-to-order conversion endpoint; ordering reads the snapshot independently
+Gap: Cart snapshot should validate product IDs, prices, and stock at save time; or be fully server-side
+1.3 orders.ts — No dedicated refund endpoint
+Refunds are done by manually crediting the wallet (via admin panel)
+No POST /orders/:id/refund endpoint; no refund state machine
+order_audit_log schema exists but no customer-facing order timeline endpoint
+Auto-cancel setInterval mentioned in platform config but not implemented in code
+Gap: Add refund endpoint + order event timeline endpoint
+1.4 recommendations.ts — No caching, DB hit on every request
+GET /recommendations/for-you runs three separate DB queries on every call
+No Redis or in-memory TTL cache around results
+Weight-based collaborative filtering is correct logic but will not scale
+POST /recommendations/track has no deduplication (same event can be stored many times in quick succession)
+Gap: Add a short TTL cache (60 s) around recommendation results; deduplicate track events
+1.5 payments.ts — No callback/webhook for automatic payment confirmation
+JazzCash and EasyPaisa hash generation is implemented
+Manual payment verification only — no POST /payments/callback endpoint to auto-confirm on gateway redirect
+resolvePayment() and confirmOrder() helpers exist but are never called from a webhook handler
+Gap: Add a gateway callback route with signature verification for each enabled gateway
+1.6 promotions.ts — 1 212-line god file
+Handles campaigns, offers, offer templates, promo codes, and participation in a single file
+No sub-router split, all logic inline
+marketingAuth and managerAuth are duplicated helper functions that already exist in admin-shared
+Gap: Split into campaigns.ts, offers.ts, promo-codes.ts sub-modules
+1.7 school.ts — No admin CRUD for subscriptions
+Admin can manage school routes but there is no admin endpoint to view/cancel/refund school subscriptions
+Subscription payment deducts from wallet but no refund path exists
+Gap: Add GET /admin/school/subscriptions and POST /admin/school/subscriptions/:id/cancel
+1.8 van.ts — Tracking emits but no persistent location trail
+emitVanLocation and emitVanTripUpdate are called but van driver location is not persisted to live_locations
+Customer tracking screen (/van/tracking.tsx) polls but has no fallback if socket disconnects
+Gap: Persist van driver location to live_locations table same as ride-hailing riders
+1.9 wallet.ts — In-memory idempotency cache not shared across restarts
+Idempotency cache is a Map<string, IdempotencyEntry> in module scope
+Server restart clears all in-flight keys — duplicate charges possible if server restarts during a payment
+Redis-backed idempotency (using idempotencyKeysTable) exists in orders.ts but not in wallet.ts
+Gap: Migrate wallet deposit/send/withdraw idempotency to idempotencyKeysTable (DB-backed, restart-safe)
+1.10 rides.ts — 2 142-line god file
+Contains ride booking, bargaining, OTP, bid management, cancellation, and status update all inline
+Rate limiters are defined per-file with rateLimit() instead of using the central rate-limit.ts
+broadcastWalletUpdate import is declared at the top but also redeclared inside the file body (duplicate)
+Gap: Split into rides/booking.ts, rides/dispatch.ts, rides/otp.ts, rides/bids.ts
+1.11 rider.ts — 3 240-line god file
+Contains rider profile, GPS ping, location history, OTP, earnings, ride actions, van driver logic, penalties, and withdrawal all in one file
+normalizeVehicleType() function is duplicated between rider.ts and the admin fleet routes
+Cursor pagination is implemented here but unused in all other list endpoints
+Gap: Split into rider/profile.ts, rider/location.ts, rider/earnings.ts, rider/rides.ts
+1.12 auth.ts — 4 546-line god file (largest in codebase)
+Handles OTP send/verify, username/password login, social OAuth, magic links, TOTP setup/verify, refresh, logout, account merge, password reset, and 2FA challenge all in one file
+isRiderSession() duplicated across auth.ts and other places
+TODO(remove-after-v1) comment on refresh token body field has been present since task #1
+Gap: Split into auth/otp.ts, auth/password.ts, auth/oauth.ts, auth/totp.ts, auth/session.ts
+1.13 pharmacy.ts — Prescription photo stored as text in prescriptionNote
+Photo URL embedded as [photo: url] markup inside a text field
+prescriptionRefMap is a module-level Map — lost on server restart
+No image expiry or cleanup for uploaded prescription photos
+Gap: Add dedicated prescriptionPhotoUrl column; persist ref map to DB or Redis
+1.14 Missing: Loyalty points customer-facing endpoints
+admin/loyalty.ts admin route exists, schema has loyalty feature flag
+No GET /users/me/loyalty or POST /loyalty/redeem endpoint for customers
+Loyalty is configured in admin but customers have no API to query their points
+Gap: Add customer loyalty endpoints
+1.15 Missing: Customer personal data export UI trigger
+POST /api/users/export-data exists (audit-logged, admin-alerted)
+No frontend in the Expo app — customers cannot self-trigger their data export
+Gap: Add "Download My Data" button in customer profile → calls existing endpoint
+1.16 Missing: Referral system backend
+features.referral flag exists in platform config
+No referral_codes table in schema, no POST /referrals/apply endpoint, no reward logic
+Feature flag is wired to nothing
+Gap: Either implement referral backend or remove the feature flag from platform config

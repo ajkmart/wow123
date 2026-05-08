@@ -1,0 +1,55 @@
+Role: Senior Full-Stack Engineer & Product Strategist
+
+Task: Technical Audit and Optimization of the  Customer Super-App
+
+Your objective is to eliminate critical conversion-killing bugs and stabilize the multi-service architecture (Grocery, Food, Parcel, Pharmacy, and Ride-Hailing) to ensure a seamless "Order-to-Delivery" lifecycle.
+
+Required Fixes & Optimization Modules
+
+1. The "Ghost Order" & Sync Loophole
+
+The Bug: Orders stuck in "Pending" status or failing to transmit to the Admin/Rider apps despite successful payment/placement.
+
+The Fix: Implement a Two-Way Acknowledgment (ACK) System. When a customer hits "Place Order," the app must wait for a $200\text{ OK}$ socket response from the server before clearing the cart. If the connection drops, implement an exponential backoff retry logic to prevent duplicate orders.
+
+2. Unified Multi-Service Logic (Grocery, Food, Pharmacy, Parcel)
+
+The Bug: Conflicts in checkout logic when switching between "Store" services (Grocery/Food) and "Logistics" services (Parcel/Ride).
+
+The Fix: * Standardize the Cart Controller to handle dynamic tax, delivery fees, and distance-based pricing specific to each category.
+
+Fix the Pharmacy Upload Module to ensure prescription images are compressed and synced to the Admin Panel without timeout errors.
+
+3. Real-Time Geospatial Handshake
+
+The Bug: Inaccurate "Nearby Drivers" display or "Ride Book" failures due to stale GPS data.
+
+The Fix: * Integrate Google Maps/OpenStreetMap WebSockets to provide a smooth, non-flickering "Live View" of available riders.
+
+Optimize the Reverse Geocoding flow so that the customer’s pickup address is pinpoint accurate, reducing "Rider-Customer" coordination calls.
+
+4. Wallet & Payment Integrity
+
+The Bug: Balance mismatches where the Wallet is debited, but the order fails, or the UI doesn't refresh the new balance instantly.
+
+The Fix: * Implement Atomic Transactions on the backend—the wallet deduction and order creation must succeed or fail as a single unit.
+
+Add a real-time Wallet Listener to the UI that updates the header balance via a broadcast stream the moment a transaction is verified.
+
+5. UI/UX "Polish & Performance"
+
+Fix: Resolve "Layout Overflow" errors on the Order Tracking screen where long addresses or multiple item lists break the UI.
+
+Improvement: Implement Skeleton Loaders for the Mart and Food menus to reduce perceived loading times during peak traffic.
+
+Smooth Navigation: Fix the "Back Button" logic to ensure users don't accidentally exit the app while deep in a sub-menu of the Grocery section.
+
+Step-by-Step Execution Plan
+
+API Audit: Trace the POST /order/create request from the Customer App through the Middleware Auth Layer to the Database.
+
+Logic Stress Test: Simulate 50 concurrent "Ride Bookings" and "Grocery Checkouts" to identify database deadlocks.
+
+Frontend State Cleanup: Audit the State Management (Provider/Bloc/Redux) to ensure data doesn't leak between the "Food" and "Parcel" modules.
+
+Final Handshake: Verify that the Admin Panel receives the Customer's push notification and displays the new order on the Live Map in under $500\text{ms}$.

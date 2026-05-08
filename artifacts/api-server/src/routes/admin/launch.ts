@@ -1,0 +1,924 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { platformSettingsTable, vendorPlansTable, adminRolePresetsTable, demoBackupsTable, vendorProfilesTable, ordersTable, productsTable } from "@workspace/db/schema";
+import { eq, asc, desc, count } from "drizzle-orm";
+import { sendSuccess, sendError, sendNotFound, sendValidationError } from "../../lib/response.js";
+import { addAuditEntry, getClientIp, invalidatePlatformSettingsCache, invalidateSettingsCache, DEFAULT_PLATFORM_SETTINGS, type AdminRequest } from "../admin-shared.js";
+
+const router = Router();
+
+/* ── AI-Recommended defaults for all platform feature flags ── */
+const AI_RECOMMENDED: Record<string, string> = {
+  feature_mart: "on",
+  feature_food: "on",
+  feature_rides: "on",
+  feature_pharmacy: "on",
+  feature_parcel: "on",
+  feature_van: "on",
+  feature_wallet: "on",
+  feature_referral: "on",
+  feature_new_users: "on",
+  feature_chat: "off",
+  feature_live_tracking: "on",
+  feature_reviews: "on",
+  feature_sos: "on",
+  feature_weather: "on",
+  user_require_approval: "off",
+  wallet_mpin_enabled: "on",
+  ride_surge_enabled: "off",
+  ride_bargaining_enabled: "on",
+  order_schedule_enabled: "off",
+  finance_gst_enabled: "on",
+  finance_cashback_enabled: "off",
+  finance_invoice_enabled: "off",
+  delivery_free_enabled: "on",
+  vendor_auto_approve: "off",
+  vendor_promo_enabled: "on",
+  rider_auto_approve: "off",
+  rider_cash_allowed: "on",
+  rider_withdrawal_enabled: "on",
+  rider_deposit_enabled: "on",
+  security_gps_tracking: "on",
+  security_spoof_detection: "on",
+  security_geo_fence: "off",
+  security_mfa_required: "off",
+  security_otp_bypass: "off",
+  security_block_tor: "off",
+  security_block_vpn: "off",
+  security_audit_log: "on",
+  integration_push_notif: "off",
+  integration_sms: "off",
+  integration_analytics: "off",
+  integration_email: "off",
+  integration_sentry: "off",
+  integration_whatsapp: "off",
+  integration_maps: "off",
+  cod_enabled: "on",
+  jazzcash_enabled: "off",
+  easypaisa_enabled: "off",
+  bank_enabled: "off",
+  wallet_p2p_enabled: "on",
+  wallet_kyc_required: "off",
+  customer_referral_enabled: "on",
+  customer_loyalty_enabled: "on",
+  notif_new_order: "on",
+  notif_order_ready: "on",
+  notif_ride_request: "on",
+  notif_promo: "off",
+  security_phone_verify: "on",
+  security_pwd_strong: "on",
+  van_auto_notify_cancel: "on",
+  van_require_start_trip: "off",
+  security_fake_order_detect: "on",
+  security_auto_block_ip: "off",
+};
+
+const AI_RECOMMENDED_DEFAULTS: Record<string, string> = {
+  platform_commission_pct: "10",
+  vendor_commission_pct: "15",
+  rider_keep_pct: "80",
+  delivery_fee_mart: "80",
+  delivery_fee_food: "60",
+  delivery_fee_pharmacy: "50",
+  delivery_fee_parcel: "100",
+  free_delivery_above: "1000",
+  min_order_amount: "100",
+  ride_bike_base_fare: "15",
+  ride_bike_per_km: "8",
+  ride_car_base_fare: "25",
+  ride_car_per_km: "12",
+  finance_gst_pct: "17",
+  security_login_max_attempts: "5",
+  security_lockout_minutes: "30",
+  security_session_days: "30",
+  wallet_max_balance: "50000",
+  customer_signup_bonus: "0",
+  customer_referral_bonus: "100",
+  vendor_settlement_days: "7",
+  rider_min_payout: "500",
+  vendor_min_payout: "500",
+};
+
+type SettingRow = {
+  key: string;
+  value: string;
+  label: string;
+  category: string;
+  updatedAt: Date;
+};
+
+type DiffEntry = {
+  key: string;
+  current: string | null;
+  recommended: string;
+  differsFromAI: boolean;
+  category: string;
+};
+
+type VendorPlanBody = {
+  name?: string;
+  slug?: string;
+  description?: string;
+  features?: string[];
+  commissionRate?: number | string;
+  monthlyFee?: number | string;
+  maxProducts?: number | string;
+  maxOrders?: number | string;
+  isDefault?: boolean;
+  isActive?: boolean;
+  sortOrder?: number | string;
+};
+
+type RolePresetBody = {
+  name?: string;
+  slug?: string;
+  description?: string;
+  permissions?: string[];
+  role?: string;
+};
+
+/* ─────────────────────────────────────────────────────────────
+   GET /api/admin/launch/settings
+   Returns all platform settings + AI recommendations + diff
+───────────────────────────────────────────────────────────── */
+router.get("/settings", async (_req, res) => {
+  const rows: SettingRow[] = await db.select().from(platformSettingsTable);
+  const current: Record<string, string> = {};
+  for (const row of rows) current[row.key] = row.value;
+
+  const aiOverrides: Record<string, string> = { ...AI_RECOMMENDED_DEFAULTS, ...AI_RECOMMENDED };
+  const allKeys = new Set(DEFAULT_PLATFORM_SETTINGS.map(d => d.key));
+  for (const k of Object.keys(aiOverrides)) allKeys.add(k);
+
+  const diffs: DiffEntry[] = [];
+  for (const key of allKeys) {
+    const platformDefault = DEFAULT_PLATFORM_SETTINGS.find(d => d.key === key)?.value ?? "";
+    const recommended = aiOverrides[key] ?? platformDefault;
+    const curr = current[key] ?? null;
+    const differsFromAI = curr !== null && curr !== recommended;
+    const row = rows.find(r => r.key === key);
+    diffs.push({
+      key,
+      current: curr,
+      recommended,
+      differsFromAI,
+      category: row?.category ?? DEFAULT_PLATFORM_SETTINGS.find(d => d.key === key)?.category ?? "general",
+    });
+  }
+
+  const mode = current["platform_mode"] ?? "demo";
+  sendSuccess(res, {
+    settings: rows.map(r => ({ ...r, updatedAt: r.updatedAt.toISOString() })),
+    aiRecommended: AI_RECOMMENDED,
+    aiDefaults: AI_RECOMMENDED_DEFAULTS,
+    diffs,
+    mode,
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   GET /api/admin/launch/demo-snapshots
+   List stored demo snapshots (from demo_backups table).
+───────────────────────────────────────────────────────────── */
+router.get("/demo-snapshots", async (_req, res) => {
+  const snapshots = await db
+    .select({
+      id: demoBackupsTable.id,
+      label: demoBackupsTable.label,
+      rowsTotal: demoBackupsTable.rowsTotal,
+      sizeKb: demoBackupsTable.sizeKb,
+      createdAt: demoBackupsTable.createdAt,
+    })
+    .from(demoBackupsTable)
+    .orderBy(desc(demoBackupsTable.createdAt))
+    .limit(20);
+  sendSuccess(res, {
+    snapshots: snapshots.map(s => ({ ...s, createdAt: s.createdAt.toISOString() })),
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/admin/launch/reset-defaults
+   Reset all platform settings to AI-recommended values
+───────────────────────────────────────────────────────────── */
+router.post("/reset-defaults", async (req, res) => {
+  const aiOverrides: Record<string, string> = { ...AI_RECOMMENDED_DEFAULTS, ...AI_RECOMMENDED };
+  const resetMap: Record<string, { value: string; label: string; category: string }> = {};
+  for (const d of DEFAULT_PLATFORM_SETTINGS) {
+    resetMap[d.key] = { value: aiOverrides[d.key] ?? d.value, label: d.label, category: d.category };
+  }
+  for (const [key, value] of Object.entries(aiOverrides)) {
+    if (!resetMap[key]) resetMap[key] = { value, label: key, category: "general" };
+  }
+  let updated = 0;
+  for (const [key, { value, label, category }] of Object.entries(resetMap)) {
+    const result = await db
+      .update(platformSettingsTable)
+      .set({ value, updatedAt: new Date() })
+      .where(eq(platformSettingsTable.key, key))
+      .returning({ key: platformSettingsTable.key });
+    if (result.length > 0) updated++;
+    else {
+      await db
+        .insert(platformSettingsTable)
+        .values({ key, value, label, category, updatedAt: new Date() })
+        .onConflictDoNothing();
+      updated++;
+    }
+  }
+  invalidateSettingsCache();
+  invalidatePlatformSettingsCache();
+  addAuditEntry({
+    action: "launch_reset_defaults",
+    ip: getClientIp(req),
+    adminId: (req as AdminRequest).adminId,
+    details: `Reset ${updated} settings to AI defaults`,
+    result: "success",
+  });
+  sendSuccess(res, { reset: updated, message: "All settings reset to AI-recommended defaults" });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   PATCH /api/admin/launch/feature/:key
+   Toggle a single feature flag on/off
+───────────────────────────────────────────────────────────── */
+router.patch("/feature/:key", async (req, res) => {
+  const key = req.params["key"] as string;
+  const { value } = req.body as { value?: string };
+  if (!value || (value !== "on" && value !== "off")) {
+    sendValidationError(res, 'value must be "on" or "off"');
+    return;
+  }
+  if (!(key in AI_RECOMMENDED)) {
+    sendValidationError(res, "Unknown feature key");
+    return;
+  }
+  const [row] = await db
+    .update(platformSettingsTable)
+    .set({ value, updatedAt: new Date() })
+    .where(eq(platformSettingsTable.key, key))
+    .returning();
+  if (!row) {
+    sendNotFound(res, "Setting not found — ensure it is seeded before toggling");
+    return;
+  }
+  invalidateSettingsCache();
+  invalidatePlatformSettingsCache();
+  addAuditEntry({
+    action: "launch_feature_toggle",
+    ip: getClientIp(req),
+    adminId: (req as AdminRequest).adminId,
+    details: `Feature "${key}" set to "${value}"`,
+    result: "success",
+  });
+  sendSuccess(res, { key, value });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   GET /api/admin/launch/vendor-plans
+───────────────────────────────────────────────────────────── */
+router.get("/vendor-plans", async (_req, res) => {
+  const plans = await db.select().from(vendorPlansTable).orderBy(asc(vendorPlansTable.sortOrder));
+  sendSuccess(res, {
+    plans: plans.map(p => ({
+      ...p,
+      features: (() => { try { return JSON.parse(p.featuresJson) as string[]; } catch { return [] as string[]; } })(),
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString(),
+    })),
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/admin/launch/vendor-plans
+───────────────────────────────────────────────────────────── */
+router.post("/vendor-plans", async (req, res) => {
+  const body = req.body as VendorPlanBody;
+  const { name, slug, description, features, commissionRate, monthlyFee, maxProducts, maxOrders, isDefault, sortOrder } = body;
+  if (!name || !slug) {
+    sendValidationError(res, "name and slug are required");
+    return;
+  }
+  const id = `plan_${Date.now()}`;
+  const willBeDefault = Boolean(isDefault);
+  if (willBeDefault) {
+    await db.update(vendorPlansTable).set({ isDefault: false, updatedAt: new Date() });
+  }
+  const [plan] = await db.insert(vendorPlansTable).values({
+    id,
+    name,
+    slug,
+    description: description ?? "",
+    featuresJson: JSON.stringify(features ?? []),
+    commissionRate: Number(commissionRate) || 15,
+    monthlyFee: Number(monthlyFee) || 0,
+    maxProducts: Number(maxProducts) || 50,
+    maxOrders: Number(maxOrders) || 500,
+    isDefault: willBeDefault,
+    isActive: true,
+    sortOrder: Number(sortOrder) || 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }).returning();
+  addAuditEntry({
+    action: "vendor_plan_create",
+    ip: getClientIp(req),
+    adminId: (req as AdminRequest).adminId,
+    details: `Created plan ${name}`,
+    result: "success",
+  });
+  sendSuccess(res, { plan });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   PUT /api/admin/launch/vendor-plans/:id
+───────────────────────────────────────────────────────────── */
+router.put("/vendor-plans/:id", async (req, res) => {
+  const { id } = req.params;
+  const body = req.body as VendorPlanBody;
+  const { name, slug, description, features, commissionRate, monthlyFee, maxProducts, maxOrders, isDefault, isActive, sortOrder } = body;
+  if (isDefault === true) {
+    await db.update(vendorPlansTable).set({ isDefault: false, updatedAt: new Date() });
+  }
+  const [plan] = await db
+    .update(vendorPlansTable)
+    .set({
+      ...(name !== undefined && { name }),
+      ...(slug !== undefined && { slug }),
+      ...(description !== undefined && { description }),
+      ...(features !== undefined && { featuresJson: JSON.stringify(features) }),
+      ...(commissionRate !== undefined && { commissionRate: Number(commissionRate) }),
+      ...(monthlyFee !== undefined && { monthlyFee: Number(monthlyFee) }),
+      ...(maxProducts !== undefined && { maxProducts: Number(maxProducts) }),
+      ...(maxOrders !== undefined && { maxOrders: Number(maxOrders) }),
+      ...(isDefault !== undefined && { isDefault: Boolean(isDefault) }),
+      ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+      ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+      updatedAt: new Date(),
+    })
+    .where(eq(vendorPlansTable.id, id!))
+    .returning();
+  if (!plan) {
+    sendNotFound(res, "Plan not found");
+    return;
+  }
+  addAuditEntry({
+    action: "vendor_plan_update",
+    ip: getClientIp(req),
+    adminId: (req as AdminRequest).adminId,
+    details: `Updated plan ${id}`,
+    result: "success",
+  });
+  sendSuccess(res, { plan });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/admin/launch/vendor-plans/:id/set-default
+───────────────────────────────────────────────────────────── */
+router.post("/vendor-plans/:id/set-default", async (req, res) => {
+  const { id } = req.params;
+  const [exists] = await db.select({ id: vendorPlansTable.id }).from(vendorPlansTable).where(eq(vendorPlansTable.id, id!)).limit(1);
+  if (!exists) {
+    sendNotFound(res, "Plan not found");
+    return;
+  }
+  await db.update(vendorPlansTable).set({ isDefault: false, updatedAt: new Date() });
+  const [plan] = await db
+    .update(vendorPlansTable)
+    .set({ isDefault: true, updatedAt: new Date() })
+    .where(eq(vendorPlansTable.id, id!))
+    .returning();
+  if (!plan) {
+    sendNotFound(res, "Plan not found");
+    return;
+  }
+  addAuditEntry({
+    action: "vendor_plan_set_default",
+    ip: getClientIp(req),
+    adminId: (req as AdminRequest).adminId,
+    details: `Set plan ${id} as default`,
+    result: "success",
+  });
+  sendSuccess(res, { plan });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   DELETE /api/admin/launch/vendor-plans/:id
+───────────────────────────────────────────────────────────── */
+router.delete("/vendor-plans/:id", async (req, res) => {
+  const { id } = req.params;
+  const [deleted] = await db.delete(vendorPlansTable).where(eq(vendorPlansTable.id, id!)).returning();
+  if (!deleted) {
+    sendNotFound(res, "Plan not found");
+    return;
+  }
+  addAuditEntry({
+    action: "vendor_plan_delete",
+    ip: getClientIp(req),
+    adminId: (req as AdminRequest).adminId,
+    details: `Deleted plan ${id}`,
+    result: "success",
+  });
+  sendSuccess(res, { deleted: true });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/admin/launch/mode
+   Switch between demo and live mode.
+   Switching to live:  snapshots current platform_settings into demo_backups.
+   Switching to demo:  restores the most-recent demo backup if present.
+   Requires confirmToken = "CONFIRM" to prevent accidents.
+───────────────────────────────────────────────────────────── */
+router.post("/mode", async (req, res) => {
+  const body = req.body as { mode?: string; confirmToken?: string };
+  const { mode, confirmToken } = body;
+  if (mode !== "demo" && mode !== "live") {
+    sendValidationError(res, 'mode must be "demo" or "live"');
+    return;
+  }
+  if (confirmToken !== "CONFIRM") {
+    sendError(res, 'confirmToken must equal "CONFIRM" to prevent accidental mode switches', 422);
+    return;
+  }
+
+  /* Idempotency: if already in requested mode, return no-op success */
+  const [currentModeRow] = await db
+    .select({ value: platformSettingsTable.value })
+    .from(platformSettingsTable)
+    .where(eq(platformSettingsTable.key, "platform_mode"))
+    .limit(1);
+  const currentMode = currentModeRow?.value ?? "demo";
+  if (currentMode === mode) {
+    sendSuccess(res, { mode, noOp: true, message: `Platform is already in ${mode} mode` });
+    return;
+  }
+
+  let restoredFromBackup = false;
+
+  if (mode === "live") {
+    /* Snapshot demo state into demo_backups before going live.
+       Captures: platform_settings (full) + seeded demo entity arrays.
+       The seeded demo payloads (DEMO_VENDORS, DEMO_ORDERS, etc.) are stored
+       idempotently so switching back to demo can restore them from the backup. */
+    const allSettings = await db.select().from(platformSettingsTable);
+    const [vendorCount] = await db.select({ c: count() }).from(vendorProfilesTable);
+    const [orderCount]  = await db.select({ c: count() }).from(ordersTable);
+    const [productCount] = await db.select({ c: count() }).from(productsTable);
+    const { getDemoSnapshot } = await import("../../lib/demo-snapshot.js");
+    const demoSnap = await getDemoSnapshot();
+    const tablesJson = JSON.stringify({
+      platform_settings: allSettings,
+      demo_vendors:  demoSnap.vendors,
+      demo_orders:   demoSnap.orders,
+      demo_riders:   demoSnap.riders,
+      demo_products: demoSnap.products,
+      entity_counts: {
+        vendors:  vendorCount?.c  ?? 0,
+        orders:   orderCount?.c   ?? 0,
+        products: productCount?.c ?? 0,
+      },
+      snapshot_time: new Date().toISOString(),
+    });
+    const backupId = `demo_snap_${Date.now()}`;
+    await db
+      .insert(demoBackupsTable)
+      .values({
+        id: backupId,
+        label: `Demo snapshot before going live (${new Date().toISOString()})`,
+        tablesJson,
+        rowsTotal: allSettings.length + demoSnap.vendors.length + demoSnap.orders.length + demoSnap.riders.length + demoSnap.products.length,
+        sizeKb: Math.ceil(Buffer.byteLength(tablesJson, "utf8") / 1024),
+        createdAt: new Date(),
+      })
+      .onConflictDoNothing();
+  } else {
+    /* Switching to demo — restore latest snapshot if one exists */
+    const [latest] = await db
+      .select()
+      .from(demoBackupsTable)
+      .orderBy(desc(demoBackupsTable.createdAt))
+      .limit(1);
+
+    if (latest) {
+      try {
+        const snapshotData = JSON.parse(latest.tablesJson) as {
+          platform_settings?: Array<{ key: string; value: string; label: string; category: string }>;
+          demo_vendors?: unknown[];
+          demo_orders?: unknown[];
+          demo_riders?: unknown[];
+          demo_products?: unknown[];
+        };
+        /* Restore platform_settings idempotently (skipping platform_mode itself) */
+        const settingRows = snapshotData.platform_settings ?? [];
+        for (const row of settingRows) {
+          if (row.key === "platform_mode") continue;
+          await db
+            .insert(platformSettingsTable)
+            .values({ key: row.key, value: row.value, label: row.label, category: row.category, updatedAt: new Date() })
+            .onConflictDoUpdate({ target: platformSettingsTable.key, set: { value: row.value, updatedAt: new Date() } });
+        }
+        /* Demo entity arrays (vendors/orders/riders/products) are embedded in the backup
+           and surfaced via GET /api/admin/launch/demo-data — no DB write needed for them
+           since they are static seeded payloads served from memory. */
+        restoredFromBackup = true;
+      } catch {
+        /* malformed backup — proceed without restore */
+      }
+    }
+  }
+
+  await db
+    .insert(platformSettingsTable)
+    .values({ key: "platform_mode", value: mode, label: "Platform Mode", category: "system", updatedAt: new Date() })
+    .onConflictDoUpdate({ target: platformSettingsTable.key, set: { value: mode, updatedAt: new Date() } });
+
+  invalidateSettingsCache();
+  invalidatePlatformSettingsCache();
+  const { invalidateDemoSnapshotCache } = await import("../../lib/demo-snapshot.js");
+  invalidateDemoSnapshotCache();
+  addAuditEntry({
+    action: "launch_mode_switch",
+    ip: getClientIp(req),
+    adminId: (req as AdminRequest).adminId,
+    details: `Switched platform mode to ${mode}${restoredFromBackup ? " (restored from demo backup)" : ""}`,
+    result: "success",
+  });
+  sendSuccess(res, {
+    mode,
+    restoredFromBackup,
+    message: mode === "live"
+      ? "Platform is now in Live mode — current settings backed up as demo snapshot"
+      : restoredFromBackup
+        ? "Platform is now in Demo mode — settings restored from demo snapshot"
+        : "Platform is now in Demo mode",
+  });
+});
+
+router.get("/demo-data", async (_req, res) => {
+  const rows = await db.select({ key: platformSettingsTable.key, value: platformSettingsTable.value })
+    .from(platformSettingsTable)
+    .where(eq(platformSettingsTable.key, "platform_mode"));
+  const mode = rows[0]?.value === "live" ? "live" : "demo";
+  const { getDemoSnapshot } = await import("../../lib/demo-snapshot.js");
+  const snap = await getDemoSnapshot();
+  sendSuccess(res, {
+    mode,
+    vendors:  snap.vendors,
+    orders:   snap.orders,
+    riders:   snap.riders,
+    products: snap.products,
+    summary: {
+      vendorCount:  snap.vendors.length,
+      orderCount:   snap.orders.length,
+      riderCount:   snap.riders.length,
+      productCount: snap.products.length,
+      totalRevenue: snap.orders.filter((o: { status: string; total: number }) => o.status === "delivered").reduce((s: number, o: { total: number }) => s + o.total, 0),
+    },
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   GET /api/admin/launch/role-presets
+───────────────────────────────────────────────────────────── */
+router.get("/role-presets", async (_req, res) => {
+  const presets = await db.select().from(adminRolePresetsTable).orderBy(asc(adminRolePresetsTable.id));
+  sendSuccess(res, {
+    presets: presets.map(p => ({
+      ...p,
+      permissions: (() => { try { return JSON.parse(p.permissionsJson) as string[]; } catch { return [] as string[]; } })(),
+      createdAt: p.createdAt.toISOString(),
+    })),
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/admin/launch/role-presets
+   Create a new role preset
+───────────────────────────────────────────────────────────── */
+router.post("/role-presets", async (req, res) => {
+  const body = req.body as RolePresetBody;
+  const { name, slug, description, permissions, role } = body;
+  if (!name || !slug) {
+    sendValidationError(res, "name and slug are required");
+    return;
+  }
+  const id = `preset_${Date.now()}`;
+  const [preset] = await db.insert(adminRolePresetsTable).values({
+    id,
+    name,
+    slug,
+    description: description ?? "",
+    permissionsJson: JSON.stringify(permissions ?? []),
+    role: role ?? "manager",
+    isBuiltIn: false,
+    createdAt: new Date(),
+  }).returning();
+  addAuditEntry({
+    action: "role_preset_create",
+    ip: getClientIp(req),
+    adminId: (req as AdminRequest).adminId,
+    details: `Created role preset ${name}`,
+    result: "success",
+  });
+  sendSuccess(res, { preset });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   ensureLaunchData()
+   Idempotent seed: vendor plans, role presets, AI defaults,
+   and platform_mode. Called at server startup.
+───────────────────────────────────────────────────────────── */
+export async function ensureLaunchData(): Promise<void> {
+  try {
+    /* ── 1. Vendor Plans ── */
+    const existingPlans = await db.select({ id: vendorPlansTable.id }).from(vendorPlansTable).limit(1);
+    if (existingPlans.length === 0) {
+      const now = new Date();
+      await db.insert(vendorPlansTable).values([
+        {
+          id: "plan_starter",
+          name: "Starter",
+          slug: "starter",
+          description: "For new vendors starting their digital journey",
+          featuresJson: JSON.stringify([
+            "Up to 50 products",
+            "Standard support",
+            "Basic analytics",
+            "Cash on delivery",
+          ]),
+          commissionRate: 20,
+          monthlyFee: 0,
+          maxProducts: 50,
+          maxOrders: 200,
+          isDefault: false,
+          isActive: true,
+          sortOrder: 1,
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "plan_growth",
+          name: "Growth",
+          slug: "growth",
+          description: "Best for growing vendors — AI recommended",
+          featuresJson: JSON.stringify([
+            "Up to 200 products",
+            "Priority support",
+            "Advanced analytics",
+            "All payment methods",
+            "Promotional tools",
+            "Custom branding",
+          ]),
+          commissionRate: 15,
+          monthlyFee: 999,
+          maxProducts: 200,
+          maxOrders: 2000,
+          isDefault: true,
+          isActive: true,
+          sortOrder: 2,
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "plan_enterprise",
+          name: "Enterprise",
+          slug: "enterprise",
+          description: "Unlimited scale for established businesses",
+          featuresJson: JSON.stringify([
+            "Unlimited products",
+            "Dedicated account manager",
+            "Custom integrations",
+            "All payment methods",
+            "API access",
+            "White-label options",
+            "SLA guarantee",
+          ]),
+          commissionRate: 10,
+          monthlyFee: 4999,
+          maxProducts: 9999,
+          maxOrders: 9999,
+          isDefault: false,
+          isActive: true,
+          sortOrder: 3,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ]).onConflictDoNothing();
+    }
+
+    /* ── 2. Admin Role Presets ── */
+    const existingPresets = await db.select({ id: adminRolePresetsTable.id }).from(adminRolePresetsTable).limit(1);
+    if (existingPresets.length === 0) {
+      const now = new Date();
+      await db.insert(adminRolePresetsTable).values([
+        {
+          id: "preset_super_admin",
+          name: "Super Admin",
+          slug: "super-admin",
+          description: "Full platform access — all modules",
+          permissionsJson: JSON.stringify(["users","orders","rides","pharmacy","parcel","products","transactions","settings","broadcast","flash-deals","vendors","riders","security","reports","finance","kyc","withdrawals"]),
+          role: "super",
+          isBuiltIn: true,
+          createdAt: now,
+        },
+        {
+          id: "preset_operations_manager",
+          name: "Operations Manager",
+          slug: "operations-manager",
+          description: "Day-to-day platform operations",
+          permissionsJson: JSON.stringify(["orders","rides","pharmacy","parcel","vendors","riders","broadcast"]),
+          role: "manager",
+          isBuiltIn: true,
+          createdAt: now,
+        },
+        {
+          id: "preset_finance_officer",
+          name: "Finance Officer",
+          slug: "finance-officer",
+          description: "Financial reports, payouts, and transactions",
+          permissionsJson: JSON.stringify(["transactions","finance","kyc","withdrawals","reports"]),
+          role: "finance",
+          isBuiltIn: true,
+          createdAt: now,
+        },
+        {
+          id: "preset_support_agent",
+          name: "Support Agent",
+          slug: "support-agent",
+          description: "Customer support and issue resolution",
+          permissionsJson: JSON.stringify(["users","orders","rides"]),
+          role: "support",
+          isBuiltIn: true,
+          createdAt: now,
+        },
+        {
+          id: "preset_marketing_manager",
+          name: "Marketing Manager",
+          slug: "marketing-manager",
+          description: "Promotions, banners, and broadcast messaging",
+          permissionsJson: JSON.stringify(["flash-deals","broadcast","products"]),
+          role: "manager",
+          isBuiltIn: true,
+          createdAt: now,
+        },
+      ]).onConflictDoNothing();
+    }
+
+    /* ── 3. Platform mode default ── */
+    await db
+      .insert(platformSettingsTable)
+      .values({ key: "platform_mode", value: "demo", label: "Platform Mode", category: "system", updatedAt: new Date() })
+      .onConflictDoNothing();
+
+    /* ── 4. AI-recommended feature defaults (only insert if not yet set) ── */
+    const allDefaults: Record<string, { label: string; category: string }> = {
+      feature_mart:             { label: "Mart / Grocery", category: "features" },
+      feature_food:             { label: "Food Delivery", category: "features" },
+      feature_rides:            { label: "Taxi & Rides", category: "features" },
+      feature_pharmacy:         { label: "Pharmacy", category: "features" },
+      feature_parcel:           { label: "Parcel Delivery", category: "features" },
+      feature_van:              { label: "Van Service", category: "features" },
+      feature_wallet:           { label: "Digital Wallet", category: "features" },
+      feature_referral:         { label: "Referral Program", category: "features" },
+      feature_new_users:        { label: "New Registrations", category: "features" },
+      feature_chat:             { label: "In-App Chat", category: "features" },
+      feature_live_tracking:    { label: "Live GPS Tracking", category: "features" },
+      feature_reviews:          { label: "Reviews & Ratings", category: "features" },
+      feature_sos:              { label: "SOS Alerts", category: "features" },
+      feature_weather:          { label: "Weather Widget", category: "features" },
+      security_gps_tracking:    { label: "GPS Tracking", category: "security" },
+      security_spoof_detection: { label: "Spoof Detection", category: "security" },
+      security_audit_log:       { label: "Audit Log", category: "security" },
+      security_phone_verify:    { label: "Phone Verification", category: "security" },
+      cod_enabled:              { label: "Cash on Delivery", category: "payments" },
+      wallet_mpin_enabled:      { label: "MPIN Enforcement", category: "payments" },
+      wallet_p2p_enabled:       { label: "P2P Transfers", category: "payments" },
+      vendor_auto_approve:      { label: "Auto-Approve Vendors", category: "operations" },
+      rider_auto_approve:       { label: "Auto-Approve Riders", category: "operations" },
+      rider_cash_allowed:       { label: "Cash for Riders", category: "operations" },
+      delivery_free_enabled:    { label: "Free Delivery", category: "operations" },
+      finance_gst_enabled:      { label: "GST Tax", category: "finance" },
+      customer_referral_enabled: { label: "Referral Enabled", category: "customer" },
+      customer_loyalty_enabled: { label: "Loyalty Points", category: "customer" },
+      user_require_approval:    { label: "Account Approval", category: "user" },
+    };
+
+    for (const [key, value] of Object.entries(AI_RECOMMENDED)) {
+      const meta = allDefaults[key] ?? { label: key, category: "general" };
+      await db
+        .insert(platformSettingsTable)
+        .values({ key, value, label: meta.label, category: meta.category, updatedAt: new Date() })
+        .onConflictDoNothing();
+    }
+
+    for (const [key, value] of Object.entries(AI_RECOMMENDED_DEFAULTS)) {
+      await db
+        .insert(platformSettingsTable)
+        .values({ key, value, label: key, category: "general", updatedAt: new Date() })
+        .onConflictDoNothing();
+    }
+
+    console.log("[launch] Vendor plans, role presets, and AI defaults ensured");
+  } catch (err) {
+    console.error("[launch] ensureLaunchData failed:", err);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/admin/launch/recommend
+   Calls Gemini AI with current platform settings + metrics and returns
+   a structured launch recommendation.
+───────────────────────────────────────────────────────────── */
+router.post("/recommend", async (req, res) => {
+  try {
+    const [settings, [vendorCnt], [orderCnt], [rideCnt]] = await Promise.all([
+      db.select().from(platformSettingsTable),
+      db.select({ c: count() }).from(vendorProfilesTable),
+      db.select({ c: count() }).from(ordersTable),
+      db.select({ c: count() }).from(productsTable),
+    ]);
+
+    const settingsMap: Record<string, string> = {};
+    for (const r of settings) settingsMap[r.key] = r.value;
+
+    const enabledFeatures = Object.entries(settingsMap)
+      .filter(([k, v]) => k.startsWith("feature_") && v === "on")
+      .map(([k]) => k.replace("feature_", ""));
+
+    const disabledFeatures = Object.entries(settingsMap)
+      .filter(([k, v]) => k.startsWith("feature_") && v === "off")
+      .map(([k]) => k.replace("feature_", ""));
+
+    const currentMode = settingsMap["platform_mode"] ?? "demo";
+
+    const prompt = `You are an expert at launching digital super-apps in South Asia (AJK region of Pakistan).
+The AJKMart platform is a multi-service super-app (e-commerce, food delivery, rides, pharmacy, parcel) designed for low-resource environments.
+
+Current platform state:
+- Mode: ${currentMode}
+- Active vendors: ${vendorCnt?.c ?? 0}
+- Total orders: ${orderCnt?.c ?? 0}
+- Total products: ${rideCnt?.c ?? 0}
+- Enabled features: ${enabledFeatures.join(", ") || "none"}
+- Disabled features: ${disabledFeatures.join(", ") || "none"}
+- Payment methods: COD=${settingsMap["cod_enabled"] ?? "off"}, JazzCash=${settingsMap["jazzcash_enabled"] ?? "off"}, EasyPaisa=${settingsMap["easypaisa_enabled"] ?? "off"}
+- SMS/OTP: ${settingsMap["integration_sms"] ?? "off"}
+- Maps: ${settingsMap["integration_maps"] ?? "off"}
+
+Respond ONLY with valid JSON in this exact structure (no markdown, no prose):
+{
+  "suggestedMode": "demo" or "live",
+  "recommendation": "2-3 sentence summary of what to do and why",
+  "features": ["list", "of", "feature_keys", "to", "enable"],
+  "warnings": ["list of concerns or empty array"]
+}`;
+
+    let ai: any;
+    try {
+      const geminiModule = await import("@workspace/integrations-gemini-ai");
+      ai = geminiModule.ai;
+    } catch {
+      /* Gemini not configured — return a static rule-based recommendation */
+      const staticRec = {
+        suggestedMode: (vendorCnt?.c ?? 0) >= 3 && (orderCnt?.c ?? 0) >= 10 ? "live" : "demo",
+        recommendation: (vendorCnt?.c ?? 0) >= 3
+          ? "You have enough vendors and order history to go live. Enable payments and SMS before switching."
+          : "Add at least 3 vendors and run test orders before going live.",
+        features: enabledFeatures.length < 4 ? ["mart", "rides", "wallet", "pharmacy"] : [],
+        warnings: settingsMap["integration_sms"] !== "on" ? ["SMS/OTP is not enabled — users won't receive verification codes"] : [],
+      };
+      sendSuccess(res, staticRec);
+      return;
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { responseMimeType: "application/json" },
+    });
+
+    const text = response?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    let parsed: { suggestedMode: string; recommendation: string; features: string[]; warnings: string[] };
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = {
+        suggestedMode: currentMode,
+        recommendation: text || "Could not parse AI recommendation.",
+        features: [],
+        warnings: [],
+      };
+    }
+
+    sendSuccess(res, {
+      suggestedMode: parsed.suggestedMode ?? currentMode,
+      recommendation: parsed.recommendation ?? "",
+      features: Array.isArray(parsed.features) ? parsed.features : [],
+      warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
+    });
+  } catch (err: any) {
+    sendError(res, err?.message ?? "Failed to generate recommendation", 502);
+  }
+});
+
+export default router;

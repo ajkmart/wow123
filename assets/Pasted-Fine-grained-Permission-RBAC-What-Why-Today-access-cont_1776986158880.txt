@@ -1,0 +1,40 @@
+Fine-grained Permission RBAC
+What & Why
+Today access control is role-based only — requireRole("admin"), requireRole("vendor"), etc. — which is too coarse. A sub-admin who can view orders should not be able to delete users; a vendor staff member who can edit prices should not be able to publish promotions. This task introduces a permission-based authorization layer on top of the existing roles, with a permission catalog, role→permission mappings, per-route middleware, and admin UI to manage roles and assign permissions.
+
+Done looks like
+A canonical permission catalog exists (e.g. orders.view, orders.refund, prices.edit, users.delete, promotions.publish, kyc.approve, payouts.release, etc.) with a stable identifier, human label, and category for grouping in UI.
+Database has roles, permissions, and role_permissions tables (or equivalent) and a user_role_assignments (admin and end-user) table. Default seed roles (super_admin, support_admin, finance_admin, vendor_owner, vendor_staff, rider) are created with sensible default permissions.
+Access tokens carry the user's permissions (compact form, e.g. bitset or interned string array) so middleware can authorize without an extra DB hit per request.
+A new requirePermission("orders.refund") (and requireAnyPermission([...])) middleware exists and is applied to every state-changing admin route and to sensitive vendor/rider routes. requireRole continues to work for coarse checks but is deprecated in code review notes.
+A "Roles & Permissions" admin page lets a super-admin: create/edit/delete custom roles, toggle permissions per role, and assign roles to admin accounts. A "Sub-admin permissions" view shows the effective permissions for a given account.
+Frontend respects permissions: nav items, action buttons (Approve, Refund, Delete), and entire pages are hidden/disabled when the user lacks the required permission. A useHasPermission("orders.refund") hook is the single source of truth.
+Bumping a role's permissions invalidates active sessions for affected users (or forces a token refresh that picks up the new permission set within one access-token lifetime).
+Audit log records every permission change (who granted/revoked what to whom).
+Steps
+Permission catalog — Define the full list of permissions in a shared module (@workspace/auth/permissions.ts or api-server/src/auth/permissions.ts). Group by domain (orders, users, vendors, finance, content, system, vendor-staff, rider-ops). Single source of truth used by both backend and frontend (publish via the existing workspace package pattern).
+Schema & migrations — Add roles, permissions, role_permissions, admin_role_assignments (and user_role_assignments if extended to vendors/riders). Backfill existing admins with super_admin. Seed default roles.
+Service layer — permissions.service.ts for CRUD on roles and assignments, with helpers getEffectivePermissions(userId), userHasPermission(userId, perm).
+Token integration — Update signAccessToken to include the user's effective permissions (compact form). On refresh, recompute permissions so changes propagate within one access-token lifetime. Bump token version on role/permission change so old tokens can be invalidated when desired.
+Middleware — Add requirePermission and requireAnyPermission in api-server/src/middleware/. Apply them across admin routes (start with the highest-risk: refunds, payouts, KYC approval, user deletion, role management, integrations, secrets), and to vendor/rider routes where multiple staff may share a login.
+Admin UI — Roles & Permissions page — New page at artifacts/admin/src/pages/roles-permissions.tsx (and route) with: list of roles, role editor (toggle permissions grouped by domain), assign roles to admin accounts, view effective permissions for an admin. Use Shadcn primitives.
+Frontend permission gating — Add usePermissions() and useHasPermission(perm) hooks reading from the auth context. Wrap sensitive nav links, action buttons, and route guards with permission checks. Hide-or-disable pattern documented in code.
+Vendor & rider apps — For multi-staff vendor accounts, surface a basic "Staff & permissions" screen so the vendor owner can grant prices.edit, orders.fulfill, etc., to staff. Rider app likely needs only one or two permissions (e.g. rides.dispatch, parcel.handle); apply where relevant.
+Audit logging — Hook permission/role changes into the existing audit pipeline.
+Validation — Verify a user without users.delete cannot delete a user via the API even with a forged frontend; that revoking a permission takes effect on next refresh; that the UI hides the action.
+Architectural constraints:
+
+Permission strings are stable identifiers (domain.action); never rename without a migration.
+Always check on the backend; UI gating is a UX nicety, not a security boundary.
+Keep the catalog as the only place where new permissions are defined — no string literals scattered across handlers.
+Relevant files
+artifacts/api-server/src/middleware/requireRole.ts
+artifacts/api-server/src/middlewares/admin-auth.ts
+artifacts/api-server/src/utils/admin-jwt.ts
+artifacts/api-server/src/services/admin-auth.service.ts
+artifacts/api-server/src/routes/admin-auth-v2.ts
+artifacts/api-server/src/routes/admin/system/auth.ts
+artifacts/api-server/src/routes/admin/system/users.ts
+artifacts/admin/src/lib/adminAuthContext.tsx
+artifacts/admin/src/pages/app-management.tsx
+artifacts/admin/src/components/layout/AdminLayout.tsx

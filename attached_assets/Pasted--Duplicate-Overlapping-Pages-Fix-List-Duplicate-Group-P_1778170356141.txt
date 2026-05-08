@@ -1,0 +1,77 @@
+ Duplicate / Overlapping Pages (Fix List)
+#	Duplicate Group	Problem	Fix
+1	settings.tsx + settings-system.tsx + settings-security.tsx + settings-payment.tsx + settings-render.tsx + settings-integrations.tsx + settings-weather.tsx	7 separate settings pages — hard to find config, possible key conflicts	Merge into one tabbed Settings page
+2	communication.tsx + broadcast.tsx + notifications.tsx	Three pages for messaging — confusing	Merge into "Communications Hub" with sub-tabs: Notifications / Broadcast / Settings
+3	security.tsx + settings-security.tsx	Security in two places	Move all security config into Security Dashboard
+4	account-conditions.tsx + condition-rules.tsx	Unclear separation	Merge into "Business Rules" single page
+5	revenue-analytics.tsx + search-analytics.tsx	Two separate analytics pages	Merge into "Analytics" with tabs: Revenue / Search / Users
+10.4 — How to Organize Admin Panel (Recommended Menu Structure)
+ADMIN SIDEBAR MENU (recommended)
+📊 Dashboard
+  └── Overview
+📦 Operations
+  ├── Orders
+  ├── Rides
+  ├── Parcel
+  └── Pharmacy
+👥 People
+  ├── Users
+  ├── Riders
+  └── KYC Verification
+🏪 Catalog
+  ├── Products
+  └── Categories
+💰 Finance
+  ├── Transactions
+  ├── Deposit Requests
+  └── Revenue Analytics
+📢 Marketing
+  ├── Promotions Hub
+  ├── Promo Codes
+  ├── Flash Deals
+  ├── Banners
+  ├── Popups
+  └── Loyalty
+💬 Communications
+  ├── Notifications
+  ├── Broadcast
+  ├── Support Chat
+  └── SMS Gateways
+📈 Analytics
+  ├── Revenue
+  ├── Search
+  └── A/B Experiments
+🔒 Security & Compliance
+  ├── Security Dashboard
+  ├── Audit Logs
+  ├── Consent Log
+  ├── SOS Alerts
+  └── Roles & Permissions
+🏥 Health & Monitoring
+  ├── Health Dashboard
+  ├── Error Monitor
+  ├── Live Riders Map
+  └── Chat Monitor
+⚙️ Configuration
+  ├── Settings (tabbed: System / Payment / Security / Render / Integrations / Weather)
+  ├── Auth Methods
+  ├── Launch Control
+  ├── OTP Control
+  ├── Deep Links
+  ├── QR Codes
+  ├── Delivery Access
+  ├── Business Rules
+  └── FAQ Management
+
+10.5 — How to Make Admin Panel Easier to Use
+#	Improvement	Action
+1	Consolidate 7 settings pages into 1 tabbed page	See Prompt 5-H in Section 5
+2	Add global search bar	Search across orders, users, riders by ID or name
+3	Add "Quick Actions" on Dashboard	Buttons: Assign Rider, Approve Deposit, Send Notification
+4	Add breadcrumbs on all pages	User knows where they are
+5	Add keyboard shortcuts	/ = search, N = new item, Esc = close drawer
+6	Add column sorting on all tables	Click column header to sort
+7	Add export CSV on every list page	Orders, users, riders, transactions
+8	Color-code order/ride status badges	Green=delivered, Yellow=pending, Red=cancelled
+9	Collapse sidebar to icon-only mode	More screen space for tables
+10	Add "Last updated" timestamp to all pages	Know when data is stale

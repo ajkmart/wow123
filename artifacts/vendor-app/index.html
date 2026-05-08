@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Android/PWA viewport — no pinch zoom on app UI -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <title>Vendor Portal — AJKMart</title>
+
+    <!-- PWA / Android -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Vendor" />
+    <link rel="manifest" href="/vendor/manifest.json" />
+
+    <!-- Theme / Status Bar -->
+    <meta name="theme-color" content="#f97316" />
+    <meta name="msapplication-navbutton-color" content="#f97316" />
+
+    <!-- iOS (fallback) -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Vendor" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/vendor/favicon.svg" />
+
+    <!-- Google Fonts — Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      [dir="rtl"], .urdu-text {
+        font-family: 'Noto Nastaliq Urdu', serif;
+        line-height: 2.0;
+      }
+    </style>
+    <script>
+      /* ── Cache-bust: forces a network fetch, bypassing any stale SW cache ── *
+       * The old SW only cached exact URLs (/vendor/, /vendor/index.html).      *
+       * Adding ?_b=<ts> creates a URL it never saw, so it goes to the network, *
+       * which returns THIS new index.html — breaking the stale-cache cycle.    *
+       * A sessionStorage flag prevents infinite redirect loops.                */
+      (function () {
+        try {
+          var SEP = '?';
+          var search = location.search;
+          var hasBust = search.indexOf('_b=') !== -1;
+          var alreadyFresh = sessionStorage.getItem('ajk_vendor_fresh') === '1';
+
+          if (hasBust) {
+            sessionStorage.setItem('ajk_vendor_fresh', '1');
+            history.replaceState(null, '', location.pathname + (search.replace(/[?&]_b=[^&]*/g, '').replace(/^&/, '?') || ''));
+          } else if (!alreadyFresh) {
+            var bust = location.pathname + SEP + '_b=' + Date.now();
+            location.replace(bust);
+          }
+        } catch (_) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      /* ── SW message listener (early, before React) ── */
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', function (e) {
+          if (e.data && e.data.type === 'SW_RELOAD') {
+            sessionStorage.setItem('ajk_vendor_fresh', '1');
+            location.reload();
+          }
+        });
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/vendor/sw.js', { scope: '/vendor/', updateViaCache: 'none' })
+            .then(function (reg) { reg.update(); })
+            .catch(function () {});
+        });
+      }
+    </script>
+  </body>
+</html>

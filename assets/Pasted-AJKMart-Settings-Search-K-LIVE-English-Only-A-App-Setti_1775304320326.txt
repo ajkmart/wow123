@@ -1,0 +1,236 @@
+AJKMart
+Settings
+
+Search...
+⌘K
+LIVE
+English Only
+
+A
+App Settings
+All settings saved
+
+Reset
+Save
+Settings
+
+🏢
+App & Platform
+
+
+General
+
+Feature Toggles
+⚙️
+Service Config
+
+
+Ride Pricing & Rules
+
+Order Rules
+
+Delivery Charges
+👤
+Role Settings
+
+
+Customer App
+
+Rider App
+
+Vendor Portal
+💰
+Finance
+
+
+Finance & Tax
+
+Payment Methods
+📢
+Communication
+
+
+Content & Banners
+
+Integrations
+🔧
+System
+
+
+System & Data
+429 settings
+
+
+Security →
+
+Moved to its own page
+
+Feature Toggles
+13 settings
+Enable or disable each service across the entire platform instantly
+
+One or more services are currently disabled
+
+Disabled services return HTTP 503 errors to customers. Save changes to apply.
+
+Core Services
+
+orders / rides / pharmacy / parcel API
+🛒
+Mart / Grocery
+
+API Enforced
+Online grocery orders — order placement + wallet payment gated
+
+📱 Customer • 🏪 Vendor • 🏍️ Rider
+
+ON
+🍔
+Food Delivery
+
+API Enforced
+Restaurant food orders — order placement + wallet payment gated
+
+📱 Customer • 🏪 Vendor • 🏍️ Rider
+
+ON
+🚗
+Taxi & Bike Rides
+
+API Enforced
+All ride bookings blocked when off — ridesEnabled gate in API
+
+📱 Customer • 🏍️ Rider
+
+ON
+💊
+Pharmacy
+
+API Enforced
+Medicine orders blocked at API level — pharmacyEnabled gate
+
+📱 Customer • 🏪 Vendor • 🏍️ Rider
+
+ON
+📦
+Parcel Delivery
+
+API Enforced
+Parcel shipments blocked at API level — parcelEnabled gate
+
+📱 Customer • 🏍️ Rider
+
+ON
+Account & Business
+
+wallet / auth / customer API
+💰
+Digital Wallet
+
+API + Client
+Wallet top-up, send, and all wallet payments across all services
+
+📱 Customer • 🏪 Vendor • 🏍️ Rider
+
+ON
+🎁
+Referral Program
+
+📱 Client-Side
+Refer & Earn card visibility + referral bonus tracking in app
+
+📱 Customer only
+
+OFF
+Service disabled — all requests blocked by server
+👤
+New User Registration
+
+API Enforced
+Blocks all new sign-ups at auth API — existing users unaffected
+
+📱 Customer • 🏪 Vendor • 🏍️ Rider
+
+ON
+🔒
+Require Account Approval
+
+⚠️ Danger
+API Enforced
+New accounts are inactive until manually approved by an admin — use with caution
+
+📱 Customer • 🏪 Vendor • 🏍️ Rider
+
+OFF
+Experience Features
+
+chat / tracking / reviews API
+💬
+In-App Chat / WhatsApp
+
+📱 Client-Side
+Chat icon in customer app — routes to WhatsApp support
+
+📱 Customer only
+
+OFF
+Service disabled — all requests blocked by server
+📍
+Live GPS Order Tracking
+
+API + Client
+Customer can see rider's real-time location on map while en-route
+
+📱 Customer • 🏍️ Rider
+
+ON
+⭐
+Reviews & Star Ratings
+
+API Enforced
+Star ratings + written reviews on orders and rides
+
+📱 Customer • 🏪 Vendor • 🏍️ Rider
+
+ON
+🆘
+SOS Emergency Alerts
+
+API + Client
+Emergency SOS button for riders and customers during active rides
+
+📱 Customer • 🏍️ Rider
+
+OFF
+Service disabled — all requests blocked by server
+Access Controls
+
+user approval / registration gating
+🔒
+Require Admin Approval for New Users
+
+API Enforced
+When ON — new accounts are created as inactive and cannot log in until an admin approves them from the Users page.
+
+📱 Customer • 🏪 Vendor • 🏍️ Rider
+
+OFF
+API Enforcement Summary
+
+Feature	Seed Key	Enforcement	Status
+Mart orders	feature_mart	✅ API	ON
+Food orders	feature_food	✅ API	ON
+Ride bookings	feature_rides	✅ API	ON
+Pharmacy orders	feature_pharmacy	✅ API	ON
+Parcel shipments	feature_parcel	✅ API	ON
+Wallet (all ops)	feature_wallet	✅ API	ON
+Referral card/bonus	feature_referral	📱 Client	OFF
+New user sign-up	feature_new_users	✅ API	ON
+Account approval	user_require_approval	✅ API	OPEN
+Chat/WhatsApp	feature_chat	📱 Client	OFF
+Live GPS tracking	feature_live_tracking	✅ API + Client	ON
+Reviews & ratings	feature_reviews	✅ API	ON
+SOS alerts	feature_sos	✅ API + Client	OFF
+✅ API Enforced = server returns 503 when disabled, impossible to bypass from client apps.   📱 Client-Side = UI hidden/shown based on config, no dedicated API endpoint.
+
+Changes apply instantly after saving — no restart needed. Payment gateways: use Manual mode without API credentials, or API mode for automated payments. Sandbox mode works without real credentials for testing.

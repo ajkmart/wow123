@@ -1,0 +1,81 @@
+ CRITICAL BUGS (App crash ya broken flow)
+Bug #1 — Auth Screen Crash on Module Load
+
+File: app/auth/index.tsx (line 44)
+Code: if (typeof __DEV__ === "undefined") { throw new Error("__DEV__ is not defined...") }
+Problem: Yeh check module level par hai. Agar kisi environment mein __DEV__ undefined ho (production build edge case), toh pura auth module import hote hi crash ho jata hai — user login nahi kar sakta.
+Risk: Agar naya feature add kiya aur production bundle configuration change hui, app band ho sakti hai.
+Bug #2 — CartContext: ackFallbackIvRef Use Before Declaration
+
+File: context/CartContext.tsx (line 97 vs 352)
+Problem: resetAckState callback mein ackFallbackIvRef use hota hai (line 97), lekin yeh useRef component ke andar line 352 par declare hota hai. JavaScript mein const TDZ (Temporal Dead Zone) ki wajah se agar resetAckState bahut jaldi call ho, yeh undefined reference de sakta hai. Cart clear nahi hogi order ke baad.
+Risk: Order place hone ke baad cart stuck reh sakti hai.
+Bug #3 — Outdated Package Versions (Expo Incompatibility)
+
+File: package.json
+Problem:
+expo-camera@16.1.11 — expected version: ~17.0.10
+expo-store-review@55.0.11 — expected version: ~9.0.9
+Warning log mein clearly show ho raha hai: "Your project may not work correctly until you install the expected versions"
+Risk: Camera scan feature (/app/scan.tsx) ya Store Review prompt (/app/rate-app.tsx) crash ho sakti hai.
+🟠 MAJOR BUGS (Feature broken/data loss)
+Bug #4 — 30 Duplicate Translation Keys (i18n File)
+
+File: lib/i18n/src/index.ts
+Affected Keys (3 languages mein):
+reason, parcelDetails, cancelOrder, rickshaw, pickup, bike, car, fare, sortNewest, goBack
+Problem: JavaScript mein duplicate keys hone par pehli value override ho jaati hai — toh kuch translations galat show honge ya bilkul nahi dikhenge.
+Real Example: Urdu mein bike pehle موٹر سائیکل tha, lekin duplicate ne isse بائیک se replace kar diya.
+Risk: Har naye feature mein agar koi in keys ko use kare, galat translation milegi.
+Bug #5 — Real-Time Order Tracking: Stale Data, No Indicator
+
+File: app/orders/[id].tsx
+Problem: Order detail screen dono Socket.io aur 15-second interval se rider location fetch karta hai. Agar socket disconnect ho aur interval bhi fail ho, user ko koi warning nahi milti — map last position par freeze reh jaata hai.
+Risk: Customer sochta hai rider yahan hai, lekin rider actually alag jagah hota hai.
+Bug #6 — Parcel Booking: Geocoding Fail Hone Par Silent Error
+
+File: app/parcel/index.tsx (line 325-340)
+Problem: Agar user manually address type kare aur geocoding fail ho jaye, finalPickupLat aur finalPickupLng undefined reh jaate hain. Order toh block hota hai lekin user ko sirf minimal error message milta hai — wajah nahi batayi.
+Risk: User baar baar try karta raha, pata nahi kyun order nahi ho raha.
+Bug #7 — GPS Location: Duplicate Logic, Memory Leak Risk
+
+File: app/cart/index.tsx (GpsSlotRow component)
+Problem: GPS detection ka code do jagah likha hai — useEffect aur handlePress function mein — aur dono almost same kaam karte hain. Agar component unmount ho jaye while GPS chal raha ho, cancelled flag to hai lekin state updates kabhi kabhi leak kar sakti hain.
+Risk: Background mein GPS continuously run karta rahe, battery usage barhegi.
+🟡 MEDIUM BUGS (UX issues, incorrect behavior)
+Bug #8 — Empty catch {} Blocks — Errors Silently Swallowed
+
+Locations:
+app/weather.tsx — geocode failure silently ignored
+app/mart/index.tsx — recently viewed JSON parse error silently ignored
+Multiple AsyncStorage calls — storage fail hone par koi feedback nahi
+Problem: Error console mein bhi nahi ata (production mein), isliye bugs dhundna mushkil ho jaata hai.
+Risk: Naye features mein bhi agar kuch fail ho, debugging impossible hogi.
+Bug #9 — Hardcoded Cancellation Fee Fallback
+
+File: app/ride/index.tsx
+Code: cancellationFee={rideCfg.cancellationFee ?? 30}
+Problem: Agar admin panel mein cancellation fee 0 set ki ho (free cancellation), tab bhi Rs. 30 show hoga kyunki ?? 30 sirf null/undefined par default karta hai, 0 par nahi karta.
+Actually: 0 ?? 30 = 0 (theek hai), lekin undefined ?? 30 = 30. Agar config mein key hi na ho, galat fee show hogi.
+Bug #10 — Weather Screen: Icon Crash Risk
+
+File: app/weather.tsx
+Code: name={wmo.icon as any}
+Problem: Weather icon map (WMO_ICONS) mein jo name store hai, agar woh Ionicons ke valid icons mein nahi hai, toh app crash ya blank icon show hoga. as any TypeScript ko check nahi karne deta.
+Bug #11 — type: any Ka Excessive Use — TypeScript Safety Zero
+
+Files: app/(tabs)/orders.tsx, app/mart/index.tsx, app/orders/[id].tsx — multiple locations
+Problem: API se jo data aata hai uska type any hai. Agar API response mein koi field missing ho ya rename ho jaye, TypeScript warning nahi dega — runtime error aayega.
+Risk: Naya feature likhte waqt agar wrong field access karo, pata nahi chalega jab tak crash na ho.
+Bug #12 — Food Screen: restaurant/[id].tsx Sirf Vendor Screen Re-export
+
+File: app/food/restaurant/[id].tsx
+Code: import VendorStoreScreen from "../../vendor/[id]"; export default VendorStoreScreen;
+Problem: Food restaurant screen alag nahi hai — vendor store screen same use ho rahi hai. Agar future mein restaurant-specific features (menus, variants, etc.) banana ho, yahan alag logic likhna padega. Ab tak same UI dono ke liye use ho rahi hai jo confusing hai.
+🔵 WARNINGS / RISKS FOR FUTURE FEATURES
+#	Issue	File	Risk
+W1	auth/index.tsx module-level error check	app/auth/index.tsx:44	Production build mein auth module crash
+W2	AsyncStorage save without await/error	context/CartContext.tsx	Cart data save nahi hone par silence
+W3	Socket retry limit 3 — no permanent disconnect handling	app/orders/[id].tsx	Active order tracking silently stops
+W4	__DEV__ based console.warn in safeNavigate	app/(tabs)/index.tsx	Production mein navigation silently blocked
+W5	Duplicate i18n keys — naye features ke keys overwrite hone ka khatra	lib/i18n/src/index.ts	New translations galat show honge

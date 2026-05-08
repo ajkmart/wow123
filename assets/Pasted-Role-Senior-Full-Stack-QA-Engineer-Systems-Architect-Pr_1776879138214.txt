@@ -1,0 +1,46 @@
+Role: Senior Full-Stack QA Engineer & Systems Architect
+Project: Alerpa (formerly AJKMart) - Integrated Ecosystem (Customer, Rider, Vendor, Admin)
+
+Primary Objective: Perform a complete end-to-end audit and functional test of the entire stack. Identify and fix the "No login methods available" bug and ensure the Admin Panel has absolute control over all modules without code duplication.
+
+Mandatory Workflow (Log to maryum.md):
+
+First Step: Create a file named maryum.md.
+
+Plan: Write a detailed execution plan in maryum.md covering:
+
+Database Schema Validation.
+
+Backend API Security & Logic Audit.
+
+Multi-App Authentication Testing (Customer, Rider, Vendor).
+
+Admin Control Toggle Verification.
+Real-time Progress: For every task you start, append [STARTING]: Task Name to maryum.md. Once finished, append [COMPLETED]: Task Name with a brief summary of what was fixed.
+
+Technical Tasks:
+
+Deep Scan & Fix - Auth System:
+
+Perform a "Real User" test for Registration and Login on all three apps.
+
+Crucial: Investigate the Rider app's "No login methods available" error. Check the connection between admin_settings in the DB and the Auth Provider logic in the backend.
+Ensure that if Admin enables "OTP Login," it reflects immediately; if disabled, the UI should handle it gracefully.
+
+Admin Control Logic Audit:
+
+Systematically test every toggle in the Admin Panel (e.g., Enable/Disable Vendor registration, Rider availability, Service areas).
+
+Verify that these toggles actually restrict API access and don't just hide UI elements.
+
+Code Optimization & Cleanliness:
+
+Zero Redundancy: Scan for duplicate functions across the apps. If the Customer and Rider apps use the same validation logic, move it to a shared utility/service.
+
+Standardization: Ensure professional UI standards and consistent error handling across all frontend modules.
+Database & Backend Sync:
+
+Verify that the database (PostgreSQL/MongoDB/Firebase) is correctly indexed for fast lookups between the Super App's different services.
+
+Final Deliverable:
+A fully functional, bug-free ecosystem where the Admin has 100% control, and a completed new123.md file documenting every fix and test performed.

@@ -1,0 +1,68 @@
+🔴 RUNTIME ISSUES (Live Logs Se)
+Severity	Issue
+🔴 CRASH	Super App (Expo) — SIGKILL during bundling. Process force-killed (OOM ya timeout). Bundling complete nahi ho rahi properly.
+🟡 WARN	expo-av deprecated — SDK 54 mein remove ho jayega. expo-audio / expo-video use karna chahiye.
+🟡 WARN	shadow* style props deprecated — boxShadow use karna chahiye.
+🟡 WARN	6 Expo packages outdated — expo, expo-auth-session, expo-crypto, expo-file-system, expo-updates, expo-image-picker etc.
+🟡 WARN	ERROR_REPORT_HMAC_SECRET not set — startup pe warning. Production deploy se pehle set karna zaroori.
+🔴 SECURITY VULNERABILITIES (API Server)
+Severity	File	Issue
+🔴 CRITICAL	routes/webhooks.ts	WhatsApp POST ka X-Hub-Signature validate nahi hota — koi bhi fake WhatsApp messages bhej sakta hai server ko
+🔴 HIGH	routes/settings.ts	req.body seedha DB update mein — koi bhi arbitrary settings overwrite kar sakta hai, koi Zod validation nahi
+🔴 HIGH	routes/vendor-app/lib/api.ts	Refresh token localStorage mein — XSS attack se token steal ho sakta (Rider App ne HttpOnly cookie use ki, Vendor App ne nahi)
+🟡 MEDIUM	routes/admin/conditions.ts	Sab catch blocks String(error) return karte hain — raw DB errors client ko expose ho rahi hain
+🟡 MEDIUM	routes/admin/system/auth.ts	GET/PATCH/DELETE mein try/catch nahi — server crash expose ho sakta
+🟡 MEDIUM	routes/users.ts	/loyalty/redeem aur /export-data par koi rate limiting nahi — abuse possible
+🟡 MEDIUM	routes/van.ts	/bookings par rate limiting nahi
+🟡 MEDIUM	routes/parcel.ts	/estimate par rate limiter nahi (rides route mein hai, parcel mein bhool gaye)
+🟡 RACE CONDITIONS & DB BUGS (API Server)
+File	Issue
+routes/settings.ts	Select-then-Insert without transaction — 2 concurrent requests dono "no settings" dekhein aur dono insert karein → Primary Key collision
+routes/users.ts	accountLevel stale data se calculate — concurrent profile updates galat level save kar saktay hain
+🟡 MISSING VALIDATION (API Server Routes)
+File	Routes Missing Zod
+admin/conditions.ts	POST /conditions, PATCH /conditions/:id, POST /condition-rules
+admin/system/auth.ts	POST /admin-accounts, PATCH /admin-accounts/:id
+settings.ts	PUT /
+users.ts	PUT /profile, POST /loyalty/redeem
+van.ts	/admin/routes, /admin/vehicles (multiple routes)
+🟡 VENDOR APP — Deep Issues
+File	Issue
+lib/api.ts	Refresh token localStorage mein — XSS risk
+pages/Chat.tsx:56,100,101	Silent .catch(() => {}) — error aane par empty screen, koi feedback nahi
+pages/Products.tsx	Client-side validation nahi — backend error pe toast, poor UX
+pages/Store.tsx:318	Textarea maxLength nahi — large payloads, UI overflow possible
+(general)	Offline order sync nahi — network drop par "Accept Order" desync ho jata hai
+🟡 RIDER APP — Deep Issues
+File	Issue
+pages/Active.tsx:61	Map config fetch — silent catch, map dead loading state mein reh sakta
+pages/Active.tsx:782	Parallel status updates Promise.allSettled ke bina — ek fail hone par others unhandled
+🟡 SUPER APP — Deep Issues
+File	Issue
+app/(tabs)/index.tsx	Home feed widgets mein granular Error Boundary nahi — ek widget crash kare toh poora home crash
+app/ride/index.tsx	Map-based ride booking mein local Error Boundary nahi
+app/pharmacy/index.tsx	Multi-step checkout mein step-level boundaries nahi
+app/parcel/_Screen.tsx:151	AsyncStorage.removeItem bina .catch() ke
+app/parcel/_Screen.tsx:187,193	Location permissions bina try-catch ke
+app/_layout.tsx:307	Linking.getInitialURL() bina error handling ke
+app/pharmacy/_Screen.tsx:341	EXPO_PUBLIC_DOMAIN hardcoded — missing env var se empty string, uploads break
+app/_layout.tsx	Auth role check fail hone par infinite redirect loop possible
+🟡 HARDCODED URLs (Production Risk)
+File	Issue
+artifacts/admin/vite.config.ts	127.0.0.1:5000 hardcoded as API proxy fallback — production mein fail
+artifacts/vendor-app/vite.config.ts	Same — 127.0.0.1:5000 hardcoded
+PRIORITY FIX LIST
+#	Priority	Fix
+1	🔴 CRITICAL	WhatsApp webhook X-Hub-Signature validation add karo
+2	🔴 CRITICAL	settings.ts PUT / Zod validation add karo
+3	🔴 HIGH	Vendor App refresh token localStorage → HttpOnly cookie migrate karo
+4	🔴 HIGH	Super App Expo SIGKILL issue fix karo (bundle size / memory)
+5	🟡 MEDIUM	settings.ts race condition → DB transaction wrap karo
+6	🟡 MEDIUM	Sab routes mein missing try/catch add karo
+7	🟡 MEDIUM	Raw DB errors client ko expose hona band karo
+8	🟡 MEDIUM	Missing rate limiters (loyalty, export, van bookings, parcel estimate)
+9	🟡 MEDIUM	Super App granular Error Boundaries add karo
+10	🟡 MEDIUM	Outdated Expo packages update karo
+11	🟢 LOW	Hardcoded 127.0.0.1 → env variable karo
+12	🟢 LOW	expo-av → expo-audio/expo-video migrate karo
+13	🟢 LOW	ERROR_REPORT_HMAC_SECRET set karo

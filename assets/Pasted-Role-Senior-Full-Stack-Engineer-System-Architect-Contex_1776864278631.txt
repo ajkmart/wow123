@@ -1,0 +1,56 @@
+Role: Senior Full-Stack Engineer & System Architect.
+Context: Project Alerpa (Super-App Ecosystem).
+Primary Objective: Achieve 100% functional integrity, fix critical JSON/Logic errors, and optimize Admin UX.
+
+PHASE 1: Documentation & Tracking (MANDATORY)
+Create ariyan.md: Before starting any code changes, create a file named ariyan.md in the root.
+
+Update Rule: You must update ariyan.md after every single fix. It must contain:
+
+Task Breakdown Table: Status and Completion % for each task.
+
+Logic Definition: A brief explanation of how you solved a problem.
+
+Error Ledger: List all active bugs or incomplete logic blocks.
+
+Overall Progress: A total completion percentage.
+
+PHASE 2: Critical Logic & Error Fixes
+Fix JSON/HTML Mismatch: Solve the Unexpected token '<', "<!DOCTYPE "... error. Trace the API routes in artifacts/api-server to ensure the backend never sends HTML error pages instead of valid JSON.
+
+Error Reporter Optimization: Update the error reporting logic. Implement a hashing system so that the same error does not generate multiple IDs. Group identical errors together.
+
+Dual-Layer AI Auto-Resolve:
+
+Primary: Use Gemini AI to analyze and fix code logic.
+
+Fallback: If Gemini fails or is unavailable, use Replit Agent/Local AI to resolve the issue.
+
+PHASE 3: Admin Dashboard & Command Palette
+Admin Slider & Settings: * Re-arrange the settings menu into logical categories (General, Security, Integrations, etc.).
+
+Ensure the UI is 100% Responsive (perfect on both Mobile and Desktop).
+
+Advanced Command Palette (artifacts/admin/src/components/CommandPalette.tsx):
+
+Upgrade this component to be the "Global Brain" of the Admin Panel.
+
+Deep Indexing: It must be able to find and trigger every setting/function in the app.
+
+AI Mode: When enabled, use Gemini to allow natural language commands (e.g., "Change app theme to dark" or "Limit rider radius to 5km").
+
+PHASE 4: UI/UX & Integration Integrity
+Zero Dummy Policy: Every button, toggle, and form in the Integrations section must be connected to real backend logic.
+
+Strict TypeScript: Run npx tsc --noEmit in both api-server and rider-app after changes. No any types or @ts-ignore allowed.
+
+Logic Sync: Ensure frontend states (Redux/Zustand) perfectly mirror backend database changes.
+
+STRICT OPERATING RULES
+Do not skip steps.
+
+Do not provide "placeholder" code.
+
+Update ariyan.md constantly.
+
+Logic over Syntax: Understand the project's business logic (Super-App) before applying fixes.

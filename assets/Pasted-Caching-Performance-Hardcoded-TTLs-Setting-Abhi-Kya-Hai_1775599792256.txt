@@ -1,0 +1,43 @@
+Caching & Performance (Hardcoded TTLs)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+56	Platform Settings Cache	30 seconds hardcoded	Admin se cache duration adjust ho sake
+57	VPN/Proxy Detection Cache	10 minutes hardcoded	Admin se configurable
+58	TOR Exit Nodes Cache	1 hour hardcoded	Admin se set ho sake
+59	Service Zone Cache	2 minutes hardcoded	Admin se adjust
+🔴 Category 15: JWT & Session TTLs (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+60	Access Token Lifetime	1 hour hardcoded	Admin se configurable
+61	Refresh Token Lifetime	90 days hardcoded	Admin se control
+62	2FA Challenge Timeout	5 minutes (300 sec) hardcoded	Admin se set ho sake
+🔴 Category 16: Rate Limiting – Endpoint-Specific (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+63	Bargaining Rate Limit	5 req/min hardcoded	Admin se adjust
+64	Booking Rate Limit	5 req/min hardcoded	Admin se control
+65	Cancellation Rate Limit	3 req/min hardcoded	Admin se set
+66	Fare Estimate Rate Limit	30 req/min hardcoded	Admin se configurable
+Note: Global rate limits (100/60/200/150 req/min) already admin-controlled hain — sirf ye endpoint-specific ones hardcoded hain.
+
+🔴 Category 17: Geo & Service Zone Defaults (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+67	Default Zone Radius	30 km hardcoded in DB schema	Admin se default set ho sake
+68	Open-World Fallback	Agar koi zone nahi toh sab allowed — hardcoded	Admin se toggle hona chahiye (restrict vs open)
+🔴 Category 18: Localization & Currency (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+69	Currency Code	"PKR" hardcoded	Admin se change ho sake — multi-country expansion ke liye
+70	Currency Symbol	"Rs." hardcoded	Same — admin configurable
+71	Translation Strings	5000+ strings code mein hardcoded	Long-term: Admin se translations edit ho sakein (CMS style)
+🔴 Category 19: Image & Media Processing (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+72	Image Compression Quality	80% — admin setting hai but mostly hardcoded fallback	Ensure proper sync with admin
+73	Image Compression Toggle	"on" default — exists in admin but fallback hardcoded	Same
+🔴 Category 20: Missing Professional Features (Exist Nahi Karte)
+Ye cheezein abhi codebase mein hain hi nahi — professional super apps mein honi chahiyen:
+
+#	Feature	Kya Hona Chahiye
+74	A/B Testing Framework	Admin se experiment create/manage ho sakein (button color, layout, pricing variations)
+75	Vendor Weekly Schedule	Auto open/close based on schedule — abhi sirf manual toggle hai
+76	Scheduled Maintenance Window	Admin se future maintenance schedule set ho sake with countdown
+77	Data Retention Policies	Admin se set ho ke location history, chat logs, audit logs kitne din baad delete hon
+78	CSV/Report Export	Admin dashboard se financial reports, user lists, order data export ho sake
+79	Webhook/Integration Events	Admin se custom webhooks configure ho sakein (order placed → notify external system)
+80	Dynamic Deep Link Builder	Admin se marketing deep links create ho sakein (specific product/deal pe direct link)

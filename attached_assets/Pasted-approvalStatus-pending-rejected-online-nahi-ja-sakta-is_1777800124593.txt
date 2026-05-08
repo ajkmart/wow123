@@ -1,0 +1,52 @@
+approvalStatus === pending / rejected → online nahi ja sakta
+isRestricted rider → new orders/rides accept nahi kar sakta
+gpsTracking off → location tracking blocked
+withdrawalEnabled off → wallet withdraw blocked
+depositEnabled off → wallet deposit blocked
+cashAllowed off → cash orders accept blocked
+maxDeliveries limit hit → extra orders/rides blocked
+dailyGoal admin default se controlled
+modules.wallet off → wallet page hidden
+modules.earnings off → earnings page hidden
+modules.history off → history page hidden
+modules.twoFaRequired → 2FA requirement controlled
+modules.gpsTracking → GPS-related features controlled
+modules.profileEdit → profile edit controlled
+modules.supportChat → support chat controlled
+auth.*Enabled flags → login methods controlled
+features.wallet/chat/liveTracking/sos → broader rider UI features controlled
+Agar chaho to next message me main isko 3 parts me tod ke doon: login/admin approval, wallet/finance, rides/GPS/requests.
+
+
+Next breakdown:
+
+1) Approval / Access
+
+Pending approval → online/accept blocked
+Re-verification pending → online/accept blocked
+Restricted account → new orders/rides blocked
+2) Wallet / Money
+
+Withdrawals off → cashout blocked
+Deposits off → add money blocked
+Payment method disabled → withdraw/deposit method hidden
+Admin payment methods disabled → remittance/deposit options unavailable
+3) Ride / Delivery Control
+
+cashAllowed off → cash orders blocked
+maxDeliveries hit → extra active jobs blocked
+GPS tracking off → location features blocked
+Daily goal controlled by admin default
+Rider cancel/ignore penalties can restrict account
+4) App Modules
+
+Wallet module off → wallet page hidden
+Earnings module off → earnings page hidden
+History module off → history page hidden
+Profile edit module off → profile editing blocked
+Support chat module off → chat blocked
+2FA requirement can be forced by admin
+5) Auth / Login
+
+OTP / email / username-password / Google / Facebook / magic link all admin-toggleable
+CAPTCHA / lockout / approval gates can block login flow

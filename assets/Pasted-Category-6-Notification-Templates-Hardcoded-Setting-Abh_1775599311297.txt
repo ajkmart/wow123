@@ -1,0 +1,48 @@
+Category 6: Notification Templates (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+24	Email HTML Templates	Verification, Password Reset, Magic Link emails ka HTML hardcoded hai	Admin se email templates edit ho sakein (logo, colors, text)
+25	Push Notification Text	Ride request, order updates ka text code mein fixed hai	Admin se notification messages customize ho sakein
+26	Admin Alert Thresholds	"High Value Order" alert ka threshold hardcoded	Admin se set ho ke kitne amount pe alert aaye
+27	Fraud Alert Rules	Suspicious activity ke rules code mein hain	Admin se fraud detection rules configure ho sakein
+🔴 Category 7: Upload & File Limits (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+28	Image Upload Limit	5MB hardcoded	Admin se adjust ho sake
+29	Video Upload Limit	50MB hardcoded	Admin se control
+30	Video Duration Limit	60 seconds hardcoded	Admin se set ho sake
+31	Allowed File Formats	JPEG, PNG, WebP, MP4 hardcoded	Admin se formats add/remove ho sakein
+🔴 Category 8: Pagination & Display Limits (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+32	Products Per Page	Default 20, max 50 hardcoded	Admin se configurable
+33	Trending Searches Limit	Default 12, max 30 hardcoded	Admin se set ho sake
+34	Flash Deals Per Page	Default 20, max 50 hardcoded	Admin se control
+🔴 Category 9: Order & Business Rules (Hardcoded Defaults)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+35	Max Cart Value	50,000 PKR default	Admin panel mein hai lekin fallback hardcoded
+36	Max COD Amount	5,000 PKR default	Same — fallback hardcoded
+37	Min Order Amount	100 PKR default	Hardcoded fallback
+38	Vendor Max Products	100 items per vendor	Admin se control hona chahiye
+39	Customer Daily Order Limit	10 orders/day default	Admin panel mein hai but fallback hardcoded
+40	Rider Max Simultaneous Deliveries	3 active deliveries	Admin se adjust ho sake
+🔴 Category 10: Van/Transport Rules (Hardcoded Defaults)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+41	Max Seats Per Booking	4 seats hardcoded	Admin se configurable
+42	Min Advance Booking	2 hours hardcoded	Admin se set ho sake
+43	Driver Rest Hours	2 hours hardcoded	Admin se control
+44	Max Driver Trips/Day	5 trips hardcoded	Admin se adjust
+45	Cancellation Window	1 hour hardcoded	Admin se change ho sake
+🔴 Category 11: Onboarding & App Experience (Hardcoded)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+46	Onboarding Screens	Registration flow hardcoded	Admin se onboarding slides/images manage ho sakein
+47	Vendor Auto-Open Schedule	Sirf manual toggle hai (Open/Closed)	Weekly schedule support hona chahiye (Mon-Sat 9AM-9PM auto open/close)
+48	Support Hours Display	"Mon–Sat, 8AM–10PM" text hardcoded	Already admin setting mein hai but functional restriction nahi — support chat actually 24/7 available hai
+🔴 Category 12: Wallet Limits (Hardcoded Defaults)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+49	Max Wallet Balance	50,000 PKR hardcoded default	Platform settings mein hai but tightly coupled with code
+50	Daily Transaction Limit	20,000 PKR	Hardcoded fallback
+51	P2P Transfer Limit	10,000 PKR	Hardcoded fallback
+52	Min Top-up Amount	100-200 PKR range hardcoded	Admin se set ho sake
+53	Max Withdrawal Amount	10,000-25,000 PKR range	Admin se control
+🔴 Category 13: Content Moderation (Partially Missing)
+#	Setting	Abhi Kya Hai	Kya Hona Chahiye
+54	Flagged Keywords List	Admin se manage hota hai — but limited	More advanced content rules (regex patterns, severity levels)
+55	Auto-masking Rules	Phone, Email, CNIC patterns hardcoded	Admin se masking rules on/off aur customize ho sakein

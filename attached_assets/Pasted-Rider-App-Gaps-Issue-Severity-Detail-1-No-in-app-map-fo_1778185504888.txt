@@ -1,0 +1,45 @@
+Rider App Gaps
+
+| # | Issue | Severity | Detail |
+|---|---|---|---|
+| 1 | No in-app map for Van Driver location tracking | HIGH | VanDriver sends location but has no map to show customers |
+| 2 | Proof photo not shown on order confirmation | MEDIUM | `proofPhoto` uploaded but not displayed back to rider in history |
+| 3 | Audio unlock flow broken on some Android browsers | MEDIUM | `unlockAudio()` requires user gesture — some Android WebViews don't fire click on toggle |
+| 4 | Counter-offer (bid) flow — no UI confirmation state | MEDIUM | `api.counterRide()` exists but no pending/accepted counter UI |
+| 5 | `refreshUser()` calls not coordinated — may fire concurrently | MEDIUM | Home + Active screens both call `refreshUser()` on mount |
+| 6 | Notification permission re-asked on every login in same tab | LOW | `_notifPermissionAsked` resets on logout (module-level flag works only per tab load) |
+| 7 | COD remittance amount validation missing | MEDIUM | No client-side check that `remitAmount <= codCollected` |
+| 8 | GPS validation speed threshold not dynamically loaded | LOW | `gps_max_speed_kmh` platform setting exists but validation uses hardcoded fallback |
+| 9 | History page does not show ride details (only orders) | MEDIUM | HistoryItem.kind supports "ride" but expand view shows order fields |
+| 10 | `getMyReviews()` API exists but no Reviews screen | LOW | `GET /rider/reviews` is fetched but no reviews page exists in the app |
+
+---
+
+## P2 — Vendor App Gaps
+
+| # | Issue | Severity | Detail |
+|---|---|---|---|
+| 1 | WebRTC voice call — no TURN server configured | HIGH | Calls may fail on restricted networks (corporate/mobile) without TURN relay |
+| 2 | No offline capability for product management | HIGH | Product create/edit fails silently offline — no queue |
+| 3 | Campaign join/withdraw endpoints not confirmed | MEDIUM | `POST /vendor/campaigns/:id/join` — endpoint may not exist in backend |
+| 4 | Bulk CSV import — no progress indicator per row | MEDIUM | `POST /vendor/products/bulk` gives one success/fail for entire batch |
+| 5 | Analytics page — no export (CSV/PDF) | MEDIUM | Charts are visual only — no data export |
+| 6 | No store verification badge display | LOW | `user.isVerified` exists on auth model but not shown on any screen |
+| 7 | `GET /vendor/delivery-access/status` polled but UI for "access pending" state missing | MEDIUM | DeliveryAccess status returned but vendor sees no actionable UI if status is "pending" |
+| 8 | Voice note upload endpoint not confirmed | MEDIUM | Chat sends audio to `/uploads/audio` but this endpoint may not exist |
+| 9 | Wallet — no deposit flow (vendor) | MEDIUM | Only withdrawal exists; no vendor top-up path |
+| 10 | Chat read receipts not visually shown | LOW | deliveryStatus tracked in data model but no "read" tick UI |
+
+---
+
+## P3 — Shared Gaps (Both Apps)
+
+| # | Issue | Severity |
+|---|---|---|
+| 1 | No automatic retry with exponential backoff for 5xx errors | MEDIUM |
+| 2 | No biometric authentication (Capacitor Face ID / Fingerprint) | MEDIUM |
+| 3 | Sentry integration depends on admin-configured DSN — no fallback source | LOW |
+| 4 | `@capacitor/preferences` import fails gracefully but silently — no log | LOW |
+| 5 | Version check — buildHash comparison uses string equality; minor version drift could cause reload loops | LOW |
+
+---

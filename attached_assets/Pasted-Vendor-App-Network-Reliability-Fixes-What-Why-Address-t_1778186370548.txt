@@ -1,0 +1,19 @@
+Vendor App — Network & Reliability Fixes
+What & Why
+Address the two HIGH severity vendor app gaps: configuring a TURN server for WebRTC voice calls so they work on restricted networks, and adding an offline-safe queue for product create/edit operations so vendors don't silently lose work when connectivity drops.
+
+Done looks like
+WebRTC voice calls in Chat negotiate via TURN when a direct peer-to-peer connection fails; calls complete on corporate or mobile networks that block UDP.
+When a vendor creates or edits a product while offline, the action is queued locally; on reconnection the queue drains automatically and the vendor sees a status indicator (e.g., "2 changes pending sync").
+If any queued product action fails on retry, a clear error is shown rather than a silent failure.
+Out of scope
+Other vendor app gaps (covered in the feature & UX task)
+Provisioning an actual TURN server — the task wires up TURN configuration using an env var (VITE_TURN_SERVER_URL, VITE_TURN_USERNAME, VITE_TURN_CREDENTIAL) that an operator supplies; a note in the UI or console should describe what is needed if the var is absent.
+Steps
+TURN server configuration — In Chat.tsx, extend the RTCPeerConnection ICE server list to include a TURN entry built from VITE_TURN_SERVER_URL, VITE_TURN_USERNAME, and VITE_TURN_CREDENTIAL env vars. Fall back gracefully (STUN only) when the vars are not set, and log a warning. Document the required env vars in replit.md.
+Offline product queue — Extend or adapt useOfflineQueue.ts to cover product create and edit mutations from Products.tsx. When offline, enqueue the action with its full payload; show a count badge or banner ("N changes pending sync"). On reconnect, drain the queue sequentially, retrying failed items up to 3 times, then surface per-item errors to the vendor.
+Relevant files
+artifacts/vendor-app/src/pages/Chat.tsx
+artifacts/vendor-app/src/hooks/useOfflineQueue.ts
+artifacts/vendor-app/src/pages/Products.tsx
+artifacts/vendor-app/src/pages/Dashboard.tsx

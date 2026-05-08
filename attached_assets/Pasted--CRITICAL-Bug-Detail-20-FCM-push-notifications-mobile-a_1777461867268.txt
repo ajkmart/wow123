@@ -1,0 +1,27 @@
+ CRITICAL
+#	Bug	Detail
+20	FCM push notifications mobile apps ko nahi milte	Rider aur Vendor apps native mobile (Capacitor) hain — inhe FCM chahiye. Server sirf WebPush (browser VAPID) bhejta hai. Matlab: jab rider ka app background/closed ho, use nayi ride ka notification nahi aata
+21	OTP bypass — security risk in production	Agar admin ne SMS provider configure nahi kiya, system automatically OTP skip kar deta hai. Koi bhi number se login ho sakta hai. Admin panel mein is setting ka koi warning nahi
+⚠️ MEDIUM
+#	Bug	Detail
+22	Vendor location permission denied → rider auto-assign fail	Jab vendor order accept karta hai, browser se location maanga jata hai. Agar vendor ne "Deny" kiya, vendorLat/Lng null ho jata hai aur rider auto-assign silently fail ho jata hai
+23	Feature toggles server-side enforce nahi hote	Admin panel mein "Referral", "Chat", "Weather" ko disable karna sirf mobile app ki UI chhupata hai — API still accepts requests. Matlab disable karna actually kaam nahi karta
+24	Search Analytics — "Zero Results" non-functional	Admin panel ka Search Analytics section — "Zero-Result Searches" tab mein explicitly likha hai "Search event logging not yet enabled" — pure UI hai, koi data nahi aata
+25	Wallet top-up fully manual	JazzCash/EasyPaisa se wallet recharge karne ke liye customer ko manually Transaction ID enter karni padti hai aur admin approve karta hai. Koi automated gateway integration nahi — ye admin panel ka "JazzCash/EasyPaisa enabled" toggle mislead karta hai
+26	Delivery proof photo size limit	Rider ko order deliver karte waqt proof photo upload karni hoti hai. Server limit 5MB hai lekin modern phones ki camera images compress nahi hoti properly — large photos silently fail ho sakti hain
+📋 LOW / INCOMPLETE
+#	Bug	Detail
+27	Van/Daba ride fares settings ignored	Admin panel mein ride_daba_base_fare aur ride_daba_min_fare settings save hoti hain lekin Van booking ka logic in values ko use nahi karta — alag pricing model hai
+28	Admin wallet-transfers page	Admin panel mein "Wallet Transfers" page hai lekin koi dedicated backend route nahi — generic wallets.ts se handle hota hai, kuch actions work nahi karte
+29	Referral sharing hidden	Customer ka referral code profile/wallet ke andar ek corner mein chhupta hai — koi dedicated "Invite Friends" button nahi, users ko pata nahi chalta
+30	GPS rerouting OSRM server dependency	Rider app Active screen mein route recalculation ke liye OSRM server use hota hai — agar ye external service configured/available nahi, rerouting silently fail hota hai
+
+#	Bug	Detail
+31	Service branding colors completely ignored	Admin panel mein brand_color_mart, brand_color_food, brand_color_rides etc. set hote hain — lekin customer app ka ServiceGrid.tsx aur saare service screens direct static colors.ts file se colors import karte hain. Config se nahi. Admin color change kare to koi fark nahi parta
+32	Customer app ka COD limit UI mein hardcoded	Server side COD limit properly enforce hota hai (cod_max_amount setting se), lekin customer app ka PlatformConfigContext.tsx mein maxCodAmount: 5000 hardcoded default hai. Agar API slow ho to cart screen galat limit dikhata hai
+33	Rider app session duration hardcoded	Rider useConfig.ts mein sessionDays: 30 hardcoded hai. Admin panel mein session duration ki security setting hai jo rider app mein reflect nahi hoti
+🟡 MINOR — Missing Connections
+#	Bug	Detail
+34	Search Analytics — koi data nahi aata	Admin panel mein Search Analytics page hai jisme "Zero-Result Searches" tab hai — lekin code mein clearly likha hai "Search event logging not yet enabled". Pure UI hai, backend pe search events record hi nahi hote
+35	Phone format regional setting unused	Admin mein phoneFormat aur country code configurable hai lekin phone utility functions (phone.ts) mein +92 Pakistani format hardwired hai — dusre region ke liye app properly kaam nahi karega
+36	Admin panel apni hi branding colors use nahi karta	Admin ke service branding settings (brand_color_mart etc.) admin panel ke apne UI mein apply nahi hote — standard Tailwind theme hardcoded hai

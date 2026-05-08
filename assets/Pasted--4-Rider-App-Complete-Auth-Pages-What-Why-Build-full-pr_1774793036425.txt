@@ -1,0 +1,24 @@
+#4 - Rider App: Complete Auth Pages
+What & Why
+Build full professional authentication UI for the Rider Web App — Login, Register (multi-step), Forgot Password, and Security Settings (2FA setup) — showing only the auth methods enabled by admin, with CAPTCHA, lockout timer, and 2FA support.
+
+Done looks like
+Login page: branded for riders; shows only admin-enabled methods (Phone OTP, Email OTP, Username+Password, Google, Facebook, Magic Link); CAPTCHA on submission; lockout countdown timer visible when account is locked; 2FA verification screen appears after successful primary auth if rider has 2FA enabled
+Register page (multi-step): Step 1 — name, phone, email; Step 2 — CNIC (mandatory, auto-formatted 00000-0000000-0), vehicle type (dropdown), vehicle registration number, driving license number; Step 3 — password (with strength indicator), terms acceptance, CAPTCHA; Step 4 — OTP verification; success → "Pending Admin Approval" screen. Social registration (Google/Facebook) auto-fills name+email, still requires CNIC + vehicle fields. Email registration option (if admin-enabled) skips OTP, shows email verify prompt instead
+Forgot Password page: phone OTP or email OTP choice (per admin config), CAPTCHA on initiation, new password + confirm with strength indicator, TOTP verification step if rider has 2FA enabled, clear success/error messages in English/Urdu
+Security Settings page: 2FA setup flow using shared TwoFactorSetup component (QR code, manual key, backup codes), enable/disable toggle
+Platform config fetched on app load; all auth method visibility is driven by the response — backend also rejects disabled methods
+Out of scope
+Biometric login (mobile-only feature)
+Admin Panel UI (Task 7)
+Tasks
+Login page — Build the login page with dynamic method visibility (from platform config), CAPTCHA integration, lockout timer, and 2FA verification screen transition.
+Register page — Build 4-step registration form with CNIC auto-formatting, vehicle fields, social registration path, email registration path, and OTP/verify step.
+Forgot Password page — Build forgot/reset password flow with OTP, CAPTCHA, password strength meter, and conditional TOTP step.
+Security Settings page — Build 2FA setup/disable UI using shared TwoFactorSetup and TwoFactorVerify components; integrate with 2FA backend endpoints.
+Auth context update — Update rider AuthProvider to handle all new login methods (social token exchange, magic link redirect, 2FA state), persist session correctly, and enforce platform config checks.
+Relevant files
+artifacts/rider-app/src/pages/Login.tsx
+artifacts/rider-app/src/lib/auth.tsx
+artifacts/rider-app/src/lib/api.ts
+artifacts/rider-app/src/App.tsx

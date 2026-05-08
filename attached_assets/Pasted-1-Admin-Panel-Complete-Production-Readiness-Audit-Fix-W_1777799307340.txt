@@ -1,0 +1,206 @@
+1 - Admin Panel — Complete Production Readiness Audit & Fix
+What & Why
+Admin panel aur API server mein sabhi components ka deep audit karna aur production ke liye ready karna. Har layer — Security, Backend API, Database, Frontend, Routes, aur UI/UX — mein existing bugs, loopholes, aur missing safeguards ko identify aur fix karna.
+
+Done Looks Like
+Tamam security loopholes band ho jayen (missing auth guards, missing CSRF, missing permissions)
+Har state-changing API route protected ho: authenticate + CSRF + specific permission
+Wallet/finance operations database transactions mein wrap hon (atomicity)
+Paginated endpoints — koi bhi hard-coded 200/300 row limit na rahe
+TypeScript any types ki jagah proper types
+Error boundaries aur try/catch har route par
+UI mein missing loading states, empty states, aur error messages fix hon
+Rate limiting Redis ke down hone par bhi safe ho (per-instance fallback documented)
+Legacy deprecated functions (getToken, setToken, etc.) ki jagah new auth system use ho
+Permissions check karne wala legacyToken edge case gracefully handle ho
+Out of Scope
+Nayi features add karna
+Theming ya design changes
+Vendor App / Rider App / Super App fixes (sirf Admin Panel aur API Server)
+Steps
+1. SECURITY — Missing adminAuth + CSRF on System Routes (Critical)
+artifacts/api-server/src/routes/admin/system.ts mein ~20+ routes hain jo global adminAuth pe rely karti hain lekin mutating operations par CSRF protection nahi hai. Fix:
+
+/platform-settings PUT, PATCH, POST (backup/restore) — adminAuth + csrfProtection + requirePermission("system.settings.write") add karo.
+/test-integration/* POST routes — adminAuth + csrfProtection add karo.
+/reviews/export GET, /reviews/import POST, /reviews/moderation-queue GET, /reviews/:id/approve PATCH, /reviews/:id/reject PATCH — adminAuth + csrfProtection (mutating ones) add karo.
+/reviews/import POST — additional Zod schema validation add karo.
+/sos/alerts/:id/acknowledge PATCH, /sos/alerts/:id/resolve PATCH — adminAuth + csrfProtection add karo.
+/jobs/rating-suspension POST — adminAuth + csrfProtection add karo.
+/maintenance-schedule PUT, /retention-policies PUT, /retention-cleanup POST — csrfProtection add karo.
+/vendor-schedules/:vendorId PUT — csrfProtection add karo.
+2. SECURITY — Fine-grained requirePermission on Critical Routes (Critical)
+Bahut saari routes sirf adminAuth check karti hain lekin specific permission nahi check karti. Fix:
+
+/platform-settings write operations → requirePermission("system.settings.write")
+/command/execute POST → requirePermission("system.execute_command")
+/export/orders, /export/users, /export/riders, /export/vendors, /export/financial → requirePermission("data.export") or equivalent
+/wallet/freeze-p2p/:userId PATCH → requirePermission("finance.wallet.freeze")
+/wallet/transactions/:id/flag PATCH → requirePermission("finance.transactions.flag")
+/blocked-ips POST/DELETE → requirePermission("system.security.manage")
+/login-lockouts/:phone DELETE → requirePermission("system.security.manage")
+/retention-cleanup POST → requirePermission("system.data.cleanup")
+SOS alerts modify → requirePermission("operations.sos.manage")
+Reviews approve/reject/import/export → requirePermission("content.reviews.moderate")
+3. SECURITY — Dual Auth System Consistency (High)
+Two auth systems exist:
+
+Legacy (adminAuth from admin-shared.ts): JWT, in-memory lockout, no CSRF enforcement.
+New (authenticateAdmin from middlewares/admin-auth.ts): newer JWT verification with CSRF.
+All sub-routes under admin.ts use legacy adminAuth. Fix:
+
+Migrate system.ts, orders.ts, wallets.ts, users.ts, and all other admin sub-routes to use authenticateAdmin from middlewares/admin-auth.ts + csrfProtection for mutating requests.
+Remove adminAuth imports from admin-shared.ts in routes once migration is done.
+4. SECURITY — In-Memory Login Lockout is Not Multi-Instance Safe (High)
+adminLoginAttempts Map in admin-shared.ts resets on server restart and doesn't work across multiple instances. Fix:
+
+Move lockout tracking to Redis (already connected via lib/redis.ts).
+Add cleanup interval for stale lockout entries.
+Apply same fix to admin-shared.ts checkAdminLoginLockout and recordAdminLoginFailure.
+5. DATABASE — Wallet Operations Not Atomic (Critical)
+FinanceService.processTopup() and related methods update usersTable.walletBalance and insert into walletTransactionsTable as two separate queries. If the server crashes between them, data becomes inconsistent. Fix:
+
+Wrap all wallet balance updates + transaction inserts in db.transaction(async (tx) => { ... }).
+Apply to: processTopup, processTransaction, processRefund, processWithdrawal in admin-finance.service.ts.
+Also fix any inline wallet updates in system.ts and users.ts routes.
+6. DATABASE — Missing Pagination on Transaction Endpoints (High)
+GET /admin/transactions has hard limit of 200 rows.
+GET /admin/transactions-enriched has hard limit of 300 rows.
+GET /admin/orders (legacy) has limit of Number(lim) || 200.
+Fix:
+
+Add proper page + limit query params with total count response.
+Default limit 50, max 200.
+Frontend transactions.tsx and Withdrawals.tsx pages should use paginated hooks.
+7. BACKEND — Missing try/catch on Unprotected Route Handlers (High)
+Many route handlers in system.ts, orders.ts, wallets.ts have no try/catch. A failing DB query causes unhandled promise rejection. Fix:
+
+Wrap all async route handlers in try/catch.
+Return sendError(res, "Internal server error", 500) on unexpected errors.
+Log the full error with stack trace using the existing logger.
+8. BACKEND — Missing Zod Validation on Many Routes (High)
+Routes like /sos/alerts/:id/acknowledge, /sos/alerts/:id/resolve, /reviews/:id/approve|reject, /vendor-schedules/:vendorId PUT, /maintenance-schedule PUT, etc. accept body params without Zod validation. Fix:
+
+Add Zod schemas for all request bodies.
+Use validateBody() middleware or inline schema.parse() with proper error responses.
+Validate route params (IDs) format before DB queries.
+9. BACKEND — No Rate Limiting on Data Export Endpoints (High)
+/export/orders, /export/users, /export/riders, /export/financial can return 5000 rows per call with no rate limiting. Fix:
+
+Apply paymentLimiter or a dedicated exportLimiter (max 5 req/15 min) to all export endpoints.
+Add max row limit guardrail (e.g., 5000 rows) with warning in response.
+10. FRONTEND — Deprecated getToken/setToken Still in Bridge Layer (Medium)
+lib/api.ts exports getToken() (returns null), setToken() (no-op), clearToken() (no-op), isTokenExpired() (returns false). Any component still calling getToken() gets null silently. Fix:
+
+Grep all component files for getToken, setToken, clearToken, isTokenExpired usage.
+Replace with useAdminAuth().state.accessToken or remove.
+Add console.error deprecation warnings to bridge functions.
+11. FRONTEND — useAdminLogin Hook Uses Legacy Endpoint (Medium)
+hooks/use-admin.ts useAdminLogin hook posts to /auth with secret field (legacy format). The new login page (login.tsx) uses adminAuthContext.login() directly, but this hook could confuse future developers. Fix:
+
+Remove useAdminLogin from use-admin.ts or update it to call the new endpoint.
+Document that adminAuthContext.login() is the canonical login method.
+12. FRONTEND — legacyToken Permission Degradation (Medium)
+When usePermissions() detects a JWT without a perms claim (legacyToken = true), non-super admins see an empty UI because all PermissionGate components hide. Fix:
+
+When legacyToken = true, show a banner prompting re-login to get the new token format.
+Or: fall back to role-based permissions for legacy tokens (map role → default permission set).
+Ensure non-super admins with legacy tokens can still access their basic routes.
+13. FRONTEND — Missing Error Handling in Dashboard Export (Medium)
+exportDashboard() in dashboard.tsx creates a DOM anchor element but never removes it from the document. Same pattern in transactions.tsx and revenue-analytics.tsx. Fix:
+
+After a.click(), call document.body.removeChild(a) or don't append to DOM at all.
+Use a.href = url; a.download = ...; a.click(); URL.revokeObjectURL(url) without appendChild.
+14. FRONTEND — No Empty State on Transactions / Revenue Pages (Medium)
+When there are no transactions or revenue records, pages show blank tables without helpful empty state UI. Fix:
+
+Add <EmptyState> component (already exists in components/ui/empty.tsx) to all table pages when data array is empty.
+Add proper empty state for: Transactions, Withdrawals, Deposit Requests, Revenue Analytics, Wallet Transfers.
+15. FRONTEND — Heavy any Type Usage in Page Components (Medium)
+vendors.tsx, riders.tsx, users.tsx, orders/index.tsx, and several other pages use any extensively for API response data. Fix:
+
+Add proper TypeScript interfaces for vendor, rider, user, order response shapes.
+Move interfaces to lib/adminApiTypes.ts (already exists, extend it).
+Replace any with typed interfaces in the top 5 highest-traffic pages.
+16. FRONTEND — window.location.href Redirect Loses SPA State (Medium)
+adminFetcher.ts and api.ts redirect to login via window.location.href = loginUrl on auth failure. This is a hard browser redirect that loses all pending state, form data, and context. Fix:
+
+Use wouter's setLocation('/login') instead of window.location.href where possible.
+Store the intended destination in session storage so the user can be redirected back after login.
+17. FRONTEND — Missing Confirmation on Destructive Actions (Medium)
+Several destructive actions lack confirmation dialogs:
+
+Bulk ban users (useBulkBanUsers) — shows UI checkbox selection but confirmation dialog may not always render.
+Delete product — uses a ConfirmDialog but some paths in products.tsx skip it.
+Batch approve/reject withdrawals (useBatchApproveWithdrawals) — no double-confirm for large amounts.
+Fix:
+
+Ensure every destructive mutation is gated by ConfirmDialog component showing the exact action description.
+Batch operations must show count of affected records in the confirmation.
+18. FRONTEND — Audit Logs Page Missing Export (Low)
+audit-logs.tsx has a filter UI and pagination but no CSV/JSON export. Admins cannot download audit trails for compliance. Fix:
+
+Add an "Export" button that calls a /admin/audit-log/export endpoint.
+Backend endpoint should respect the same filters (action, result, dateFrom, dateTo, search).
+19. UI/UX — Roles & Permissions Page Not Showing Assigned Admins Per Role (Low)
+roles-permissions.tsx loads role list and permission matrix but the "admins in this role" section may be empty if the RBAC API returns no assignedAdmins field. Fix:
+
+Ensure GET /admin/system/rbac/roles returns assignedAdminsCount per role.
+Display assigned admin count as a badge on each role card.
+20. UI/UX — SOS Alerts Page Has No Auto-Refresh Indicator (Low)
+sos-alerts.tsx polls every 5 seconds but there is no visible timer or "Last updated" indicator. Admins don't know if data is stale. Fix:
+
+Add a "Last updated X seconds ago" indicator using the existing updatedAgo() pattern from dashboard.
+Add a pulsing dot indicator while refetch is in progress.
+21. BACKEND — GET /admin/stats Has No Error Isolation (Low)
+/stats uses a single Promise.all with 16 DB queries. If any query fails, the entire stats endpoint returns 500. Fix:
+
+Wrap each query in individual try/catch, defaulting to 0 on failure.
+Return partial stats with a warnings array instead of failing entirely.
+22. BACKEND — Reviews Import Has No File Size / Row Count Limit (Low)
+POST /admin/reviews/import accepts arbitrary CSV data in the request body with no size limit. A malicious or accidental large import could exhaust memory. Fix:
+
+Add max row limit (e.g., 1000 rows) with a clear error response.
+Validate CSV structure matches expected columns before processing.
+Add to rate limiter.
+Relevant Files
+Admin Frontend:
+
+artifacts/admin/src/lib/api.ts
+artifacts/admin/src/lib/adminAuthContext.tsx
+artifacts/admin/src/lib/adminFetcher.ts
+artifacts/admin/src/hooks/use-admin.ts
+artifacts/admin/src/hooks/usePermissions.ts
+artifacts/admin/src/pages/dashboard.tsx
+artifacts/admin/src/pages/transactions.tsx
+artifacts/admin/src/pages/Withdrawals.tsx
+artifacts/admin/src/pages/DepositRequests.tsx
+artifacts/admin/src/pages/vendors.tsx
+artifacts/admin/src/pages/riders.tsx
+artifacts/admin/src/pages/users.tsx
+artifacts/admin/src/pages/orders/index.tsx
+artifacts/admin/src/pages/products.tsx
+artifacts/admin/src/pages/audit-logs.tsx
+artifacts/admin/src/pages/roles-permissions.tsx
+artifacts/admin/src/pages/sos-alerts.tsx
+artifacts/admin/src/pages/revenue-analytics.tsx
+artifacts/admin/src/lib/adminApiTypes.ts
+artifacts/admin/src/App.tsx
+API Server:
+
+artifacts/api-server/src/routes/admin/system.ts
+artifacts/api-server/src/routes/admin/orders.ts
+artifacts/api-server/src/routes/admin/finance/wallets.ts
+artifacts/api-server/src/routes/admin/system/users.ts
+artifacts/api-server/src/routes/admin/system/rbac.ts
+artifacts/api-server/src/routes/admin.ts
+artifacts/api-server/src/routes/admin-auth-v2.ts
+artifacts/api-server/src/routes/admin-shared.ts
+artifacts/api-server/src/middlewares/admin-auth.ts
+artifacts/api-server/src/middlewares/require-permission.ts
+artifacts/api-server/src/middleware/rate-limit.ts
+artifacts/api-server/src/services/admin-auth.service.ts
+artifacts/api-server/src/services/admin-finance.service.ts
+artifacts/api-server/src/services/admin-password.service.ts
+artifacts/api-server/src/lib/db.ts
+artifacts/api-server/src/lib/redis.ts

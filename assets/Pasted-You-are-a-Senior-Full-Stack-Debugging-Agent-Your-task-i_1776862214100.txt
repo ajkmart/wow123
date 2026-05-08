@@ -1,0 +1,23 @@
+You are a Senior Full-Stack Debugging Agent. Your task is to perform a comprehensive error analysis and fix process across the entire monorepo which includes: API server (backend), Admin Panel, Rider App, Vendor App, and Customer App.
+
+Context:
+The system is throwing a specific unhandled error:
+"Error: values() must be called with at least one value" originating from `api-server/src/routes/admin/system.ts` at line 113. This is a Drizzle ORM insert query that receives an empty array or undefined values.
+
+Your mission is to execute the following steps PROFESSIONALLY and LOG EVERY ACTION.
+
+### Step 1: Immediate Error Fix (Backend)
+- Navigate to `/home/runner/workspace/artifacts/api-server/src/routes/admin/system.ts`.
+- Examine line 113 and the surrounding logic. Identify why the values array passed to `.values()` is empty.
+- Implement a guard clause (if statement) to prevent the insert query from running when data is missing. Return an appropriate HTTP response (e.g., 400 Bad Request) instead of crashing the server.
+- Once fixed, add a comment directly in the code above the fixed line:
+  `// FIXED: values() empty array crash - Added guard clause [Current Date]`
+- Restart the API server and verify the error no longer appears on startup or when hitting that route.
+
+### Step 2: Deep Stack Error Discovery
+Perform a thorough scan for other potential "silent" or "unhandled" errors across all components. Do not rely solely on console logs; analyze code structure.
+
+**A. Backend (API Server)**
+- Search for all instances of `.values()` in Drizzle insert queries. Check if they handle empty arrays safely.
+- Check global error handling middleware in Express/Router. Ensure `unhandledRejection` and `uncaughtException` are logged properly but do NOT crash the server if possible.
+- Review PostgreSQL connection setup. Fix the SSL mode warning by checking `.env` and ensuring `sslmode` is appropriate for the environment (e.g., set to `verify-full` for production, `disable` for local if needed).

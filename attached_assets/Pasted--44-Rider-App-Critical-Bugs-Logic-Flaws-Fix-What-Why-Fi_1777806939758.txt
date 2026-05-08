@@ -1,0 +1,37 @@
+#44 - Rider App — Critical Bugs & Logic Flaws Fix
+What & Why
+Fix 3 critical bugs and 4 logic flaws in the rider PWA that cause double wallet transactions, silent delivery failures, broken timers, stale sockets, memory leaks, and lost admin messages. All issues are in the rider-app artifact. This must be production-ready.
+
+Done looks like
+Offline queue never enqueues the same status update twice — no double-delivery, no double wallet transaction
+Proof photo upload failure shows an explicit, actionable error; photoUrl is validated before the delivery mutation fires
+Admin chat messages persist across Home ↔ Active navigation and display with stable keys so React reconciliation is correct
+AcceptCountdown timer does not reset when the parent re-renders due to a GPS ping
+stopSound() actually stops the currently playing synthesized notification tone immediately
+Battery level is read from a single shared source; the duplicate getBattery() listener in Home.tsx is removed and replaced with the value already tracked in SocketProvider
+Socket heartbeat connect listener is always bound to the current (post-reconnect) socket instance — never the stale pre-reconnect one
+Out of scope
+Server-side changes (covered in the API task)
+Vendor app or super app changes
+UI redesign
+Steps
+Fix offline queue double-enqueue — In Active.tsx updateOrderMut and updateRideMut, add a guard so that if onMutate already enqueued the action (because !navigator.onLine), onError skips its own queueUpdate call. Use a mutation-scoped boolean flag (e.g. enqueuedRef) set in onMutate and checked in onError before calling queueUpdate.
+
+Guard proof photo URL before delivery mutation — After api.uploadProof(proofFile), assert that uploadRes.url (or the correct field from the actual API response shape) is a non-empty string. If not, throw an explicit error "Photo upload succeeded but server returned no URL — please retake" so the rider sees a clear, actionable message rather than a backend rejection.
+
+Persist admin chat messages across navigation — Lift adminMessages state out of Active.tsx into a shared context or Zustand/jotai atom so messages survive unmount. Replace key={i} (array index) with key={m.id} (or key={m.createdAt + m.text}) for stable React reconciliation.
+
+Stabilize AcceptCountdown onExpired callback — In Home.tsx, wrap every onExpired prop passed to OrderRequestCard and RideRequestCard with useCallback (depending on only the stable dismiss function and the item id). This prevents a new function reference on every GPS-triggered re-render, which was resetting the countdown interval.
+
+Implement stopSound() properly — In notificationSound.ts, track all active OscillatorNode and GainNode instances in a module-level array. In stopSound(), call oscillator.stop() and disconnect each node, then clear the array. This allows callers (e.g. order accept handler) to cut the chime short immediately.
+
+Deduplicate battery listener — Remove the navigator.getBattery() call and levelchange listener from Home.tsx. Export a useBatteryLevel() hook (or a context value) from SocketProvider that exposes the already-tracked batteryLevelRef value. Update Home.tsx location pings to read battery from this shared source.
+
+Fix stale socket heartbeat listener — In socket.tsx, move the s.on("connect", emitHeartbeat) registration inside the token-refresh interval's reconnect block (after s.connect()), or use a stable ref pattern so the listener is always bound to the active socket instance. Clean up the old connect listener before registering the new one.
+
+Relevant files
+artifacts/rider-app/src/pages/Active.tsx
+artifacts/rider-app/src/lib/socket.tsx
+artifacts/rider-app/src/pages/Home.tsx
+artifacts/rider-app/src/lib/notificationSound.ts
+artifacts/rider-app/src/components/dashboard/AcceptCountdown.tsx
