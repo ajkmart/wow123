@@ -3,7 +3,7 @@ import * as Notifications from "expo-notifications";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { setBaseUrl, setOnApiError, setMaxRetryAttempts, setRetryBackoffBaseMs } from "@workspace/api-client-react";
+import { setBaseUrl, setAuthTokenGetter, setOnUnauthorized, setOnApiError, setMaxRetryAttempts, setRetryBackoffBaseMs } from "@workspace/api-client-react";
 import * as Linking from "expo-linking";
 import { loadCoreFonts, loadUrduFonts } from "@/utils/fonts";
 import { router, Stack, useSegments, type Href } from "expo-router";
@@ -650,11 +650,27 @@ function ApiUnreachableScreen({ url, onRetry, retrying }: { url: string; onRetry
 }
 
 function RootLayoutNav() {
-  const { isSuspended, user, token } = useAuth();
+  const { isSuspended, user, token, logout } = useAuth();
   const { config } = usePlatformConfig();
   const qc = useQueryClient();
   const segments = useSegments();
   const prevUserRef = useRef<string | null>(null);
+
+  /* Keep the api-client-react auth token getter in sync with the session token.
+     AuthContext.tsx is the primary owner of this wiring (via registerAuth /
+     doLogout), but this secondary sync ensures the getter is always current
+     even if the token changes through paths that don't go through registerAuth. */
+  useEffect(() => {
+    if (token) {
+      setAuthTokenGetter(() => token);
+      setOnUnauthorized(async (statusCode?: number) => {
+        if (statusCode !== 403) await logout();
+      });
+    } else {
+      setAuthTokenGetter(null);
+      setOnUnauthorized(null);
+    }
+  }, [token, logout]);
 
   const installedVersion = Constants.expoConfig?.version ?? "1.0.0";
   const minAppVersion = config.compliance?.minAppVersion ?? "1.0.0";
