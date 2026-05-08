@@ -109,6 +109,16 @@ All credentials and secrets are managed via **Replit Secrets** (the padlock icon
 
 **Frontend dev warnings:** Admin, Vendor, and Rider apps log a `console.group` warning in dev mode if `VITE_API_PROXY_TARGET` is not set.
 
+**Secrets with dev placeholder values (must replace before production):**
+The following JWT secrets have development placeholder values set in `userenv.shared`. They are safe for local dev but **must be replaced with strong, unique random values before any production deployment**:
+- `ADMIN_REFRESH_SECRET` — used to sign admin refresh tokens
+- `ADMIN_SECRET` — used for admin session signing
+- `VENDOR_JWT_SECRET` — used to sign vendor app JWTs
+- `RIDER_JWT_SECRET` — used to sign rider app JWTs
+- `JWT_SECRET`, `ADMIN_JWT_SECRET`, `ADMIN_ACCESS_TOKEN_SECRET`, `ADMIN_REFRESH_TOKEN_SECRET`, `ADMIN_CSRF_SECRET`, `ERROR_REPORT_HMAC_SECRET` — already present in `userenv.shared` with dev placeholders
+
+Generate production values with: `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"`
+
 **Required variables (50 total):**
 | Category | Variables |
 |---|---|

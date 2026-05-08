@@ -144,7 +144,7 @@ SENTRY_DSN = ""
 VAPID_PRIVATE_KEY = ""
 VAPID_PUBLIC_KEY = ""
 VAPID_CONTACT_EMAIL = ""
-ALLOWED_ORIGINS = ""
+ALLOWED_ORIGINS = "http://localhost:3002,http://localhost:3003,http://localhost:4200,http://localhost:23744,http://localhost:5000"
 VENDOR_DEV_PORT = "3002"
 RIDER_DEV_PORT = "3003"
 DATABASE_URL = "postgresql://neondb_owner:npg_8CZnNQxSivM4@ep-withered-pond-aod3mqmg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
@@ -165,6 +165,10 @@ ADMIN_CSRF_SECRET = "f2c1d8a343eb9b990f34d4be93fb7bd54b9dceb6a21484328559f48e9c4
 ERROR_REPORT_HMAC_SECRET = "b02e762d5137b4f8f67c468c4648041a336bc955896917a7c519a0a85b2e085b"
 ADMIN_JWT_SECRET = "0bf96d92374ef22e78a01b29ee69c0356a06e30e3e194c75fa2458704d296412833291a297210a3b6037fc99e5f1c1117b0b8b8c358ff9aa9561c8aa3029b186"
 ADMIN_PORT_OVERRIDE = "23744"
+ADMIN_REFRESH_SECRET = "a8f3c2e1d94b7f6e2a1c3d5b8e7f4a2c9d6b3e8f1a4c7d2e5b8f3a6c9d4e7b2"
+ADMIN_SECRET = "c5d8e2f1a4b7c3d6e9f2a5b8c1d4e7f0a3b6c9d2e5f8a1b4c7d0e3f6a9b2c5"
+VENDOR_JWT_SECRET = "e2f5a8b1c4d7e0f3a6b9c2d5e8f1a4b7c0d3e6f9a2b5c8d1e4f7a0b3c6d9e2"
+RIDER_JWT_SECRET = "f9a2b5c8d1e4f7a0b3c6d9e2f5a8b1c4d7e0f3a6b9c2d5e8f1a4b7c0d3e6f9"
 
 [userenv.production]
 
