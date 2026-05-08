@@ -650,7 +650,7 @@ function ApiUnreachableScreen({ url, onRetry, retrying }: { url: string; onRetry
 }
 
 function RootLayoutNav() {
-  const { isSuspended, user, token, logout } = useAuth();
+  const { isSuspended, user, token } = useAuth();
   const { config } = usePlatformConfig();
   const qc = useQueryClient();
   const segments = useSegments();
