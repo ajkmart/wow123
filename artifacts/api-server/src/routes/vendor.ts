@@ -1263,6 +1263,65 @@ router.get("/orders/available-riders", requireRole("vendor"), async (req, res) =
   sendSuccess(res, { riders: withDist });
 });
 
+/* ── GET /vendor/orders/:id/available-riders ─────────────────────────────
+   Returns online riders within 5 km of the order's delivery address,
+   with rating > 4.5 (unrated riders default to 5.0 and qualify).
+   Sorted by distance ascending.
+──────────────────────────────────────────────────────────────────────── */
+router.get("/orders/:id/available-riders", requireRole("vendor"), async (req, res) => {
+  const orderId  = req.params["id"]!;
+  const vendorId = req.vendorId!;
+
+  const [order] = await db
+    .select({ id: ordersTable.id, vendorId: ordersTable.vendorId, deliveryLat: ordersTable.deliveryLat, deliveryLng: ordersTable.deliveryLng })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.vendorId, vendorId)))
+    .limit(1);
+  if (!order) { sendNotFound(res, "Order not found"); return; }
+
+  const deliveryLat = order.deliveryLat ? parseFloat(order.deliveryLat) : null;
+  const deliveryLng = order.deliveryLng ? parseFloat(order.deliveryLng) : null;
+  const hasLocation = deliveryLat !== null && deliveryLng !== null && !isNaN(deliveryLat) && !isNaN(deliveryLng);
+
+  if (!hasLocation) {
+    /* Without delivery coordinates we cannot enforce the ≤5 km constraint. */
+    sendSuccess(res, { riders: [] });
+    return;
+  }
+
+  const riders = await db
+    .select({
+      id: usersTable.id, name: usersTable.name, phone: usersTable.phone,
+      vehicleType: riderProfilesTable.vehicleType, walletBalance: usersTable.walletBalance,
+      lat: liveLocationsTable.latitude, lng: liveLocationsTable.longitude,
+      /* rating column pending migration on riderProfilesTable — null until added.
+         COALESCE(rating, 5.0) > 4.5 means all unrated riders qualify. */
+      rating: sql<number | null>`null`,
+    })
+    .from(usersTable)
+    .innerJoin(liveLocationsTable, eq(usersTable.id, liveLocationsTable.userId))
+    .leftJoin(riderProfilesTable, eq(usersTable.id, riderProfilesTable.userId))
+    .where(and(ilike(usersTable.roles, "%rider%"), eq(usersTable.isOnline, true)));
+
+  const MAX_KM = 5;
+  const MIN_RATING = 4.5;
+  const withDist = riders
+    .map(r => {
+      const ratingScore = (r.rating as number | null) ?? 5.0; // COALESCE(rating, 5.0)
+      const rLat = parseFloat(r.lat);
+      const rLng = parseFloat(r.lng);
+      if (isNaN(rLat) || isNaN(rLng)) return null; // skip riders with invalid coords
+      const distKm = Math.round(haversineKm(deliveryLat!, deliveryLng!, rLat, rLng) * 10) / 10;
+      return { ...r, distanceKm: distKm, ratingScore };
+    })
+    .filter((r): r is NonNullable<typeof r> =>
+      r !== null && r.ratingScore > MIN_RATING && r.distanceKm <= MAX_KM
+    )
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  sendSuccess(res, { riders: withDist });
+});
+
 /* ── POST /vendor/orders/:id/assign-rider ────────────────────────────────
    Body: { riderId }
 ──────────────────────────────────────────────────────────────────────── */
@@ -1309,33 +1368,65 @@ router.post("/orders/:id/assign-rider", requireRole("vendor"), async (req, res) 
 });
 
 /* ── POST /vendor/orders/:id/auto-assign ─────────────────────────────────
-   Finds the nearest online rider and assigns automatically.
-   Body: { vendorLat?, vendorLng? }
+   Finds the nearest online rider within 5 km of the order's delivery
+   address with rating > 4.5 (unrated riders default to 5.0 and qualify).
+   Returns HTTP 404 if no qualifying rider exists.
 ──────────────────────────────────────────────────────────────────────── */
 router.post("/orders/:id/auto-assign", requireRole("vendor"), async (req, res) => {
   const orderId  = req.params["id"]!;
   const vendorId = req.vendorId!;
-  const { vendorLat, vendorLng } = req.body as { vendorLat?: number; vendorLng?: number };
+
+  const [order] = await db
+    .select({ id: ordersTable.id, vendorId: ordersTable.vendorId, riderId: ordersTable.riderId, status: ordersTable.status, deliveryLat: ordersTable.deliveryLat, deliveryLng: ordersTable.deliveryLng })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.vendorId, vendorId)))
+    .limit(1);
+  if (!order) { sendNotFound(res, "Order not found"); return; }
+
+  const deliveryLat = order.deliveryLat ? parseFloat(order.deliveryLat) : null;
+  const deliveryLng = order.deliveryLng ? parseFloat(order.deliveryLng) : null;
+
+  if (deliveryLat === null || deliveryLng === null || isNaN(deliveryLat) || isNaN(deliveryLng)) {
+    sendNotFound(res, "Order has no valid delivery coordinates for distance filtering");
+    return;
+  }
 
   const riders = await db
-    .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone, lat: liveLocationsTable.latitude, lng: liveLocationsTable.longitude })
+    .select({
+      id: usersTable.id, name: usersTable.name, phone: usersTable.phone,
+      lat: liveLocationsTable.latitude, lng: liveLocationsTable.longitude,
+      /* rating column pending migration on riderProfilesTable — null until added.
+         COALESCE(rating, 5.0) > 4.5 means all unrated riders qualify. */
+      rating: sql<number | null>`null`,
+    })
     .from(usersTable)
     .innerJoin(liveLocationsTable, eq(usersTable.id, liveLocationsTable.userId))
+    .leftJoin(riderProfilesTable, eq(usersTable.id, riderProfilesTable.userId))
     .where(and(ilike(usersTable.roles, "%rider%"), eq(usersTable.isOnline, true)));
 
-  if (riders.length === 0) { sendNotFound(res, "No riders online"); return; }
+  const MAX_KM = 5;
+  const MIN_RATING = 4.5;
 
-  let nearest = riders[0]!;
-  if (vendorLat != null && vendorLng != null) {
-    let minDist = Infinity;
-    for (const r of riders) {
+  const qualifying = riders
+    .map(r => {
+      const ratingScore = (r.rating as number | null) ?? 5.0; // COALESCE(rating, 5.0)
       const rLat = parseFloat(r.lat);
       const rLng = parseFloat(r.lng);
-      if (isNaN(rLat) || isNaN(rLng)) continue;
-      const d = haversineKm(vendorLat, vendorLng, rLat, rLng);
-      if (d < minDist) { minDist = d; nearest = r; }
-    }
+      if (isNaN(rLat) || isNaN(rLng)) return null; // skip riders with invalid coords
+      const distKm = haversineKm(deliveryLat, deliveryLng, rLat, rLng);
+      return { ...r, distKm, ratingScore };
+    })
+    .filter((r): r is NonNullable<typeof r> =>
+      r !== null && r.ratingScore > MIN_RATING && r.distKm <= MAX_KM
+    )
+    .sort((a, b) => a.distKm - b.distKm);
+
+  if (qualifying.length === 0) {
+    sendNotFound(res, "No available riders within 5 km with rating > 4.5");
+    return;
   }
+
+  const nearest = qualifying[0]!;
 
   const [updated] = await db.update(ordersTable)
     .set({ riderId: nearest.id, riderName: nearest.name, riderPhone: nearest.phone, assignedRiderId: nearest.id, assignedAt: new Date(), updatedAt: new Date() })
@@ -1347,10 +1438,6 @@ router.post("/orders/:id/auto-assign", requireRole("vendor"), async (req, res) =
     ))
     .returning();
   if (!updated) {
-    const [order] = await db.select({ id: ordersTable.id, riderId: ordersTable.riderId, status: ordersTable.status, vendorId: ordersTable.vendorId })
-      .from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
-    if (!order) { sendNotFound(res, "Order not found"); return; }
-    if (order.vendorId !== vendorId) { sendForbidden(res, "This order does not belong to your store"); return; }
     if (order.riderId) { sendError(res, "Order already has a rider assigned", 409); return; }
     sendError(res, `Order cannot be auto-assigned in '${order.status}' status`, 400); return;
   }

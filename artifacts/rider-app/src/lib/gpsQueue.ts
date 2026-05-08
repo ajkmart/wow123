@@ -22,6 +22,8 @@ export interface QueuedPing {
   batteryLevel?: number;
   action?: string | null;
   mockProvider?: boolean;
+  suspicious?: boolean;
+  suspicionReason?: string;
 }
 
 interface DismissedEntry {
@@ -101,11 +103,17 @@ export async function enqueue(ping: QueuedPing): Promise<void> {
     accuracy: ping.accuracy,
     speed: ping.speed,
     heading: ping.heading,
+    isMockProvider: ping.mockProvider,
   });
   if (!result.valid) {
     /* Rejected pings are silently dropped from the queue.
        The audit log in gps/validation.ts captures the reason. */
     return;
+  }
+  /* Propagate suspicious metadata so the batch payload carries the flag
+     and the backend can audit or alert on it. */
+  if (result.suspicious) {
+    ping = { ...ping, suspicious: true, suspicionReason: result.suspicionReason };
   }
   _lastValidPing = {
     timestamp: ping.timestamp,
@@ -114,6 +122,7 @@ export async function enqueue(ping: QueuedPing): Promise<void> {
     accuracy: ping.accuracy,
     speed: ping.speed,
     heading: ping.heading,
+    isMockProvider: ping.mockProvider,
   };
   try {
     const db = await openDB();

@@ -5,11 +5,14 @@ export interface GpsPing {
   accuracy?: number;
   speed?: number;
   heading?: number;
+  isMockProvider?: boolean;
 }
 
 export interface GpsValidationResult {
   valid: boolean;
   reason: string;
+  suspicious: boolean;
+  suspicionReason?: string;
 }
 
 interface AuditEntry {
@@ -38,9 +41,9 @@ export function getGpsAuditLog(): readonly AuditEntry[] {
   return _auditLog;
 }
 
-function recordRejection(reason: string, lat: number, lng: number): void {
+function recordRejection(reason: string, lat: number, lng: number, suspicious = false): void {
   if (_auditLog.length >= MAX_AUDIT_ENTRIES) _auditLog.shift();
-  _auditLog.push({ timestamp: Date.now(), reason, lat, lng });
+  _auditLog.push({ timestamp: Date.now(), reason: suspicious ? `[suspicious] ${reason}` : reason, lat, lng });
 }
 
 function haversineDistanceM(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -73,24 +76,26 @@ function isInsidePolygon(lat: number, lng: number, polygon: Array<[number, numbe
   return inside;
 }
 
+const STALE_PING_THRESHOLD_MS = 30_000;
+
 export function validateGpsPing(prev: GpsPing | null, next: GpsPing): GpsValidationResult {
   const nextTime = new Date(next.timestamp).getTime();
   if (isNaN(nextTime)) {
     const reason = "invalid timestamp";
     recordRejection(reason, next.latitude, next.longitude);
-    return { valid: false, reason };
+    return { valid: false, reason, suspicious: false };
   }
 
   if (nextTime > Date.now() + MAX_FUTURE_SECONDS * 1_000) {
     const reason = `future timestamp (${Math.round((nextTime - Date.now()) / 1_000)}s ahead)`;
     recordRejection(reason, next.latitude, next.longitude);
-    return { valid: false, reason };
+    return { valid: false, reason, suspicious: false };
   }
 
   if (typeof next.accuracy === "number" && next.accuracy < MIN_ACCURACY_M) {
     const reason = `accuracy too high (${next.accuracy}m — possible spoof)`;
     recordRejection(reason, next.latitude, next.longitude);
-    return { valid: false, reason };
+    return { valid: false, reason, suspicious: false };
   }
 
   if (prev) {
@@ -105,7 +110,7 @@ export function validateGpsPing(prev: GpsPing | null, next: GpsPing): GpsValidat
       if (speedKmh > _maxSpeedKmh) {
         const reason = `impossible speed (${Math.round(speedKmh)} km/h)`;
         recordRejection(reason, next.latitude, next.longitude);
-        return { valid: false, reason };
+        return { valid: false, reason, suspicious: false };
       }
     }
   }
@@ -114,9 +119,24 @@ export function validateGpsPing(prev: GpsPing | null, next: GpsPing): GpsValidat
     if (!isInsidePolygon(next.latitude, next.longitude, _geofencePolygon)) {
       const reason = "outside configured geofence";
       recordRejection(reason, next.latitude, next.longitude);
-      return { valid: false, reason };
+      return { valid: false, reason, suspicious: false };
     }
   }
 
-  return { valid: true, reason: "ok" };
+  /* ── Suspicious checks (valid but flagged) ── */
+
+  const ageMs = Date.now() - nextTime;
+  if (ageMs > STALE_PING_THRESHOLD_MS) {
+    const suspicionReason = `stale ping (${Math.round(ageMs / 1_000)}s old)`;
+    recordRejection(suspicionReason, next.latitude, next.longitude, true);
+    return { valid: true, reason: "ok", suspicious: true, suspicionReason };
+  }
+
+  if (next.isMockProvider === true) {
+    const suspicionReason = "mock location provider detected";
+    recordRejection(suspicionReason, next.latitude, next.longitude, true);
+    return { valid: true, reason: "ok", suspicious: true, suspicionReason };
+  }
+
+  return { valid: true, reason: "ok", suspicious: false };
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useNetworkQuality, getPollingIntervalForTier } from "../hooks/useNetworkQuality";
 import { Link } from "wouter";
 import { useAuth } from "../lib/auth";
 import { api, type Order, type Ride } from "../lib/api";
@@ -58,6 +59,7 @@ import {
 
 export default function Home() {
   const { user, refreshUser, loading: authLoading } = useAuth();
+  const { tier: networkTier } = useNetworkQuality();
   const { config } = usePlatformConfig();
   const { language } = useLanguage();
   const T = (key: Parameters<typeof tDual>[0]) => tDual(key, language);
@@ -213,8 +215,8 @@ export default function Home() {
   const { data: requestsData, isLoading: requestsLoading, isError: requestsError } = useQuery({
     queryKey: ["rider-requests"],
     queryFn: () => api.getRequests(),
-    refetchInterval: tabVisible ? (user?.isOnline ? 12000 : 60000) : false,
-    enabled: effectiveOnline && tabVisible,
+    refetchInterval: tabVisible && user?.isOnline ? getPollingIntervalForTier(networkTier) : 60_000,
+    enabled: effectiveOnline,
   });
 
   const { data: cancelStatsData } = useQuery({

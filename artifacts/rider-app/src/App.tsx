@@ -125,6 +125,13 @@ function AppRoutes() {
           await apiFetch(`/van/driver/schedules/${action.entityId}/date/${date}/complete`, { method: "PATCH", body: "{}", headers: idemHdr });
           break;
         }
+        case "board_passenger": {
+          /* board_passenger is enqueued by VanDriver when a boarding PATCH
+             fails offline. entityId = bookingId, payload.boardedAt = ISO timestamp. */
+          const { boardedAt } = action.payload as { boardedAt: string };
+          await apiFetch(`/van/driver/bookings/${action.entityId}/board`, { method: "PATCH", body: JSON.stringify({ boarded: true, boardedAt }), headers: idemHdr });
+          break;
+        }
       }
     });
     syncQueue().catch(() => {});

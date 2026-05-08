@@ -69,7 +69,10 @@ async function fetchPassengers(scheduleId: string, date: string): Promise<Passen
 }
 
 async function markBoarded(bookingId: string): Promise<void> {
-  await apiFetch(`/van/driver/bookings/${bookingId}/board`, { method: "PATCH", body: JSON.stringify({}) });
+  await apiFetch(`/van/driver/bookings/${bookingId}/board`, {
+    method: "PATCH",
+    body: JSON.stringify({ boarded: true, boardedAt: new Date().toISOString() }),
+  });
 }
 
 async function startTrip(scheduleId: string, date: string): Promise<void> {
@@ -164,7 +167,13 @@ export default function VanDriver() {
   const boardMut = useMutation({
     mutationFn: (bookingId: string) => markBoarded(bookingId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["van-passengers"] }),
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error, bookingId: string) => {
+      const looksLikeNetErr = /network|fetch|timeout|offline/i.test(e?.message || "");
+      if (looksLikeNetErr) {
+        enqueueAction("board_passenger", bookingId, { boardedAt: new Date().toISOString() }).catch(() => {});
+      }
+      setError(e.message);
+    },
   });
 
   const startMut = useMutation({
@@ -490,6 +499,45 @@ export default function VanDriver() {
                 <Play className="w-5 h-5" />
                 {startMut.isPending ? "Starting…" : "Start Trip"}
               </button>
+            )}
+
+            {/* Seat Map */}
+            {selectedSchedule.totalSeats && selectedSchedule.totalSeats > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Seat Map</p>
+                <div
+                  className="grid gap-1.5"
+                  style={{ gridTemplateColumns: `repeat(${Math.min(8, selectedSchedule.totalSeats)}, 1fr)` }}
+                >
+                  {Array.from({ length: selectedSchedule.totalSeats }, (_, i) => i + 1).map(seatNum => {
+                    const passenger = passengers.find(p =>
+                      (Array.isArray(p.seatNumbers) ? p.seatNumbers : []).includes(seatNum)
+                    );
+                    const status = passenger?.status;
+                    const cls = !passenger
+                      ? "bg-gray-100 text-gray-400"
+                      : status === "boarded" || status === "completed"
+                        ? "bg-green-500 text-white"
+                        : status === "confirmed"
+                          ? "bg-blue-500 text-white"
+                          : "bg-red-100 text-red-500";
+                    return (
+                      <div
+                        key={seatNum}
+                        title={passenger ? `${passenger.passengerName || passenger.userName || "Passenger"} · ${status}` : "Free"}
+                        className={`rounded text-[10px] font-bold flex items-center justify-center h-7 ${cls} cursor-default select-none`}
+                      >
+                        {seatNum}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-3 mt-2.5 flex-wrap">
+                  <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-gray-100 border border-gray-200" /><span className="text-[10px] text-gray-500">Free</span></div>
+                  <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-blue-500" /><span className="text-[10px] text-gray-500">Confirmed</span></div>
+                  <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-green-500" /><span className="text-[10px] text-gray-500">Boarded</span></div>
+                </div>
+              </div>
             )}
 
             {/* Passengers */}

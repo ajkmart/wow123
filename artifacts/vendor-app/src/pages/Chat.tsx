@@ -5,7 +5,7 @@ import { io, type Socket } from "socket.io-client";
 import { SafeImage } from "../components/ui/SafeImage";
 import { getTurnIceServers } from "../lib/turnIceServers";
 
-interface OtherUser { id: string; name: string | null; ajkId: string | null; roles?: string | null; }
+interface OtherUser { id: string; name: string | null; ajkId: string | null; roles?: string | null; phone?: string | null; }
 interface Conversation { id: string; otherUser: OtherUser; lastMessage: { content: string } | null; unreadCount: number; lastMessageAt: string | null; }
 interface Message { id: string; content: string; senderId: string; messageType: string; createdAt: string; deliveryStatus: string; voiceNoteUrl?: string; imageUrl?: string; }
 interface CommRequest { id: string; status: string; senderId: string; sender?: { name: string; ajkId: string; roles?: string | null }; }
@@ -298,6 +298,7 @@ export default function Chat() {
   const [muted, setMuted] = useState(false);
   const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [callFallbackPhone, setCallFallbackPhone] = useState<string | null>(null);
   const [conversationsError, setConversationsError] = useState(false);
   const [requestsError, setRequestsError]           = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -509,6 +510,13 @@ export default function Chat() {
     return result.translated;
   };
 
+  const showCallFallback = (phone: string | null | undefined) => {
+    if (phone) {
+      setCallFallbackPhone(phone);
+      setTimeout(() => setCallFallbackPhone(null), 8000);
+    }
+  };
+
   const startCall = async (calleeId: string) => {
     try {
       const data = await apiFetch("/communication/calls/initiate", { method: "POST", body: JSON.stringify({ calleeId, conversationId: selectedConv?.id }) });
@@ -543,35 +551,43 @@ export default function Chat() {
       endCall();
       const isPermission = err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError");
       showError(isPermission ? "Microphone access denied. Please allow microphone access to make calls." : "Could not start call. Please try again.");
+      showCallFallback(selectedConv?.otherUser?.phone);
     }
   };
 
   const answerCall = async () => {
     if (!incomingCall) return;
-    const answerData = await apiFetch(`/communication/calls/${incomingCall.callId}/answer`, { method: "POST" });
-    setCallId(incomingCall.callId);
-    setCallActive(true);
-    setCallTimer(0);
-    timerRef.current = setInterval(() => setCallTimer(t => t + 1), 1000);
+    try {
+      const answerData = await apiFetch(`/communication/calls/${incomingCall.callId}/answer`, { method: "POST" });
+      setCallId(incomingCall.callId);
+      setCallActive(true);
+      setCallTimer(0);
+      timerRef.current = setInterval(() => setCallTimer(t => t + 1), 1000);
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-    localStreamRef.current = stream;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      localStreamRef.current = stream;
 
-    const iceServers = [...(answerData.iceServers || [{ urls: "stun:stun.l.google.com:19302" }]), ...getTurnIceServers()];
-    const pc = new RTCPeerConnection({ iceServers });
-    pcRef.current = pc;
-    stream.getTracks().forEach(t => pc.addTrack(t, stream));
+      const iceServers = [...(answerData.iceServers || [{ urls: "stun:stun.l.google.com:19302" }]), ...getTurnIceServers()];
+      const pc = new RTCPeerConnection({ iceServers });
+      pcRef.current = pc;
+      stream.getTracks().forEach(t => pc.addTrack(t, stream));
 
-    pc.onicecandidate = (e) => {
-      if (e.candidate) socketRef.current?.emit("comm:call:ice-candidate", { callId: incomingCall.callId, targetUserId: incomingCall.callerId, candidate: e.candidate });
-    };
-    pc.ontrack = (e) => {
-      const audio = new Audio();
-      audio.srcObject = e.streams[0];
-      audio.play();
-    };
+      pc.onicecandidate = (e) => {
+        if (e.candidate) socketRef.current?.emit("comm:call:ice-candidate", { callId: incomingCall.callId, targetUserId: incomingCall.callerId, candidate: e.candidate });
+      };
+      pc.ontrack = (e) => {
+        const audio = new Audio();
+        audio.srcObject = e.streams[0];
+        audio.play();
+      };
 
-    setIncomingCall(null);
+      setIncomingCall(null);
+    } catch (err) {
+      endCall();
+      const isPermission = err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError");
+      showError(isPermission ? "Microphone access denied. Please allow microphone access to answer calls." : "Could not answer call. Please try again.");
+      showCallFallback(selectedConv?.otherUser?.phone);
+    }
   };
 
   const endCall = useCallback(() => {
@@ -614,6 +630,21 @@ export default function Chat() {
       {errorToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-semibold max-w-xs text-center">
           {errorToast}
+        </div>
+      )}
+
+      {/* Phone call fallback banner */}
+      {callFallbackPhone && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-lg text-sm max-w-xs text-center flex flex-col gap-2">
+          <span className="font-semibold">Call via phone instead?</span>
+          <a
+            href={`tel:${callFallbackPhone}`}
+            className="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-lg transition"
+            onClick={() => setCallFallbackPhone(null)}
+          >
+            📞 Call {callFallbackPhone}
+          </a>
+          <button onClick={() => setCallFallbackPhone(null)} className="text-xs text-gray-400 hover:text-white transition">Dismiss</button>
         </div>
       )}
 

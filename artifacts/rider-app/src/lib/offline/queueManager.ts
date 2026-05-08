@@ -5,7 +5,8 @@ export type ActionType =
   | "accept_ride"
   | "update_order"
   | "update_ride"
-  | "complete_trip";
+  | "complete_trip"
+  | "board_passenger";
 
 export interface QueuedAction {
   id: string;

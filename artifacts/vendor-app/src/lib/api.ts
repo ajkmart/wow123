@@ -376,8 +376,10 @@ export const api = {
     if (lat !== null && lng !== null) { params.set("lat", String(lat)); params.set("lng", String(lng)); }
     return apiFetch(`/vendor/orders/available-riders?${params}`);
   },
+  getOrderAvailableRiders: (orderId: string) =>
+    apiFetch(`/vendor/orders/${orderId}/available-riders`),
   assignRider:        (orderId: string, riderId: string) => apiFetch(`/vendor/orders/${orderId}/assign-rider`, { method: "POST", body: JSON.stringify({ riderId }) }),
-  autoAssignRider:    (orderId: string, vendorLat: number, vendorLng: number) => apiFetch(`/vendor/orders/${orderId}/auto-assign`, { method: "POST", body: JSON.stringify({ vendorLat, vendorLng }) }),
+  autoAssignRider:    (orderId: string) => apiFetch(`/vendor/orders/${orderId}/auto-assign`, { method: "POST", body: JSON.stringify({}) }),
 
   /* Delivery Access */
   getDeliveryAccessStatus: () => apiFetch("/vendor/delivery-access/status"),
