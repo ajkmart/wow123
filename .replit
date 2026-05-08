@@ -53,7 +53,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm install --frozen-lockfile && cd artifacts/api-server && pnpm run dev"
+args = "pnpm install --no-frozen-lockfile && cd artifacts/api-server && pnpm run dev"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -65,7 +65,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/admin && ADMIN_DEV_PORT=3001 BASE_PATH=/admin/ pnpm run dev"
+args = "while [ ! -f node_modules/.modules.yaml ]; do sleep 3; done && cd artifacts/admin && ADMIN_PORT_OVERRIDE=3001 ADMIN_DEV_PORT=3001 BASE_PATH=/admin/ pnpm run dev"
 waitForPort = 3001
 
 [[workflows.workflow]]
@@ -77,7 +77,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm install --frozen-lockfile && cd artifacts/vendor-app && VENDOR_DEV_PORT=3002 pnpm run dev"
+args = "while [ ! -f node_modules/.modules.yaml ]; do sleep 3; done && cd artifacts/vendor-app && VENDOR_DEV_PORT=3002 pnpm run dev"
 waitForPort = 3002
 
 [[workflows.workflow]]
@@ -89,7 +89,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm install --frozen-lockfile && cd artifacts/rider-app && pnpm run dev"
+args = "while [ ! -f node_modules/.modules.yaml ]; do sleep 3; done && cd artifacts/rider-app && RIDER_DEV_PORT=3003 pnpm run dev"
 waitForPort = 3003
 
 [[workflows.workflow]]
@@ -101,7 +101,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm install --frozen-lockfile && cd artifacts/ajkmart && PORT=4200 pnpm run dev:web"
+args = "while [ ! -f node_modules/.modules.yaml ]; do sleep 3; done && cd artifacts/ajkmart && PORT=4200 pnpm run dev:web"
 waitForPort = 4200
 
 [agent]
@@ -185,3 +185,23 @@ DEV_SEED_KEY = "local-dev-seed-ajkmart"
 
 [rules.formatter.fileExtensions.".ts"]
 id = "module:nodejs-24/languageServer:typescript-language-server"
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 4200
+externalPort = 4200
