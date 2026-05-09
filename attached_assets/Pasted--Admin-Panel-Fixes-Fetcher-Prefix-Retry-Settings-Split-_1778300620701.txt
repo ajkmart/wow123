@@ -1,0 +1,30 @@
+ Admin Panel Fixes — Fetcher Prefix, Retry, Settings Split, as-any
+What & Why
+Four confirmed bugs and quality gaps in the admin panel: (1) dashboard.tsx calls a plain fetcher() instead of adminFetcher() for the export endpoint, bypassing admin authentication; (2) React Query retry: false globally means any transient error shows a permanent error state; (3) settings.tsx is still 1152 lines with inline JSX for General, Notifications, and Monitoring tabs; (4) 21 as any casts across admin components mask type errors.
+
+Done looks like
+dashboard.tsx export call uses adminFetcher("/fleet/dashboard-export") (authenticated) instead of the unauthenticated fetcher()
+Global React Query config is updated from retry: false to retry: 1 (one automatic retry on transient errors) with retryDelay: 1000 (1s between retries)
+The three remaining inline tab sections in settings.tsx — General, Notifications, Monitoring — are extracted into settings-general.tsx, settings-notifications.tsx, and settings-monitoring.tsx following the exact pattern of the existing settings-payment.tsx, settings-integrations.tsx, and settings-security.tsx files. settings.tsx becomes a thin router/orchestrator.
+as any casts in admin source are reduced by at least 70% (below 7). The most impactful are in hooks/use-admin.ts response parsing and lib/adminFetcher.tsx error handling.
+Out of scope
+E2E test suite (separate task)
+Dark mode implementation
+Permission-based field hiding
+Any backend changes
+Steps
+Fix dashboard export fetcher — In dashboard.tsx, replace fetcher("/fleet/dashboard-export") with adminFetcher("/fleet/dashboard-export") and import adminFetcher from the correct path. Verify the export button still works with proper auth headers.
+Update React Query retry config — In artifacts/admin/src/main.tsx (or wherever QueryClient is instantiated), change retry: false to retry: 1 and add retryDelay: 1000. Leave staleTime and other options unchanged.
+Extract General tab — Create artifacts/admin/src/pages/settings-general.tsx containing the General settings tab JSX currently inline in settings.tsx. Import and use it in settings.tsx following the <GeneralSection settings={settings} onChange={onChange} /> pattern used by other sub-components.
+Extract Notifications tab — Create artifacts/admin/src/pages/settings-notifications.tsx following the same pattern.
+Extract Monitoring tab — Create artifacts/admin/src/pages/settings-monitoring.tsx following the same pattern.
+Reduce as any in admin — Add return-type annotations to the most-used hooks in hooks/use-admin.ts (e.g. useStats, useRides, useRiders). Replace (data as any).field accesses with typed destructuring. Add interface definitions for the API response shapes these hooks consume.
+Relevant files
+artifacts/admin/src/pages/dashboard.tsx:25
+artifacts/admin/src/pages/settings.tsx
+artifacts/admin/src/pages/settings-payment.tsx
+artifacts/admin/src/pages/settings-integrations.tsx
+artifacts/admin/src/pages/settings-security.tsx
+artifacts/admin/src/hooks/use-admin.ts
+artifacts/admin/src/lib/adminFetcher.tsx
+artifacts/admin/src/main.tsx
