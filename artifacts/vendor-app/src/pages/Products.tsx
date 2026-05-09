@@ -331,6 +331,8 @@ export default function Products() {
   const [bulkCat, setBulkCat]   = useState("");
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [stockHistoryOpen, setStockHistoryOpen] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string[]>([]);
+  const csvListInputRef = useRef<HTMLInputElement>(null);
 
 
 
@@ -386,8 +388,28 @@ export default function Products() {
     onError: (e: Error) => setBulkEditError(errMsg(e)),
   });
 
+  /* ── Download sample CSV template ── */
+  const downloadSampleCsv = () => {
+    const headers = ["name", "price", "stock", "category", "description", "unit", "type", "image"];
+    const rows = [
+      ["Chicken Biryani", "350", "50", "food", "Delicious rice dish with chicken", "pcs", "food", ""],
+      ["Vegetable Pulao", "280", "30", "food", "Fresh vegetables with aromatic rice", "pcs", "food", ""],
+      ["Mango Juice 1L", "120", "100", "grocery", "Fresh mango juice 1 litre", "ltr", "mart", ""],
+    ];
+    const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ajkmart_products_sample.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   /* ── CSV file import (worker:true, 500-row limit, header validation) ── */
-  const handleCsvImport = (file: File) => {
+  const handleCsvImport = (file: File, switchToBulk = false) => {
     /* Preflight: read first line to validate headers before spawning the worker */
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -415,8 +437,10 @@ export default function Products() {
           const row = result.data;
           const name  = (row["name"] || row["Name"] || "").trim();
           const price = (row["price"] || row["Price"] || "").trim();
-          if (!name) { rowErrors.push(`Row ${rowCount + 1}: name is empty — skipped`); return; }
-          if (!price || isNaN(Number(price)) || Number(price) <= 0) { rowErrors.push(`Row ${rowCount + 1}: invalid price "${price}" — skipped`); return; }
+          const stockRaw = (row["stock"] || row["Stock"] || "").trim();
+          if (!name) { rowErrors.push(`Row ${rowCount}: name is empty — skipped`); return; }
+          if (!price || isNaN(Number(price)) || Number(price) <= 0) { rowErrors.push(`Row ${rowCount}: price "${price}" must be a positive number — skipped`); return; }
+          if (stockRaw && (!isNaN(Number(stockRaw)) && Number(stockRaw) < 0)) { rowErrors.push(`Row ${rowCount}: stock cannot be negative ("${stockRaw}") — skipped`); return; }
           parsed.push({
             name,
             price,
@@ -424,22 +448,31 @@ export default function Products() {
             image:       (row["image"] || row["image_url"] || row["Image"] || "").trim(),
             category:    (row["category"] || row["Category"] || bulkCat || "").trim(),
             unit:        (row["unit"] || row["Unit"] || "").trim(),
-            stock:       (row["stock"] || row["Stock"] || "").trim(),
+            stock:       stockRaw,
             type:        ((row["type"] || row["Type"] || "mart").trim()) || "mart",
           });
         },
         complete: (results: Papa.ParseResult<Record<string, string>>) => {
           if (results.meta.aborted) {
-            showToast("❌ CSV has more than 500 rows — import rejected. Split into files of 500 rows or fewer.");
+            showToast("❌ CSV has more than 500 rows — split into files of ≤500 rows.");
             return;
           }
           setParseErrors(rowErrors);
-          if (parsed.length > 0) {
-            setBulkRows(r => [...r, ...parsed]);
-            showToast(`✅ Imported ${parsed.length} rows from CSV${rowErrors.length ? ` (${rowErrors.length} skipped)` : ""}`);
-          } else {
+          if (parsed.length === 0) {
             showToast("❌ No valid rows found — check that 'name' and 'price' columns have values");
+            return;
           }
+          /* Idempotency: check for name collisions against existing products */
+          const existingNames = new Set(products.map((p: any) => p.name.toLowerCase().trim()));
+          const dupes = parsed.map(r => r.name).filter(n => existingNames.has(n.toLowerCase().trim()));
+          if (dupes.length > 0) setDuplicateWarning(dupes);
+          else setDuplicateWarning([]);
+          setBulkRows(r => {
+            const empty = r.filter(x => !x.name.trim() && !x.price.trim());
+            return [...(empty.length === r.length ? [] : r), ...parsed];
+          });
+          if (switchToBulk) setView("bulk");
+          showToast(`✅ Imported ${parsed.length} rows${rowErrors.length ? ` (${rowErrors.length} skipped)` : ""}`);
         },
         error: (err: Error) => { showToast("❌ Failed to parse CSV: " + err.message); },
       });
@@ -488,36 +521,48 @@ export default function Products() {
 
   const [bulkImportResults, setBulkImportResults] = useState<Array<{ name: string; status: "pending" | "success" | "error"; message?: string }> | null>(null);
   const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkImportProgress, setBulkImportProgress] = useState<{ done: number; total: number } | null>(null);
 
   const runBulkImport = useCallback(async () => {
-    const valid = bulkRows.filter(r => r.name.trim() && r.price && !Number.isNaN(Number(r.price)));
+    const valid = bulkRows.filter(r => r.name.trim() && r.price && !Number.isNaN(Number(r.price)) && Number(r.price) > 0);
     if (totalProductCount === null) { showToast("Cannot verify product count — please wait and try again."); return; }
     if (totalProductCount + valid.length > maxItems) { showToast(`Product limit reached. You can add at most ${maxItems - totalProductCount} more product(s).`); return; }
     if (valid.length === 0) return;
     const initial: Array<{ name: string; status: "pending" | "success" | "error"; message?: string }> = valid.map(r => ({ name: r.name.trim(), status: "pending" }));
     setBulkImportResults(initial);
     setBulkImporting(true);
+    setBulkImportProgress({ done: 0, total: valid.length });
     let successCount = 0;
+    let doneCount = 0;
     const results: Array<{ name: string; status: "pending" | "success" | "error"; message?: string }> = [...initial];
-    for (let i = 0; i < valid.length; i++) {
-      const r = valid[i]!;
-      try {
-        await api.createProduct({
-          name:        r.name.trim(),
-          price:       Number(r.price),
-          description: r.description.trim() || null,
-          image:       r.image.trim() || null,
-          category:    r.category.trim() || bulkCat || "general",
-          unit:        r.unit.trim() || null,
-          stock:       r.stock ? Number(r.stock) : null,
-          type:        r.type || "mart",
-        });
-        results[i] = { ...results[i]!, status: "success" };
-        successCount++;
-      } catch (e) {
-        results[i] = { ...results[i]!, status: "error", message: e instanceof Error ? e.message : "Failed" };
+
+    /* Send in batches of 50 to match server limit */
+    const BATCH = 50;
+    for (let batchStart = 0; batchStart < valid.length; batchStart += BATCH) {
+      const batch = valid.slice(batchStart, batchStart + BATCH);
+      for (let j = 0; j < batch.length; j++) {
+        const i = batchStart + j;
+        const r = batch[j]!;
+        try {
+          await api.createProduct({
+            name:        r.name.trim(),
+            price:       Number(r.price),
+            description: r.description.trim() || null,
+            image:       r.image.trim() || null,
+            category:    r.category.trim() || bulkCat || "general",
+            unit:        r.unit.trim() || null,
+            stock:       r.stock ? Number(r.stock) : null,
+            type:        r.type || "mart",
+          });
+          results[i] = { ...results[i]!, status: "success" };
+          successCount++;
+        } catch (e) {
+          results[i] = { ...results[i]!, status: "error", message: e instanceof Error ? e.message : "Failed" };
+        }
+        doneCount++;
+        setBulkImportProgress({ done: doneCount, total: valid.length });
+        setBulkImportResults([...results]);
       }
-      setBulkImportResults([...results]);
     }
     setBulkImporting(false);
     qc.invalidateQueries({ queryKey: ["vendor-products"] });
@@ -729,7 +774,12 @@ export default function Products() {
   if (view === "bulk") return (
     <div className="bg-gray-50 md:bg-transparent">
       <PageHeader title={T("bulkAdd")} subtitle={`${validRows.length} ${T("readyToAdd")}`}
-        actions={<button onClick={() => setView("list")} className="h-10 px-4 bg-white/20 md:bg-gray-100 md:text-gray-700 text-white font-bold rounded-xl text-sm android-press min-h-0">← Back</button>}
+        actions={
+          <div className="flex gap-2">
+            <button onClick={downloadSampleCsv} className="h-10 px-3 bg-white/20 md:bg-blue-50 md:text-blue-600 text-white font-bold rounded-xl text-xs android-press min-h-0">⬇ Sample CSV</button>
+            <button onClick={() => setView("list")} className="h-10 px-4 bg-white/20 md:bg-gray-100 md:text-gray-700 text-white font-bold rounded-xl text-sm android-press min-h-0">← Back</button>
+          </div>
+        }
       />
       <div className="px-4 py-4 space-y-4 md:px-0 md:py-4">
 
@@ -787,13 +837,36 @@ export default function Products() {
               </div>
             </div>
           )}
+          {/* Batch limit info */}
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-2xl flex items-start gap-2">
+            <span className="text-base flex-shrink-0">ℹ️</span>
+            <p className="text-xs text-blue-700">
+              <span className="font-bold">CSV limit: 500 rows per file.</span> Uploads are automatically sent to the server in batches — no manual splitting needed. Sample CSV columns: <span className="font-mono bg-white px-1 rounded">name, price, stock, category, description, unit, type, image</span>.
+            </p>
+          </div>
+
+          {/* Duplicate name warning */}
+          {duplicateWarning.length > 0 && (
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl">
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-bold text-amber-800">⚠️ {duplicateWarning.length} product name{duplicateWarning.length !== 1 ? "s" : ""} already exist in your catalogue</p>
+                <button onClick={() => setDuplicateWarning([])} className="text-xs text-amber-500 hover:underline font-medium">Dismiss</button>
+              </div>
+              <ul className="space-y-0.5 mb-2 max-h-24 overflow-y-auto">
+                {duplicateWarning.map((n, i) => <li key={i} className="text-xs text-amber-700 font-mono">• {n}</li>)}
+              </ul>
+              <p className="text-xs text-amber-600">Importing will create additional listings with these names. Remove matching rows to skip them, or proceed to import anyway.</p>
+            </div>
+          )}
+
+          {/* Parse errors */}
           {parseErrors.length > 0 && (
             <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-2xl">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-bold text-red-700">⚠️ {parseErrors.length} row{parseErrors.length !== 1 ? "s" : ""} skipped</p>
+                <p className="text-xs font-bold text-red-700">⚠️ {parseErrors.length} row{parseErrors.length !== 1 ? "s" : ""} skipped — fix and re-upload to include them</p>
                 <button onClick={() => setParseErrors([])} className="text-xs text-red-400 hover:underline">Dismiss</button>
               </div>
-              <ul className="space-y-0.5">
+              <ul className="space-y-0.5 max-h-32 overflow-y-auto">
                 {parseErrors.map((e, i) => <li key={i} className="text-xs text-red-600 font-mono">{e}</li>)}
               </ul>
             </div>
@@ -935,28 +1008,59 @@ export default function Products() {
           )}
           {bulkImportResults && (
             <div className="mt-4 space-y-1.5">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Import Progress</p>
-              {bulkImportResults.map((r, i) => (
-                <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${r.status === "success" ? "bg-green-50" : r.status === "error" ? "bg-red-50" : "bg-gray-50"}`}>
-                  <span className="text-base flex-shrink-0">
-                    {r.status === "success" ? "✅" : r.status === "error" ? "❌" : <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin inline-block"/>}
-                  </span>
-                  <span className="flex-1 font-medium text-gray-800 truncate">{r.name}</span>
-                  {r.status === "error" && r.message && <span className="text-xs text-red-500 truncate max-w-[120px]">{r.message}</span>}
-                  {r.status === "success" && <span className="text-xs text-green-600 font-bold">Added</span>}
-                  {r.status === "pending" && <span className="text-xs text-gray-400">Waiting...</span>}
+              {/* Progress counter */}
+              {bulkImportProgress && (
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                      {bulkImporting ? "Uploading…" : "Import complete"}
+                    </p>
+                    <p className="text-sm font-extrabold text-orange-600 tabular-nums">
+                      {bulkImportProgress.done} / {bulkImportProgress.total}
+                    </p>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-orange-400 rounded-full transition-all duration-300"
+                      style={{ width: `${(bulkImportProgress.done / bulkImportProgress.total) * 100}%` }}
+                    />
+                  </div>
+                  {!bulkImporting && (() => {
+                    const added = bulkImportResults.filter(r => r.status === "success").length;
+                    const failed = bulkImportResults.filter(r => r.status === "error").length;
+                    return (
+                      <div className="flex gap-3 mt-2">
+                        <span className="text-xs font-bold text-green-600">✅ {added} added</span>
+                        {failed > 0 && <span className="text-xs font-bold text-red-500">❌ {failed} failed</span>}
+                      </div>
+                    );
+                  })()}
                 </div>
-              ))}
+              )}
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Row details</p>
+              <div className="max-h-64 overflow-y-auto space-y-1">
+                {bulkImportResults.map((r, i) => (
+                  <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${r.status === "success" ? "bg-green-50" : r.status === "error" ? "bg-red-50" : "bg-gray-50"}`}>
+                    <span className="text-base flex-shrink-0">
+                      {r.status === "success" ? "✅" : r.status === "error" ? "❌" : <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin inline-block"/>}
+                    </span>
+                    <span className="flex-1 font-medium text-gray-800 truncate">{r.name}</span>
+                    {r.status === "error" && r.message && <span className="text-xs text-red-500 truncate max-w-[140px]" title={r.message}>{r.message}</span>}
+                    {r.status === "success" && <span className="text-xs text-green-600 font-bold">Added</span>}
+                    {r.status === "pending" && <span className="text-xs text-gray-400">Waiting…</span>}
+                  </div>
+                ))}
+              </div>
               {!bulkImporting && (
-                <button onClick={() => { setBulkImportResults(null); setView("list"); setBulkRows([{...EMPTY_ROW},{...EMPTY_ROW},{...EMPTY_ROW}]); setBulkCat(""); }} className={`mt-3 ${BTN_PRIMARY}`}>
-                  Done
+                <button onClick={() => { setBulkImportResults(null); setBulkImportProgress(null); setDuplicateWarning([]); setParseErrors([]); setView("list"); setBulkRows([{...EMPTY_ROW},{...EMPTY_ROW},{...EMPTY_ROW}]); setBulkCat(""); }} className={`mt-3 ${BTN_PRIMARY}`}>
+                  ✓ Done — View Products
                 </button>
               )}
             </div>
           )}
           {!bulkImportResults && (
             <div className="flex gap-3">
-              <button onClick={() => setView("list")} className={BTN_SECONDARY}>Cancel</button>
+              <button onClick={() => { setView("list"); setDuplicateWarning([]); setParseErrors([]); }} className={BTN_SECONDARY}>Cancel</button>
               <button onClick={runBulkImport} disabled={bulkImporting || validRows.length === 0 || allDataLoading} className={BTN_PRIMARY}>
                 {allDataLoading ? "Checking limit..." : bulkImporting ? "Adding..." : `➕ Add ${validRows.length} Products`}
               </button>
@@ -975,13 +1079,27 @@ export default function Products() {
         title={T("products")}
         subtitle={totalProductCount !== null ? `${totalProductCount}/${maxItems} items used` : `—/${maxItems} items`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
             <button
               onClick={() => { setBulkEditMode(m => { const next = !m; if (!next) { setBulkEditSelected(new Set()); setBulkEditError(""); } return next; }); }}
               className={`h-9 px-3.5 text-xs font-bold rounded-xl android-press min-h-0 ${bulkEditMode ? "bg-orange-500 text-white" : "bg-white/20 md:bg-gray-100 md:text-gray-700 text-white"}`}>
               {bulkEditMode ? "✕ Cancel" : "✏️ Bulk Edit"}
             </button>
-            <button onClick={() => setView("bulk")} disabled={allDataLoading || totalProductCount === null || totalProductCount >= maxItems} className={`h-9 px-3.5 text-xs font-bold rounded-xl android-press min-h-0 ${(allDataLoading || totalProductCount === null || totalProductCount >= maxItems) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-white/20 md:bg-gray-100 md:text-gray-700 text-white"}`}>Bulk Add</button>
+            <label className={`h-9 px-3.5 text-xs font-bold rounded-xl android-press min-h-0 flex items-center justify-center cursor-pointer ${(allDataLoading || totalProductCount === null || totalProductCount >= maxItems) ? "bg-gray-300 text-gray-500 cursor-not-allowed pointer-events-none" : "bg-white/20 md:bg-green-50 md:text-green-700 text-white"}`}>
+              📥 Import CSV
+              <input
+                ref={csvListInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                disabled={allDataLoading || totalProductCount === null || totalProductCount >= maxItems}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) { setBulkRows([{ ...EMPTY_ROW }]); handleCsvImport(file, true); }
+                  e.target.value = "";
+                }}
+              />
+            </label>
             <button onClick={() => setShowAdd(true)} disabled={allDataLoading || totalProductCount === null || totalProductCount >= maxItems} className={`h-9 px-3.5 text-sm font-bold rounded-xl android-press min-h-0 ${(allDataLoading || totalProductCount === null || totalProductCount >= maxItems) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-white text-orange-500 md:bg-orange-500 md:text-white"}`}>+ Add</button>
           </div>
         }
