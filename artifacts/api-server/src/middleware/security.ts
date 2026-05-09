@@ -938,10 +938,10 @@ export async function customerAuth(req: Request, res: Response, next: NextFuncti
     return;
   }
 
-  (req as any).customerId = payload.userId;
-  (req as any).userId     = payload.userId;
-  (req as any).userPhone  = payload.phone;
-  (req as any).userRole   = payload.role;
+  req.customerId = payload.userId;
+  req.userId     = payload.userId;
+  req.userPhone  = payload.phone;
+  req.userRole   = payload.role;
   next();
 }
 
@@ -962,10 +962,10 @@ export async function riderAuth(req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  (req as any).riderId   = payload.userId;
-  (req as any).userId    = payload.userId;
-  (req as any).userPhone = payload.phone;
-  (req as any).userRole  = payload.role;
+  req.riderId   = payload.userId;
+  req.userId    = payload.userId;
+  req.userPhone = payload.phone;
+  req.userRole  = payload.role;
   next();
 }
 
@@ -986,14 +986,14 @@ export async function anyUserAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  (req as any).userId    = payload.userId;
-  (req as any).userPhone = payload.phone;
-  (req as any).userRole  = payload.role;
+  req.userId    = payload.userId;
+  req.userPhone = payload.phone;
+  req.userRole  = payload.role;
 
   const role = payload.role?.toLowerCase() ?? "";
-  if (role === "customer") (req as any).customerId = payload.userId;
-  if (role === "rider")    (req as any).riderId    = payload.userId;
-  if (role === "vendor")   (req as any).vendorId   = payload.userId;
+  if (role === "customer") req.customerId = payload.userId;
+  if (role === "rider")    req.riderId    = payload.userId;
+  if (role === "vendor")   req.vendorId   = payload.userId;
 
   next();
 }
@@ -1004,9 +1004,9 @@ export async function anyUserAuth(req: Request, res: Response, next: NextFunctio
  * Admin requests (req.adminId present) bypass the check.
  */
 export function idorGuard(req: Request, res: Response, next: NextFunction): void {
-  if ((req as any).adminId) { next(); return; }
+  if (req.adminId) { next(); return; }
 
-  const callerId = (req as any).userId ?? (req as any).customerId ?? (req as any).riderId;
+  const callerId = req.userId ?? req.customerId ?? req.riderId;
   if (!callerId) {
     res.status(401).json({ error: "Authentication required" });
     return;
@@ -1079,13 +1079,13 @@ export function requireRole(
       return;
     }
 
-    (req as any).userId    = payload.userId;
-    (req as any).userPhone = payload.phone;
-    (req as any).userRole  = payload.role;
+    req.userId    = payload.userId;
+    req.userPhone = payload.phone;
+    req.userRole  = payload.role;
 
-    if (tokenRole === "customer") (req as any).customerId = payload.userId;
-    if (tokenRole === "rider")    (req as any).riderId    = payload.userId;
-    if (tokenRole === "vendor")   (req as any).vendorId   = payload.userId;
+    if (tokenRole === "customer") req.customerId = payload.userId;
+    if (tokenRole === "rider")    req.riderId    = payload.userId;
+    if (tokenRole === "vendor")   req.vendorId   = payload.userId;
 
     if (options?.vendorApprovalCheck && tokenRole === "vendor") {
       try {

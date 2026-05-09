@@ -47,6 +47,7 @@ import { encrypt, decrypt, isEncryptionAvailable } from "../../lib/crypto/encryp
 import { getUserLanguage, getPlatformDefaultLanguage } from "../../lib/getUserLanguage.js";
 import { t, type TranslationKey } from "@workspace/i18n";
 import { logger } from "../../lib/logger.js";
+import { sendError, sendUnauthorized, sendForbidden, sendNotFound, sendInternalError, sendTooManyRequests } from "../../lib/response.js";
 import { clearSpoofHits } from "../rider/index.js";
 import { canonicalizePhone } from "@workspace/phone-utils";
 import { isAuthMethodEnabled, isAuthMethodEnabledStrict } from "@workspace/auth-utils/server";
@@ -266,7 +267,7 @@ router.get("/otp-status", async (req, res) => {
   try {
     const rawPhone = (req.query.phone as string | undefined) ?? "";
     if (!rawPhone || rawPhone.length < 7) {
-      res.status(400).json({ error: "phone query parameter is required" });
+      sendError(res, "phone query parameter is required", 400);
       return;
     }
 
@@ -507,10 +508,10 @@ router.post("/check-identifier", checkIdentifierLimiter, sharedValidateBody(chec
 ───────────────────────────────────────────────────────────── */
 router.post("/send-merge-otp", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { identifier } = req.body;
-  if (!identifier) { res.status(400).json({ error: "Identifier is required" }); return; }
+  if (!identifier) { sendError(res, "Identifier is required", 400); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
@@ -519,7 +520,7 @@ router.post("/send-merge-otp", async (req, res) => {
   const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier.trim());
 
   if (!looksLikePhone && !looksLikeEmail) {
-    res.status(400).json({ error: "Identifier must be a phone number or email address" });
+    sendError(res, "Identifier must be a phone number or email address", 400);
     return;
   }
 
@@ -572,10 +573,10 @@ router.post("/send-merge-otp", async (req, res) => {
 ───────────────────────────────────────────────────────────── */
 router.post("/merge-account", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { identifier, otp } = req.body;
-  if (!identifier || !otp) { res.status(400).json({ error: "Identifier and OTP are required" }); return; }
+  if (!identifier || !otp) { sendError(res, "Identifier and OTP are required", 400); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
@@ -584,28 +585,28 @@ router.post("/merge-account", async (req, res) => {
   const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier.trim());
 
   if (!looksLikePhone && !looksLikeEmail) {
-    res.status(400).json({ error: "Identifier must be a phone number or email address" });
+    sendError(res, "Identifier must be a phone number or email address", 400);
     return;
   }
 
   const [currentUser] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-  if (!currentUser) { res.status(404).json({ error: "User not found" }); return; }
+  if (!currentUser) { sendNotFound(res, "User not found"); return; }
 
   const normalizedIdentifier = looksLikePhone ? canonicalizePhone(identifier) : identifier.trim().toLowerCase();
 
   if (currentUser.mergeOtpCode !== hashOtp(otp) || !currentUser.mergeOtpExpiry || currentUser.mergeOtpExpiry < new Date()) {
-    res.status(400).json({ error: "Invalid or expired OTP" });
+    sendError(res, "Invalid or expired OTP", 400);
     return;
   }
 
   if (currentUser.pendingMergeIdentifier !== normalizedIdentifier) {
-    res.status(400).json({ error: "OTP was not issued for this identifier" });
+    sendError(res, "OTP was not issued for this identifier", 400);
     return;
   }
 
   if (looksLikePhone) {
     const phone = normalizedIdentifier;
-    if (currentUser.phone === phone) { res.status(400).json({ error: "This phone is already linked to your account" }); return; }
+    if (currentUser.phone === phone) { sendError(res, "This phone is already linked to your account", 400); return; }
 
     const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
     if (existing) { res.status(409).json({ error: "This phone number is already linked to another account" }); return; }
@@ -616,7 +617,7 @@ router.post("/merge-account", async (req, res) => {
     res.json({ success: true, message: "Phone number linked successfully", linked: "phone" });
   } else {
     const email = normalizedIdentifier;
-    if (currentUser.email === email) { res.status(400).json({ error: "This email is already linked to your account" }); return; }
+    if (currentUser.email === email) { sendError(res, "This email is already linked to your account", 400); return; }
 
     const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email)).limit(1);
     if (existing) { res.status(409).json({ error: "This email is already linked to another account" }); return; }
@@ -698,7 +699,7 @@ router.post("/send-otp", otpLimiter, verifyCaptcha, sharedValidateBody(sendOtpSc
 
   /* ══ OTP DISABLED — return generic "use another method" without revealing account state ══ */
   if (!otpEnabled || !otpEnabledForRole) {
-    res.status(403).json({ error: "Phone OTP is currently disabled. Please use another login method or contact support." });
+    sendForbidden(res, "Phone OTP is currently disabled. Please use another login method or contact support.");
     return;
   }
   /* ── Per-phone OTP resend cooldown (60 s) — prevents SMS bombing ── */
@@ -968,7 +969,7 @@ router.post("/verify-otp", otpLimiter, verifyCaptcha, sharedValidateBody(verifyO
   const settings = await getCachedSettings();
 
   if (!isAuthMethodEnabled(settings, "auth_phone_otp_enabled")) {
-    res.status(403).json({ error: "Phone OTP login is currently disabled." });
+    sendForbidden(res, "Phone OTP login is currently disabled.");
     return;
   }
 
@@ -1030,7 +1031,7 @@ router.post("/verify-otp", otpLimiter, verifyCaptcha, sharedValidateBody(verifyO
     const whitelistBypassNew = await getWhitelistBypass(phone);
     const globalBypassForNew = settings["security_otp_bypass"] === "on" || isTimedGlobalDisableActive || whitelistBypassNew !== null;
     if (!pending && !globalBypassForNew) {
-      res.status(404).json({ error: "User not found. Please request a new OTP." });
+      sendNotFound(res, "User not found. Please request a new OTP.");
       return;
     }
 
@@ -1114,7 +1115,7 @@ router.post("/verify-otp", otpLimiter, verifyCaptcha, sharedValidateBody(verifyO
   }
 
   if (!isAuthMethodEnabled(settings, "auth_phone_otp_enabled", user.roles ?? undefined)) {
-    res.status(403).json({ error: "Phone OTP login is currently disabled for your account type." });
+    sendForbidden(res, "Phone OTP login is currently disabled for your account type.");
     return;
   }
 
@@ -1139,7 +1140,7 @@ router.post("/verify-otp", otpLimiter, verifyCaptcha, sharedValidateBody(verifyO
   /* ── Banned check ── */
   if (user.isBanned) {
     addSecurityEvent({ type: "banned_login_attempt", ip, userId: user.id, details: `Banned user tried to verify OTP: ${phone}`, severity: "high" });
-    res.status(403).json({ error: "Your account has been suspended. Please contact support." });
+    sendForbidden(res, "Your account has been suspended. Please contact support.");
     return;
   }
 
@@ -1159,7 +1160,7 @@ router.post("/verify-otp", otpLimiter, verifyCaptcha, sharedValidateBody(verifyO
      Check approvalStatus directly — the setting only controls NEW users, not existing pending ones. ── */
   const isPendingApproval = user.approvalStatus === "pending";
   if (!user.isActive && !isPendingApproval) {
-    res.status(403).json({ error: "Your account is currently inactive. Please contact support." });
+    sendForbidden(res, "Your account is currently inactive. Please contact support.");
     return;
   }
 
@@ -1274,10 +1275,10 @@ router.post("/verify-otp", otpLimiter, verifyCaptcha, sharedValidateBody(verifyO
 
       if (fresh?.otpUsed) {
         writeAuthAuditLog("otp_reuse_attempt", { userId: user.id, ip, userAgent: req.headers["user-agent"] ?? undefined });
-        res.status(401).json({ error: "This OTP has already been used. Please request a new one." });
+        sendUnauthorized(res, "This OTP has already been used. Please request a new one.");
       } else if (!fresh?.otpExpiry || new Date() > fresh.otpExpiry) {
         writeAuthAuditLog("otp_expired", { userId: user.id, ip, userAgent: req.headers["user-agent"] ?? undefined });
-        res.status(401).json({ error: "OTP expired. Please request a new one." });
+        sendUnauthorized(res, "OTP expired. Please request a new one.");
       } else {
         const updated = await recordFailedAttempt(phone, maxAttempts, lockoutMinutes);
         const remaining = maxAttempts - updated.attempts;
@@ -1430,20 +1431,20 @@ router.post("/verify-otp", otpLimiter, verifyCaptcha, sharedValidateBody(verifyO
 router.post("/vendor-register", async (req, res) => {
   const auth = extractAuthUser(req);
   if (!auth) {
-    res.status(401).json({ error: "Authentication required. Please verify your phone via OTP first." });
+    sendUnauthorized(res, "Authentication required. Please verify your phone via OTP first.");
     return;
   }
 
   const { storeName, storeCategory, name, cnic, address, city, bankName, bankAccount, bankAccountTitle, username, acceptedTermsVersion } = req.body;
   if (!storeName) {
-    res.status(400).json({ error: "Store name is required" });
+    sendError(res, "Store name is required", 400);
     return;
   }
 
   if (username) {
     const normalizedUsername = String(username).toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20);
     if (normalizedUsername.length < 3) {
-      res.status(400).json({ error: "Username must be at least 3 characters" });
+      sendError(res, "Username must be at least 3 characters", 400);
       return;
     }
     const [existing] = await db.select({ id: usersTable.id }).from(usersTable)
@@ -1457,12 +1458,12 @@ router.post("/vendor-register", async (req, res) => {
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
   if (!user) {
-    res.status(404).json({ error: "User not found." });
+    sendNotFound(res, "User not found.");
     return;
   }
 
   if (!user.phoneVerified) {
-    res.status(403).json({ error: "Phone number not verified. Please verify OTP first." });
+    sendForbidden(res, "Phone number not verified. Please verify OTP first.");
     return;
   }
 
@@ -1574,7 +1575,7 @@ router.post("/validate-token", async (req, res) => {
     ? authHeader.slice(7)
     : bodyToken;
 
-  if (!token) { res.status(400).json({ error: "token required" }); return; }
+  if (!token) { sendError(res, "token required", 400); return; }
 
   try {
     const payload = verifyUserJwt(token);
@@ -1627,7 +1628,7 @@ async function handleRefreshToken(req: Request, res: any) {
   const ip = getClientIp(req);
 
   if (!cookieToken || cookieToken.length < 10) {
-    res.status(400).json({ error: "Refresh token required. Please log in again." });
+    sendError(res, "Refresh token required. Please log in again.", 400);
     return;
   }
 
@@ -1646,12 +1647,12 @@ async function doRefresh(refreshToken: string, ip: string, req: Request, res: an
   } catch (err: any) {
     if (err?.name === "TokenFamilyBreachError") {
       writeAuthAuditLog("token_family_breach", { userId: err.userId, ip, userAgent: req.headers["user-agent"] ?? undefined });
-      res.status(401).json({ error: "Security breach detected. All sessions revoked. Please log in again." });
+      sendUnauthorized(res, "Security breach detected. All sessions revoked. Please log in again.");
       return;
     }
     /* Token not found */
     writeAuthAuditLog("refresh_failed_not_found", { ip, userAgent: req.headers["user-agent"] ?? undefined });
-    res.status(401).json({ error: "Invalid refresh token. Please log in again." });
+    sendUnauthorized(res, "Invalid refresh token. Please log in again.");
     return;
   }
 
@@ -1665,21 +1666,21 @@ async function doRefresh(refreshToken: string, ip: string, req: Request, res: an
     }
     writeAuthAuditLog("refresh_token_reuse", { userId: rt.userId, ip, userAgent: req.headers["user-agent"] ?? undefined });
     addSecurityEvent({ type: "refresh_token_reuse", ip, userId: rt.userId, details: "Refresh token reuse detected — token family invalidated", severity: "high" });
-    res.status(401).json({ error: "Session invalidated for security. Please log in again." });
+    sendUnauthorized(res, "Session invalidated for security. Please log in again.");
     return;
   }
 
   if (new Date() > rt.expiresAt) {
     await revokeRefreshToken(tokenHash, "EXPIRED");
     writeAuthAuditLog("refresh_token_expired", { userId: rt.userId, ip });
-    res.status(401).json({ error: "Session expired. Please log in again." });
+    sendUnauthorized(res, "Session expired. Please log in again.");
     return;
   }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, rt.userId)).limit(1);
   if (!user || user.isBanned || !user.isActive) {
     await revokeRefreshToken(tokenHash, "USER_UNAVAILABLE");
-    res.status(401).json({ error: "Account not available. Please log in again." });
+    sendUnauthorized(res, "Account not available. Please log in again.");
     return;
   }
 
@@ -1709,12 +1710,12 @@ async function doRefresh(refreshToken: string, ip: string, req: Request, res: an
       : isAuthMethodEnabled(settings, settingsKey, userRole);
     if (!isEnabled) {
       await revokeRefreshToken(tokenHash, "AUTH_METHOD_DISABLED");
-      res.status(403).json({ error: "Your login method has been disabled. Please log in again using an available method." });
+      sendForbidden(res, "Your login method has been disabled. Please log in again using an available method.");
       return;
     }
   } else {
     await revokeRefreshToken(tokenHash, "UNKNOWN_METHOD");
-    res.status(403).json({ error: "Session expired. Please log in again." });
+    sendForbidden(res, "Session expired. Please log in again.");
     return;
   }
 
@@ -1851,14 +1852,14 @@ router.post("/check-available", async (req, res) => {
 router.post("/send-email-otp", verifyCaptcha, async (req, res) => {
   const { email } = req.body;
   if (!email || !email.includes("@")) {
-    res.status(400).json({ error: "Valid email address required" }); return;
+    sendError(res, "Valid email address required", 400); return;
   }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   if (!isAuthMethodEnabled(settings, "auth_email_otp_enabled")) {
-    res.status(403).json({ error: "Email OTP login is currently disabled." });
+    sendForbidden(res, "Email OTP login is currently disabled.");
     return;
   }
   const normalized = email.toLowerCase().trim();
@@ -1871,13 +1872,13 @@ router.post("/send-email-otp", verifyCaptcha, async (req, res) => {
   }
 
   if (!isAuthMethodEnabled(settings, "auth_email_otp_enabled", user.roles ?? "customer")) {
-    res.status(403).json({ error: "Email OTP login is currently disabled for your account type." });
+    sendForbidden(res, "Email OTP login is currently disabled for your account type.");
     return;
   }
 
-  if (user.isBanned) { res.status(403).json({ error: "Your account has been suspended." }); return; }
+  if (user.isBanned) { sendForbidden(res, "Your account has been suspended."); return; }
   const isPendingEmail = user.approvalStatus === "pending";
-  if (!user.isActive && !isPendingEmail) { res.status(403).json({ error: "Your account is inactive. Contact support." }); return; }
+  if (!user.isActive && !isPendingEmail) { sendForbidden(res, "Your account is inactive. Contact support."); return; }
 
   /* Lockout check using email as key */
   const maxAttempts = parseInt(settings["security_login_max_attempts"] ?? "5", 10);
@@ -1954,13 +1955,13 @@ router.post("/send-email-otp", verifyCaptcha, async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/verify-email-otp", verifyCaptcha, async (req, res) => {
   const { email, otp } = req.body;
-  if (!email || !otp) { res.status(400).json({ error: "Email and OTP are required" }); return; }
+  if (!email || !otp) { sendError(res, "Email and OTP are required", 400); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   if (!isAuthMethodEnabled(settings, "auth_email_otp_enabled")) {
-    res.status(403).json({ error: "Email OTP login is currently disabled." });
+    sendForbidden(res, "Email OTP login is currently disabled.");
     return;
   }
   const normalized = email.toLowerCase().trim();
@@ -1974,10 +1975,10 @@ router.post("/verify-email-otp", verifyCaptcha, async (req, res) => {
   }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.email, normalized)).limit(1);
-  if (!user) { res.status(404).json({ error: "Is email se koi account nahi mila." }); return; }
+  if (!user) { sendNotFound(res, "Is email se koi account nahi mila."); return; }
 
   if (!isAuthMethodEnabled(settings, "auth_email_otp_enabled", user.roles ?? "customer")) {
-    res.status(403).json({ error: "Email OTP login is currently disabled for your account type." });
+    sendForbidden(res, "Email OTP login is currently disabled for your account type.");
     return;
   }
 
@@ -1997,9 +1998,9 @@ router.post("/verify-email-otp", verifyCaptcha, async (req, res) => {
     }
   }
 
-  if (user.isBanned) { res.status(403).json({ error: "Account suspended. Contact support." }); return; }
+  if (user.isBanned) { sendForbidden(res, "Account suspended. Contact support."); return; }
   const emailIsPending = user.approvalStatus === "pending";
-  if (!user.isActive && !emailIsPending) { res.status(403).json({ error: "Account inactive. Contact support." }); return; }
+  if (!user.isActive && !emailIsPending) { sendForbidden(res, "Account inactive. Contact support."); return; }
 
   /* ── Per-user OTP bypass (HIGHEST PRIORITY) ── */
   const emailPerUserBypass = !!(user.otpBypassUntil && user.otpBypassUntil > new Date());
@@ -2014,7 +2015,7 @@ router.post("/verify-email-otp", verifyCaptcha, async (req, res) => {
   if (!emailOtpBypassed) {
     /* Check expiry FIRST — prevents timing oracle */
     if (user.emailOtpExpiry && new Date() > user.emailOtpExpiry) {
-      res.status(401).json({ error: "OTP expired. Please request a new one." }); return;
+      sendUnauthorized(res, "OTP expired. Please request a new one."); return;
     }
   }
 
@@ -2143,13 +2144,13 @@ async function handleUnifiedLogin(req: Request, res: any) {
   }
   const identifier = (parsed.data.identifier || parsed.data.username || "").trim();
   const { password } = parsed.data;
-  if (!identifier) { res.status(400).json({ error: "Identifier and password required" }); return; }
+  if (!identifier) { sendError(res, "Identifier and password required", 400); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   if (!isAuthMethodEnabled(settings, "auth_username_password_enabled")) {
-    res.status(403).json({ error: "Password login is currently disabled." });
+    sendForbidden(res, "Password login is currently disabled.");
     return;
   }
 
@@ -2171,11 +2172,11 @@ async function handleUnifiedLogin(req: Request, res: any) {
   if (!user || !user.passwordHash) {
     if (lockoutEnabled) await recordFailedAttempt(lockoutKey, maxAttempts, lockoutMinutes);
     addAuditEntry({ action: "unified_login_failed", ip, details: `Not found or no password (${idType}): ${lookupKey}`, result: "fail" });
-    res.status(401).json({ error: "Invalid credentials" }); return;
+    sendUnauthorized(res, "Invalid credentials"); return;
   }
 
   if (!isAuthMethodEnabled(settings, "auth_username_password_enabled", user.roles ?? "customer")) {
-    res.status(403).json({ error: "Password login is currently disabled for your account type." });
+    sendForbidden(res, "Password login is currently disabled for your account type.");
     return;
   }
 
@@ -2189,9 +2190,9 @@ async function handleUnifiedLogin(req: Request, res: any) {
     }
   }
 
-  if (user.isBanned) { res.status(403).json({ error: "Account suspended. Contact support." }); return; }
+  if (user.isBanned) { sendForbidden(res, "Account suspended. Contact support."); return; }
   const isPendingApproval = user.approvalStatus === "pending";
-  if (!user.isActive && !isPendingApproval) { res.status(403).json({ error: "Account inactive. Contact support." }); return; }
+  if (!user.isActive && !isPendingApproval) { sendForbidden(res, "Account inactive. Contact support."); return; }
 
   const passwordOk = verifyPassword(password, user.passwordHash);
   if (!passwordOk) {
@@ -2203,7 +2204,7 @@ async function handleUnifiedLogin(req: Request, res: any) {
     } else if (lockoutEnabled) {
       res.status(401).json({ error: `Invalid credentials. ${Math.max(0, maxAttempts - updated.attempts)} attempt(s) remaining.` });
     } else {
-      res.status(401).json({ error: "Invalid credentials" });
+      sendUnauthorized(res, "Invalid credentials");
     }
     return;
   }
@@ -2307,20 +2308,20 @@ router.post("/login", loginLimiter, verifyCaptcha, handleUnifiedLogin);
 router.post("/login/verify-otp", async (req, res) => {
   const { tempToken, otp } = req.body ?? {};
   if (!tempToken || !otp) {
-    res.status(400).json({ error: "tempToken and otp are required" }); return;
+    sendError(res, "tempToken and otp are required", 400); return;
   }
 
   const payload = verify2faChallengeToken(tempToken);
   if (!payload || payload.authMethod !== "password_otp") {
-    res.status(401).json({ error: "Invalid or expired OTP challenge token. Please log in again." }); return;
+    sendUnauthorized(res, "Invalid or expired OTP challenge token. Please log in again."); return;
   }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, payload.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  if (user.isBanned) { res.status(403).json({ error: "Account suspended. Contact support." }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
+  if (user.isBanned) { sendForbidden(res, "Account suspended. Contact support."); return; }
 
   const lockoutEnabled = (settings["security_lockout_enabled"] ?? "on") === "on";
   const maxAttempts    = parseInt(settings["security_login_max_attempts"] ?? "5", 10);
@@ -2355,7 +2356,7 @@ router.post("/login/verify-otp", async (req, res) => {
       const remaining = Math.max(0, maxAttempts - updated.attempts);
       res.status(401).json({ error: `Invalid or expired OTP. ${remaining} attempt(s) remaining.`, attemptsRemaining: remaining });
     } else {
-      res.status(401).json({ error: "Invalid or expired OTP." });
+      sendUnauthorized(res, "Invalid or expired OTP.");
     }
     return;
   }
@@ -2404,18 +2405,18 @@ router.post("/complete-profile", async (req, res) => {
   const authHeader = req.headers["authorization"] as string | undefined;
   const rawToken = req.body?.token || (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
   const { name, email, username, password, currentPassword, cnic, address, city, area, latitude, longitude, acceptedTermsVersion } = req.body;
-  if (!rawToken) { res.status(401).json({ error: "Token required" }); return; }
+  if (!rawToken) { sendUnauthorized(res, "Token required"); return; }
 
   /* Verify JWT to get userId */
   const payload = verifyUserJwt(rawToken);
-  if (!payload) { res.status(401).json({ error: "Invalid or expired token. Please log in again." }); return; }
+  if (!payload) { sendUnauthorized(res, "Invalid or expired token. Please log in again."); return; }
   const userId = payload.userId;
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (!user)         { res.status(404).json({ error: "User not found" }); return; }
-  if (user.isBanned) { res.status(403).json({ error: "Account suspended. Contact support." }); return; }
+  if (!user)         { sendNotFound(res, "User not found"); return; }
+  if (user.isBanned) { sendForbidden(res, "Account suspended. Contact support."); return; }
   if (!user.isActive && user.approvalStatus !== "pending") {
-    res.status(403).json({ error: "Account inactive. Contact support." }); return;
+    sendForbidden(res, "Account inactive. Contact support."); return;
   }
 
   const updates: Record<string, any> = { updatedAt: new Date() };
@@ -2438,7 +2439,7 @@ router.post("/complete-profile", async (req, res) => {
 
   if (username && username.length > 2) {
     const clean = username.toLowerCase().replace(/[^a-z0-9_]/g, "").trim();
-    if (clean.length < 3) { res.status(400).json({ error: "Username must be at least 3 characters (letters, numbers, underscore only)" }); return; }
+    if (clean.length < 3) { sendError(res, "Username must be at least 3 characters (letters, numbers, underscore only)", 400); return; }
     if (clean !== user.username) {
       const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(sql`lower(${usersTable.username}) = ${clean}`).limit(1);
       if (existing && existing.id !== userId) {
@@ -2475,10 +2476,10 @@ router.post("/complete-profile", async (req, res) => {
   if (password && password.length >= 8) {
     if (user.passwordHash) {
       if (!currentPassword) {
-        res.status(400).json({ error: "Current password required to change password" }); return;
+        sendError(res, "Current password required to change password", 400); return;
       }
       if (!verifyPassword(currentPassword, user.passwordHash)) {
-        res.status(401).json({ error: "Current password galat hai" }); return;
+        sendUnauthorized(res, "Current password galat hai"); return;
       }
     }
     const check = validatePasswordStrength(password);
@@ -2512,7 +2513,7 @@ router.post("/complete-profile", async (req, res) => {
   }
 
   if (Object.keys(updates).length === 1) {
-    res.status(400).json({ error: "Koi update nahi kiya — name, email, username ya password provide karein" }); return;
+    sendError(res, "Koi update nahi kiya — name, email, username ya password provide karein", 400); return;
   }
 
   const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, userId)).returning();
@@ -2564,16 +2565,16 @@ router.post("/set-password", async (req, res) => {
   const authHeader = req.headers["authorization"] as string | undefined;
   const rawToken = req.body?.token || (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
   const { password, currentPassword } = req.body;
-  if (!rawToken || !password) { res.status(400).json({ error: "Token and password required" }); return; }
+  if (!rawToken || !password) { sendError(res, "Token and password required", 400); return; }
 
   const payload = verifyUserJwt(rawToken);
-  if (!payload) { res.status(401).json({ error: "Invalid or expired token. Please log in again." }); return; }
+  if (!payload) { sendUnauthorized(res, "Invalid or expired token. Please log in again."); return; }
   const userId = payload.userId;
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (!user)         { res.status(404).json({ error: "User not found" }); return; }
-  if (user.isBanned) { res.status(403).json({ error: "Account suspended. Contact support." }); return; }
-  if (!user.isActive){ res.status(403).json({ error: "Account inactive. Contact support." }); return; }
+  if (!user)         { sendNotFound(res, "User not found"); return; }
+  if (user.isBanned) { sendForbidden(res, "Account suspended. Contact support."); return; }
+  if (!user.isActive){ sendForbidden(res, "Account inactive. Contact support."); return; }
 
   /* If user has a non-temporary password, ALWAYS require the current password — no bypass.
      If requirePasswordChange is true (admin set a temp password), skip current-password
@@ -2581,10 +2582,10 @@ router.post("/set-password", async (req, res) => {
   const isTempPasswordChange = user.requirePasswordChange === true;
   if (user.passwordHash && !isTempPasswordChange) {
     if (!currentPassword) {
-      res.status(400).json({ error: "Current password required to change password" }); return;
+      sendError(res, "Current password required to change password", 400); return;
     }
     if (!verifyPassword(currentPassword, user.passwordHash)) {
-      res.status(401).json({ error: "Current password galat hai" }); return;
+      sendUnauthorized(res, "Current password galat hai"); return;
     }
   }
 
@@ -2683,7 +2684,7 @@ router.post("/register", verifyCaptcha, sharedValidateBody(registerSchema), asyn
   const userRole = (role === "rider" || role === "vendor") ? role : "customer";
 
   if (settings["feature_new_users"] === "off") {
-    res.status(403).json({ error: "New user registration is currently disabled." });
+    sendForbidden(res, "New user registration is currently disabled.");
     return;
   }
 
@@ -2691,31 +2692,31 @@ router.post("/register", verifyCaptcha, sharedValidateBody(registerSchema), asyn
      When the admin sets vendor_registration or rider_registration to "off",
      the corresponding role cannot complete signup even if phone OTP is on. */
   if (userRole === "vendor" && (settings["vendor_registration"] ?? "on") === "off") {
-    res.status(403).json({ error: "Vendor registration is currently closed by the administrator." });
+    sendForbidden(res, "Vendor registration is currently closed by the administrator.");
     return;
   }
   if (userRole === "rider" && (settings["rider_registration"] ?? "on") === "off") {
-    res.status(403).json({ error: "Rider registration is currently closed by the administrator." });
+    sendForbidden(res, "Rider registration is currently closed by the administrator.");
     return;
   }
 
   if (!isAuthMethodEnabled(settings, "auth_phone_otp_enabled", userRole)) {
-    res.status(403).json({ error: "Phone registration is currently disabled for this role." });
+    sendForbidden(res, "Phone registration is currently disabled for this role.");
     return;
   }
 
   if (!phone) {
-    res.status(400).json({ error: "Phone number is required" });
+    sendError(res, "Phone number is required", 400);
     return;
   }
   const cleanedPhone = phone.replace(/[\s\-()]/g, "");
   if (!PHONE_REGEX.test(cleanedPhone)) {
-    res.status(400).json({ error: "Invalid phone number. Use format: 03XXXXXXXXX" });
+    sendError(res, "Invalid phone number. Use format: 03XXXXXXXXX", 400);
     return;
   }
 
   if (!password) {
-    res.status(400).json({ error: "Password is required" });
+    sendError(res, "Password is required", 400);
     return;
   }
   const pwCheck = validatePasswordStrength(password);
@@ -2726,17 +2727,17 @@ router.post("/register", verifyCaptcha, sharedValidateBody(registerSchema), asyn
 
   const cnicValue = cnic || nationalId;
   if (cnicValue && !CNIC_REGEX.test(cnicValue)) {
-    res.status(400).json({ error: "CNIC format must be XXXXX-XXXXXXX-X" });
+    sendError(res, "CNIC format must be XXXXX-XXXXXXX-X", 400);
     return;
   }
 
   if (userRole === "rider") {
-    if (!cnicValue) { res.status(400).json({ error: "CNIC is required for rider registration" }); return; }
-    if (!vehicleType) { res.status(400).json({ error: "Vehicle type is required for rider registration" }); return; }
+    if (!cnicValue) { sendError(res, "CNIC is required for rider registration", 400); return; }
+    if (!vehicleType) { sendError(res, "Vehicle type is required for rider registration", 400); return; }
   }
 
   if (userRole === "vendor") {
-    if (!businessName && !storeName) { res.status(400).json({ error: "Business/store name is required for vendor registration" }); return; }
+    if (!businessName && !storeName) { sendError(res, "Business/store name is required for vendor registration", 400); return; }
   }
 
   const normalizedPhone = canonicalizePhone(phone);
@@ -2939,16 +2940,16 @@ router.post("/forgot-password", verifyCaptcha, sharedValidateBody(forgotPassword
   }
 
   if (!phone && !email) {
-    res.status(400).json({ error: "Phone, email, or username is required" });
+    sendError(res, "Phone, email, or username is required", 400);
     return;
   }
 
   if (phone && !isAuthMethodEnabled(settings, "auth_phone_otp_enabled")) {
-    res.status(403).json({ error: "Phone-based password reset is currently disabled" });
+    sendForbidden(res, "Phone-based password reset is currently disabled");
     return;
   }
   if (email && !phone && !isAuthMethodEnabled(settings, "auth_email_otp_enabled")) {
-    res.status(403).json({ error: "Email-based password reset is currently disabled" });
+    sendForbidden(res, "Email-based password reset is currently disabled");
     return;
   }
 
@@ -2971,16 +2972,16 @@ router.post("/forgot-password", verifyCaptcha, sharedValidateBody(forgotPassword
 
   const forgotRole = user.roles ?? "customer";
   if (phone && !isAuthMethodEnabled(settings, "auth_phone_otp_enabled", forgotRole)) {
-    res.status(403).json({ error: "Phone-based password reset is currently disabled for your account type." });
+    sendForbidden(res, "Phone-based password reset is currently disabled for your account type.");
     return;
   }
   if (email && !phone && !isAuthMethodEnabled(settings, "auth_email_otp_enabled", forgotRole)) {
-    res.status(403).json({ error: "Email-based password reset is currently disabled for your account type." });
+    sendForbidden(res, "Email-based password reset is currently disabled for your account type.");
     return;
   }
 
-  if (user.isBanned) { res.status(403).json({ error: "Account suspended." }); return; }
-  if (!user.isActive) { res.status(403).json({ error: "Account inactive." }); return; }
+  if (user.isBanned) { sendForbidden(res, "Account suspended."); return; }
+  if (!user.isActive) { sendForbidden(res, "Account inactive."); return; }
 
   const maxAttempts = parseInt(settings["security_login_max_attempts"] ?? "5", 10);
   const lockoutMinutes = parseInt(settings["security_lockout_minutes"] ?? "30", 10);
@@ -3032,11 +3033,11 @@ router.post("/verify-reset-otp", verifyCaptcha, async (req, res) => {
   const ip = getClientIp(req);
 
   if (!otp || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
-    res.status(400).json({ error: "OTP must be exactly 6 digits" });
+    sendError(res, "OTP must be exactly 6 digits", 400);
     return;
   }
   if (!phone && !email) {
-    res.status(400).json({ error: "Phone or email is required" });
+    sendError(res, "Phone or email is required", 400);
     return;
   }
 
@@ -3093,11 +3094,11 @@ router.post("/reset-password", verifyCaptcha, async (req, res) => {
   const settings = await getCachedSettings();
 
   if (!otp || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
-    res.status(400).json({ error: "OTP must be exactly 6 digits" });
+    sendError(res, "OTP must be exactly 6 digits", 400);
     return;
   }
   if (!newPassword) {
-    res.status(400).json({ error: "New password is required" });
+    sendError(res, "New password is required", 400);
     return;
   }
 
@@ -3119,7 +3120,7 @@ router.post("/reset-password", verifyCaptcha, async (req, res) => {
   }
 
   if (!phone && !email) {
-    res.status(400).json({ error: "Phone, email, or username is required" });
+    sendError(res, "Phone, email, or username is required", 400);
     return;
   }
 
@@ -3141,22 +3142,22 @@ router.post("/reset-password", verifyCaptcha, async (req, res) => {
   }
 
   if (!user) {
-    res.status(404).json({ error: "Account not found" });
+    sendNotFound(res, "Account not found");
     return;
   }
 
   const userRole = user.roles ?? "customer";
 
   if (phone && !isAuthMethodEnabled(settings, "auth_phone_otp_enabled", userRole)) {
-    res.status(403).json({ error: "Phone-based password reset is currently disabled for your account type." });
+    sendForbidden(res, "Phone-based password reset is currently disabled for your account type.");
     return;
   }
   if (email && !phone && !isAuthMethodEnabled(settings, "auth_email_otp_enabled", userRole)) {
-    res.status(403).json({ error: "Email-based password reset is currently disabled for your account type." });
+    sendForbidden(res, "Email-based password reset is currently disabled for your account type.");
     return;
   }
 
-  if (user.isBanned) { res.status(403).json({ error: "Account suspended." }); return; }
+  if (user.isBanned) { sendForbidden(res, "Account suspended."); return; }
 
   const maxAttempts = parseInt(settings["security_login_max_attempts"] ?? "5", 10);
   const lockoutMinutes = parseInt(settings["security_lockout_minutes"] ?? "30", 10);
@@ -3177,7 +3178,7 @@ router.post("/reset-password", verifyCaptcha, async (req, res) => {
   if (!otpValid) {
     await recordFailedAttempt(lockoutKey, maxAttempts, lockoutMinutes);
     addAuditEntry({ action: "reset_password_failed", ip, details: `Invalid OTP for password reset: ${user.id}`, result: "fail" });
-    res.status(401).json({ error: "Invalid or expired OTP" });
+    sendUnauthorized(res, "Invalid or expired OTP");
     return;
   }
 
@@ -3187,11 +3188,11 @@ router.post("/reset-password", verifyCaptcha, async (req, res) => {
       return;
     }
     if (!/^\d{6}$/.test(totpCode)) {
-      res.status(400).json({ error: "TOTP code must be 6 digits" });
+      sendError(res, "TOTP code must be 6 digits", 400);
       return;
     }
     if (!user.totpSecret) {
-      res.status(400).json({ error: "2FA is not properly configured for this account. Please contact support." });
+      sendError(res, "2FA is not properly configured for this account. Please contact support.", 400);
       return;
     }
     const { verifyTotpCode } = await import("../../services/password.js");
@@ -3199,7 +3200,7 @@ router.post("/reset-password", verifyCaptcha, async (req, res) => {
     if (!verifyTotpCode(decryptedSecret, totpCode)) {
       await recordFailedAttempt(lockoutKey, maxAttempts, lockoutMinutes);
       addAuditEntry({ action: "reset_password_2fa_failed", ip, details: `Invalid TOTP for password reset: ${user.id}`, result: "fail" });
-      res.status(401).json({ error: "Invalid two-factor authentication code" });
+      sendUnauthorized(res, "Invalid two-factor authentication code");
       return;
     }
   }
@@ -3231,21 +3232,21 @@ router.post("/email-register", verifyCaptcha, async (req, res) => {
   const userRole = (role === "rider" || role === "vendor") ? role : "customer";
 
   if (!isAuthMethodEnabled(settings, "auth_email_register_enabled", userRole)) {
-    res.status(403).json({ error: "Email registration is currently disabled" });
+    sendForbidden(res, "Email registration is currently disabled");
     return;
   }
 
   if (settings["feature_new_users"] === "off") {
-    res.status(403).json({ error: "New user registration is currently disabled." });
+    sendForbidden(res, "New user registration is currently disabled.");
     return;
   }
 
   if (!email || !email.includes("@")) {
-    res.status(400).json({ error: "Valid email address is required" });
+    sendError(res, "Valid email address is required", 400);
     return;
   }
   if (!password) {
-    res.status(400).json({ error: "Password is required" });
+    sendError(res, "Password is required", 400);
     return;
   }
 
@@ -3355,7 +3356,7 @@ router.get("/verify-email", async (req, res) => {
   const ip = getClientIp(req);
 
   if (!token || !email) {
-    res.status(400).json({ error: "Invalid verification link" });
+    sendError(res, "Invalid verification link", 400);
     return;
   }
 
@@ -3372,7 +3373,7 @@ router.get("/verify-email", async (req, res) => {
 
   if (!user) {
     await recordFailedAttempt(verifyKey, 5, 15);
-    res.status(400).json({ error: "Invalid or expired verification link" });
+    sendError(res, "Invalid or expired verification link", 400);
     return;
   }
 
@@ -3382,7 +3383,7 @@ router.get("/verify-email", async (req, res) => {
   }
 
   if (user.emailOtpExpiry && new Date() > user.emailOtpExpiry) {
-    res.status(401).json({ error: "Verification link has expired. Please register again." });
+    sendUnauthorized(res, "Verification link has expired. Please register again.");
     return;
   }
 
@@ -3390,7 +3391,7 @@ router.get("/verify-email", async (req, res) => {
   if (!user.emailOtpCode || user.emailOtpCode !== incomingHash) {
     await recordFailedAttempt(verifyKey, 5, 15);
     addAuditEntry({ action: "email_verify_failed", ip, details: `Invalid verification token for ${normalizedEmail}`, result: "fail" });
-    res.status(401).json({ error: "Invalid or expired verification link" });
+    sendUnauthorized(res, "Invalid or expired verification link");
     return;
   }
 
@@ -3535,13 +3536,13 @@ function isDeviceTrusted(user: any, deviceFingerprint: string, trustedDays: numb
 ══════════════════════════════════════════════════════════════ */
 router.post("/social/google", async (req, res) => {
   const { idToken, deviceFingerprint } = req.body;
-  if (!idToken) { res.status(400).json({ error: "idToken required" }); return; }
+  if (!idToken) { sendError(res, "idToken required", 400); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   if (!isAuthMethodEnabledStrict(settings, "auth_google_enabled", "auth_social_google")) {
-    res.status(403).json({ error: "Google login is currently disabled" }); return;
+    sendForbidden(res, "Google login is currently disabled"); return;
   }
 
   let googlePayload: any;
@@ -3551,7 +3552,7 @@ router.post("/social/google", async (req, res) => {
     googlePayload = await resp.json();
   } catch {
     addSecurityEvent({ type: "social_google_invalid_token", ip, details: "Invalid Google ID token", severity: "medium" });
-    res.status(401).json({ error: "Invalid Google token" }); return;
+    sendUnauthorized(res, "Invalid Google token"); return;
   }
 
   const googleId = googlePayload.sub;
@@ -3559,7 +3560,7 @@ router.post("/social/google", async (req, res) => {
   const name = googlePayload.name ?? null;
   const avatar = googlePayload.picture ?? null;
 
-  if (!googleId) { res.status(401).json({ error: "Google token missing sub" }); return; }
+  if (!googleId) { sendUnauthorized(res, "Google token missing sub"); return; }
 
   let [user] = await db.select().from(usersTable).where(eq(usersTable.googleId, googleId)).limit(1);
 
@@ -3592,12 +3593,12 @@ router.post("/social/google", async (req, res) => {
 
   const googleEffectiveRole = user?.roles ?? "customer";
   if (!isAuthMethodEnabledStrict(settings, "auth_google_enabled", "auth_social_google", googleEffectiveRole)) {
-    res.status(403).json({ error: "Google login is currently disabled for your account type." }); return;
+    sendForbidden(res, "Google login is currently disabled for your account type."); return;
   }
 
   if (!user) {
     if (settings["feature_new_users"] === "off") {
-      res.status(403).json({ error: "New user registration is currently disabled" }); return;
+      sendForbidden(res, "New user registration is currently disabled"); return;
     }
     const requireApproval = settings["user_require_approval"] === "on";
     const id = generateId();
@@ -3610,8 +3611,8 @@ router.post("/social/google", async (req, res) => {
     emitWebhookEvent("user_registered", { userId: id, email, role: "customer", method: "social_google" }).catch(() => {});
   }
 
-  if (user!.isBanned) { res.status(403).json({ error: "Account suspended" }); return; }
-  if (!user!.isActive && user!.approvalStatus !== "pending") { res.status(403).json({ error: "Account inactive" }); return; }
+  if (user!.isBanned) { sendForbidden(res, "Account suspended"); return; }
+  if (!user!.isActive && user!.approvalStatus !== "pending") { sendForbidden(res, "Account inactive"); return; }
 
   if (user!.totpEnabled && isAuthMethodEnabled(settings, "auth_2fa_enabled", user!.roles ?? undefined)) {
     const trustedDays = parseInt(settings["auth_trusted_device_days"] ?? "30", 10);
@@ -3633,13 +3634,13 @@ router.post("/social/google", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/social/facebook", async (req, res) => {
   const { accessToken: fbToken, deviceFingerprint } = req.body;
-  if (!fbToken) { res.status(400).json({ error: "accessToken required" }); return; }
+  if (!fbToken) { sendError(res, "accessToken required", 400); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   if (!isAuthMethodEnabledStrict(settings, "auth_facebook_enabled", "auth_social_facebook")) {
-    res.status(403).json({ error: "Facebook login is currently disabled" }); return;
+    sendForbidden(res, "Facebook login is currently disabled"); return;
   }
 
   let fbPayload: any;
@@ -3649,7 +3650,7 @@ router.post("/social/facebook", async (req, res) => {
     fbPayload = await resp.json();
   } catch {
     addSecurityEvent({ type: "social_facebook_invalid_token", ip, details: "Invalid Facebook access token", severity: "medium" });
-    res.status(401).json({ error: "Invalid Facebook token" }); return;
+    sendUnauthorized(res, "Invalid Facebook token"); return;
   }
 
   const facebookId = fbPayload.id;
@@ -3657,7 +3658,7 @@ router.post("/social/facebook", async (req, res) => {
   const name = fbPayload.name ?? null;
   const avatar = fbPayload.picture?.data?.url ?? null;
 
-  if (!facebookId) { res.status(401).json({ error: "Facebook token missing id" }); return; }
+  if (!facebookId) { sendUnauthorized(res, "Facebook token missing id"); return; }
 
   let [user] = await db.select().from(usersTable).where(eq(usersTable.facebookId, facebookId)).limit(1);
 
@@ -3690,12 +3691,12 @@ router.post("/social/facebook", async (req, res) => {
 
   const fbEffectiveRole = user?.roles ?? "customer";
   if (!isAuthMethodEnabledStrict(settings, "auth_facebook_enabled", "auth_social_facebook", fbEffectiveRole)) {
-    res.status(403).json({ error: "Facebook login is currently disabled for your account type." }); return;
+    sendForbidden(res, "Facebook login is currently disabled for your account type."); return;
   }
 
   if (!user) {
     if (settings["feature_new_users"] === "off") {
-      res.status(403).json({ error: "New user registration is currently disabled" }); return;
+      sendForbidden(res, "New user registration is currently disabled"); return;
     }
     const requireApproval = settings["user_require_approval"] === "on";
     const id = generateId();
@@ -3708,8 +3709,8 @@ router.post("/social/facebook", async (req, res) => {
     emitWebhookEvent("user_registered", { userId: id, email, role: "customer", method: "social_facebook" }).catch(() => {});
   }
 
-  if (user!.isBanned) { res.status(403).json({ error: "Account suspended" }); return; }
-  if (!user!.isActive && user!.approvalStatus !== "pending") { res.status(403).json({ error: "Account inactive" }); return; }
+  if (user!.isBanned) { sendForbidden(res, "Account suspended"); return; }
+  if (!user!.isActive && user!.approvalStatus !== "pending") { sendForbidden(res, "Account inactive"); return; }
 
   if (user!.totpEnabled && isAuthMethodEnabled(settings, "auth_2fa_enabled", user!.roles ?? undefined)) {
     const trustedDays = parseInt(settings["auth_trusted_device_days"] ?? "30", 10);
@@ -3730,15 +3731,15 @@ router.post("/social/facebook", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.get("/2fa/setup", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const settings = await getCachedSettings();
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
 
   if (!isAuthMethodEnabled(settings, "auth_2fa_enabled", user.roles ?? undefined)) {
-    res.status(403).json({ error: "Two-factor authentication is currently disabled" }); return;
+    sendForbidden(res, "Two-factor authentication is currently disabled"); return;
   }
   if (user.totpEnabled) { res.status(409).json({ error: "2FA is already enabled" }); return; }
 
@@ -3766,18 +3767,18 @@ router.get("/2fa/setup", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/2fa/verify-setup", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { code } = req.body;
-  if (!code) { res.status(400).json({ error: "TOTP code required" }); return; }
+  if (!code) { sendError(res, "TOTP code required", 400); return; }
 
   const settings = await getCachedSettings();
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
 
   if (!isAuthMethodEnabled(settings, "auth_2fa_enabled", user.roles ?? undefined)) {
-    res.status(403).json({ error: "Two-factor authentication is currently disabled" }); return;
+    sendForbidden(res, "Two-factor authentication is currently disabled"); return;
   }
   if (user.totpEnabled) { res.status(409).json({ error: "2FA is already enabled" }); return; }
 
@@ -3785,12 +3786,12 @@ router.post("/2fa/verify-setup", async (req, res) => {
      If not found the setup step was never called (or the TTL expired). */
   const pendingEntry = pendingTotpSecrets.get(auth.userId);
   if (!pendingEntry) {
-    res.status(400).json({ error: "Please call /auth/2fa/setup first (setup session expired or not started)" }); return;
+    sendError(res, "Please call /auth/2fa/setup first (setup session expired or not started)", 400); return;
   }
 
   const secret = pendingEntry.secret;
   if (!verifyTotpToken(code, secret)) {
-    res.status(401).json({ error: "Invalid TOTP code. Please try again." }); return;
+    sendUnauthorized(res, "Invalid TOTP code. Please try again."); return;
   }
 
   /* Verification succeeded — now write the encrypted secret to the database. */
@@ -3840,18 +3841,18 @@ router.post("/2fa/verify-setup", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/totp/enable", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { code } = req.body;
-  if (!code) { res.status(400).json({ error: "TOTP code required" }); return; }
+  if (!code) { sendError(res, "TOTP code required", 400); return; }
 
   const settings = await getCachedSettings();
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
 
   if (!isAuthMethodEnabled(settings, "auth_2fa_enabled", user.roles ?? undefined)) {
-    res.status(403).json({ error: "Two-factor authentication is currently disabled" }); return;
+    sendForbidden(res, "Two-factor authentication is currently disabled"); return;
   }
   if (user.totpEnabled) { res.status(409).json({ error: "2FA is already enabled" }); return; }
 
@@ -3860,12 +3861,12 @@ router.post("/totp/enable", async (req, res) => {
      the user verifies their first code, never during setup. */
   const pendingEntryEnable = pendingTotpSecrets.get(auth.userId);
   if (!pendingEntryEnable) {
-    res.status(400).json({ error: "Please call /auth/2fa/setup first to obtain a TOTP secret (setup session expired or not started)" }); return;
+    sendError(res, "Please call /auth/2fa/setup first to obtain a TOTP secret (setup session expired or not started)", 400); return;
   }
 
   const secret = pendingEntryEnable.secret;
   if (!verifyTotpToken(code, secret)) {
-    res.status(401).json({ error: "Invalid TOTP code. Please try again." }); return;
+    sendUnauthorized(res, "Invalid TOTP code. Please try again."); return;
   }
 
   /* Verification succeeded — write encrypted secret to the database now. */
@@ -3906,27 +3907,27 @@ router.post("/totp/enable", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/2fa/verify", async (req, res) => {
   const { tempToken, code, deviceFingerprint } = req.body;
-  if (!tempToken || !code) { res.status(400).json({ error: "tempToken and code required" }); return; }
+  if (!tempToken || !code) { sendError(res, "tempToken and code required", 400); return; }
 
   const challengePayload = verify2faChallengeToken(tempToken);
-  if (!challengePayload) { res.status(401).json({ error: "Invalid or expired 2FA challenge token" }); return; }
+  if (!challengePayload) { sendUnauthorized(res, "Invalid or expired 2FA challenge token"); return; }
 
   const settings = await getCachedSettings();
   const ip = getClientIp(req);
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, challengePayload.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
 
   if (!isAuthMethodEnabled(settings, "auth_2fa_enabled", user.roles ?? undefined)) {
-    res.status(403).json({ error: "Two-factor authentication has been disabled by admin." }); return;
+    sendForbidden(res, "Two-factor authentication has been disabled by admin."); return;
   }
 
-  if (!user.totpEnabled || !user.totpSecret) { res.status(400).json({ error: "2FA is not enabled" }); return; }
+  if (!user.totpEnabled || !user.totpSecret) { sendError(res, "2FA is not enabled", 400); return; }
 
   const secret = decryptTotpSecret(user.totpSecret);
   if (!verifyTotpToken(code, secret)) {
     addSecurityEvent({ type: "2fa_verify_failed", ip, userId: user.id, details: "Invalid 2FA code on login", severity: "medium" });
-    res.status(401).json({ error: "Invalid 2FA code" }); return;
+    sendUnauthorized(res, "Invalid 2FA code"); return;
   }
 
   writeAuthAuditLog("2fa_verified", { userId: user.id, ip, userAgent: req.headers["user-agent"] as string });
@@ -3941,25 +3942,25 @@ router.post("/2fa/verify", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/2fa/disable", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { code } = req.body;
-  if (!code) { res.status(400).json({ error: "TOTP code required to disable 2FA" }); return; }
+  if (!code) { sendError(res, "TOTP code required to disable 2FA", 400); return; }
 
   const settings = await getCachedSettings();
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
 
   if (!isAuthMethodEnabled(settings, "auth_2fa_enabled", user.roles ?? undefined)) {
-    res.status(403).json({ error: "Two-factor authentication has been disabled by admin." }); return;
+    sendForbidden(res, "Two-factor authentication has been disabled by admin."); return;
   }
 
-  if (!user.totpEnabled || !user.totpSecret) { res.status(400).json({ error: "2FA is not enabled" }); return; }
+  if (!user.totpEnabled || !user.totpSecret) { sendError(res, "2FA is not enabled", 400); return; }
 
   const secret = decryptTotpSecret(user.totpSecret);
   if (!verifyTotpToken(code, secret)) {
-    res.status(401).json({ error: "Invalid TOTP code" }); return;
+    sendUnauthorized(res, "Invalid TOTP code"); return;
   }
 
   await db.update(usersTable).set({
@@ -4063,22 +4064,22 @@ async function consumeRecoveryCode(
 ══════════════════════════════════════════════════════════════ */
 router.post("/2fa/recovery", async (req, res) => {
   const { tempToken, backupCode } = req.body;
-  if (!tempToken || !backupCode) { res.status(400).json({ error: "tempToken and backupCode required" }); return; }
+  if (!tempToken || !backupCode) { sendError(res, "tempToken and backupCode required", 400); return; }
 
   const challengePayload = verify2faChallengeToken(tempToken);
-  if (!challengePayload) { res.status(401).json({ error: "Invalid or expired 2FA challenge token" }); return; }
+  if (!challengePayload) { sendUnauthorized(res, "Invalid or expired 2FA challenge token"); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, challengePayload.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
 
   if (!isAuthMethodEnabled(settings, "auth_2fa_enabled", user.roles ?? undefined)) {
-    res.status(403).json({ error: "Two-factor authentication has been disabled by admin." }); return;
+    sendForbidden(res, "Two-factor authentication has been disabled by admin."); return;
   }
 
-  if (!user.totpEnabled) { res.status(400).json({ error: "2FA is not enabled" }); return; }
+  if (!user.totpEnabled) { sendError(res, "2FA is not enabled", 400); return; }
 
   const outcome = await consumeRecoveryCode(user, backupCode, ip, "/auth/2fa/recovery");
   if ("error" in outcome) { res.status(outcome.status).json({ error: outcome.error }); return; }
@@ -4104,22 +4105,22 @@ router.post("/totp/recover", async (req, res) => {
   /* Canonical TOTP lockout-recovery path — delegates to consumeRecoveryCode() shared
      helper which handles new-table atomic consume and legacy JSON fallback/migration. */
   const { tempToken, backupCode } = req.body;
-  if (!tempToken || !backupCode) { res.status(400).json({ error: "tempToken and backupCode required" }); return; }
+  if (!tempToken || !backupCode) { sendError(res, "tempToken and backupCode required", 400); return; }
 
   const challengePayload = verify2faChallengeToken(tempToken);
-  if (!challengePayload) { res.status(401).json({ error: "Invalid or expired 2FA challenge token" }); return; }
+  if (!challengePayload) { sendUnauthorized(res, "Invalid or expired 2FA challenge token"); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, challengePayload.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
 
   if (!isAuthMethodEnabled(settings, "auth_2fa_enabled", user.roles ?? undefined)) {
-    res.status(403).json({ error: "Two-factor authentication has been disabled by admin." }); return;
+    sendForbidden(res, "Two-factor authentication has been disabled by admin."); return;
   }
 
-  if (!user.totpEnabled) { res.status(400).json({ error: "2FA is not enabled" }); return; }
+  if (!user.totpEnabled) { sendError(res, "2FA is not enabled", 400); return; }
 
   const outcome = await consumeRecoveryCode(user, backupCode, ip, "/auth/totp/recover");
   if ("error" in outcome) { res.status(outcome.status).json({ error: outcome.error }); return; }
@@ -4136,24 +4137,24 @@ router.post("/totp/recover", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/2fa/trust-device", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { deviceFingerprint } = req.body;
   if (!deviceFingerprint || typeof deviceFingerprint !== "string" || deviceFingerprint.length < 8) {
-    res.status(400).json({ error: "Valid deviceFingerprint required (min 8 chars)" }); return;
+    sendError(res, "Valid deviceFingerprint required (min 8 chars)", 400); return;
   }
 
   const settings = await getCachedSettings();
   const trustedDays = parseInt(settings["auth_trusted_device_days"] ?? "30", 10);
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
 
   if (!isAuthMethodEnabled(settings, "auth_2fa_enabled", user.roles ?? undefined)) {
-    res.status(403).json({ error: "Two-factor authentication has been disabled by admin." }); return;
+    sendForbidden(res, "Two-factor authentication has been disabled by admin."); return;
   }
 
-  if (!user.totpEnabled) { res.status(400).json({ error: "2FA is not enabled" }); return; }
+  if (!user.totpEnabled) { sendError(res, "2FA is not enabled", 400); return; }
 
   let devices: Array<{ fp: string; expiresAt: number }> = [];
   try { if (user.trustedDevices) devices = JSON.parse(user.trustedDevices); } catch {}
@@ -4181,13 +4182,13 @@ const magicLinkRateMap = new Map<string, { count: number; windowStart: number }>
 
 router.post("/magic-link/send", async (req, res) => {
   const { email } = req.body;
-  if (!email || !email.includes("@")) { res.status(400).json({ error: "Valid email address required" }); return; }
+  if (!email || !email.includes("@")) { sendError(res, "Valid email address required", 400); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   if (!isAuthMethodEnabledStrict(settings, "auth_magic_link_enabled", "auth_magic_link")) {
-    res.status(403).json({ error: "Magic link login is currently disabled" }); return;
+    sendForbidden(res, "Magic link login is currently disabled"); return;
   }
 
   const normalized = email.toLowerCase().trim();
@@ -4213,11 +4214,11 @@ router.post("/magic-link/send", async (req, res) => {
 
   const effectiveMagicRole = user.roles ?? ((req.body?.role === "rider" || req.body?.role === "vendor") ? req.body.role : "customer");
   if (!isAuthMethodEnabledStrict(settings, "auth_magic_link_enabled", "auth_magic_link", effectiveMagicRole)) {
-    res.status(403).json({ error: "Magic link login is currently disabled for your account type." }); return;
+    sendForbidden(res, "Magic link login is currently disabled for your account type."); return;
   }
 
-  if (user.isBanned) { res.status(403).json({ error: "Account suspended" }); return; }
-  if (!user.isActive) { res.status(403).json({ error: "Account inactive" }); return; }
+  if (user.isBanned) { sendForbidden(res, "Account suspended"); return; }
+  if (!user.isActive) { sendForbidden(res, "Account inactive"); return; }
 
   const rawToken = crypto.randomBytes(32).toString("hex");
   const tokenHash = hashPassword(rawToken);
@@ -4250,13 +4251,13 @@ router.post("/magic-link/send", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/magic-link/verify", async (req, res) => {
   const { token, totpCode, deviceFingerprint } = req.body;
-  if (!token) { res.status(400).json({ error: "Token required" }); return; }
+  if (!token) { sendError(res, "Token required", 400); return; }
 
   const ip = getClientIp(req);
   const settings = await getCachedSettings();
 
   if (!isAuthMethodEnabledStrict(settings, "auth_magic_link_enabled", "auth_magic_link")) {
-    res.status(403).json({ error: "Magic link login is currently disabled" }); return;
+    sendForbidden(res, "Magic link login is currently disabled"); return;
   }
 
   const allTokens = await db.select().from(magicLinkTokensTable)
@@ -4270,18 +4271,18 @@ router.post("/magic-link/verify", async (req, res) => {
 
   if (!matchedRow) {
     addSecurityEvent({ type: "magic_link_invalid", ip, details: "Invalid or expired magic link token", severity: "medium" });
-    res.status(401).json({ error: "Invalid or expired magic link. Please request a new one." }); return;
+    sendUnauthorized(res, "Invalid or expired magic link. Please request a new one."); return;
   }
 
   await db.update(magicLinkTokensTable).set({ usedAt: new Date() }).where(eq(magicLinkTokensTable.id, matchedRow.id));
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, matchedRow.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  if (user.isBanned) { res.status(403).json({ error: "Account suspended" }); return; }
-  if (!user.isActive) { res.status(403).json({ error: "Account inactive" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
+  if (user.isBanned) { sendForbidden(res, "Account suspended"); return; }
+  if (!user.isActive) { sendForbidden(res, "Account inactive"); return; }
 
   if (!isAuthMethodEnabledStrict(settings, "auth_magic_link_enabled", "auth_magic_link", user.roles ?? "customer")) {
-    res.status(403).json({ error: "Magic link login is currently disabled for your account type." }); return;
+    sendForbidden(res, "Magic link login is currently disabled for your account type."); return;
   }
 
   if (user.totpEnabled && isAuthMethodEnabled(settings, "auth_2fa_enabled", user.roles ?? undefined)) {
@@ -4293,7 +4294,7 @@ router.post("/magic-link/verify", async (req, res) => {
       }
       const secret = decryptTotpSecret(user.totpSecret!);
       if (!verifyTotpToken(totpCode, secret)) {
-        res.status(401).json({ error: "Invalid 2FA code" }); return;
+        sendUnauthorized(res, "Invalid 2FA code"); return;
       }
     }
   }
@@ -4312,16 +4313,16 @@ router.post("/magic-link/verify", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/change-phone/request", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { newPhone } = req.body;
   if (!newPhone || typeof newPhone !== "string") {
-    res.status(400).json({ error: "New phone number is required" }); return;
+    sendError(res, "New phone number is required", 400); return;
   }
 
   const phone = canonicalizePhone(newPhone);
   if (!/^3\d{9}$/.test(phone)) {
-    res.status(400).json({ error: "Invalid Pakistani phone number format" }); return;
+    sendError(res, "Invalid Pakistani phone number format", 400); return;
   }
 
   const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
@@ -4364,25 +4365,25 @@ router.post("/change-phone/request", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/change-phone/confirm", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { newPhone, otp } = req.body;
   if (!newPhone || !otp) {
-    res.status(400).json({ error: "New phone number and OTP are required" }); return;
+    sendError(res, "New phone number and OTP are required", 400); return;
   }
 
   const phone = canonicalizePhone(newPhone);
   const ip = getClientIp(req);
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, auth.userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { sendNotFound(res, "User not found"); return; }
 
   if (user.pendingMergeIdentifier !== phone) {
-    res.status(400).json({ error: "OTP was not requested for this phone number" }); return;
+    sendError(res, "OTP was not requested for this phone number", 400); return;
   }
 
   if (user.mergeOtpCode !== hashOtp(otp) || !user.mergeOtpExpiry || user.mergeOtpExpiry < new Date()) {
-    res.status(400).json({ error: "Invalid or expired OTP" }); return;
+    sendError(res, "Invalid or expired OTP", 400); return;
   }
 
   const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
@@ -4410,7 +4411,7 @@ router.post("/change-phone/confirm", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.get("/login-history", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const history = await db.select().from(loginHistoryTable)
     .where(eq(loginHistoryTable.userId, auth.userId))
@@ -4438,7 +4439,7 @@ router.get("/login-history", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.get("/sessions", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const sessions = await db
     .select()
@@ -4466,7 +4467,7 @@ router.get("/sessions", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.delete("/sessions/:id", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { id } = req.params;
   const [session] = await db
@@ -4475,7 +4476,7 @@ router.delete("/sessions/:id", async (req, res) => {
     .where(and(eq(userSessionsTable.id, id!), eq(userSessionsTable.userId, auth.userId)))
     .limit(1);
 
-  if (!session) { res.status(404).json({ error: "Session not found" }); return; }
+  if (!session) { sendNotFound(res, "Session not found"); return; }
 
   await db
     .update(userSessionsTable)
@@ -4499,7 +4500,7 @@ router.delete("/sessions/:id", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.delete("/sessions", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   await db
     .update(userSessionsTable)
@@ -4525,10 +4526,10 @@ router.delete("/sessions", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/link-google", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { idToken } = req.body;
-  if (!idToken) { res.status(400).json({ error: "idToken is required" }); return; }
+  if (!idToken) { sendError(res, "idToken is required", 400); return; }
 
   const ip = getClientIp(req);
 
@@ -4540,7 +4541,7 @@ router.post("/link-google", async (req, res) => {
     const googleId = tokenInfo.sub as string;
     const email = tokenInfo.email as string | undefined;
 
-    if (!googleId) { res.status(400).json({ error: "Could not extract Google ID from token" }); return; }
+    if (!googleId) { sendError(res, "Could not extract Google ID from token", 400); return; }
 
     /* Check if another user already has this googleId */
     const [conflict] = await db
@@ -4573,22 +4574,22 @@ router.post("/link-google", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/link-facebook", async (req, res) => {
   const auth = extractAuthUser(req);
-  if (!auth) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!auth) { sendUnauthorized(res, "Authentication required"); return; }
 
   const { accessToken } = req.body;
-  if (!accessToken) { res.status(400).json({ error: "accessToken is required" }); return; }
+  if (!accessToken) { sendError(res, "accessToken is required", 400); return; }
 
   const ip = getClientIp(req);
 
   try {
     /* Fetch Facebook user info */
     const fbRes = await fetch(`https://graph.facebook.com/me?fields=id,email,name&access_token=${accessToken}`, { signal: AbortSignal.timeout(10000) });
-    if (!fbRes.ok) { res.status(400).json({ error: "Invalid Facebook access token" }); return; }
+    if (!fbRes.ok) { sendError(res, "Invalid Facebook access token", 400); return; }
 
     const fbPayload = await fbRes.json() as { id: string; email?: string; name?: string };
     const facebookId = fbPayload.id;
 
-    if (!facebookId) { res.status(400).json({ error: "Could not extract Facebook ID" }); return; }
+    if (!facebookId) { sendError(res, "Could not extract Facebook ID", 400); return; }
 
     /* Check conflict */
     const [conflict] = await db
@@ -4623,10 +4624,10 @@ router.post("/link-facebook", async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/firebase-verify", async (req, res) => {
   const { idToken, role: requestedRole } = req.body;
-  if (!idToken) { res.status(400).json({ error: "idToken is required" }); return; }
+  if (!idToken) { sendError(res, "idToken is required", 400); return; }
 
   if (requestedRole !== undefined && !["customer", "rider", "vendor"].includes(requestedRole)) {
-    res.status(400).json({ error: "Invalid role" });
+    sendError(res, "Invalid role", 400);
     return;
   }
 
@@ -4637,7 +4638,7 @@ router.post("/firebase-verify", async (req, res) => {
   const decoded = await verifyFirebaseToken(idToken);
 
   if (!decoded) {
-    res.status(401).json({ error: "Invalid or expired Firebase token. Ensure Firebase is configured on the server." });
+    sendUnauthorized(res, "Invalid or expired Firebase token. Ensure Firebase is configured on the server.");
     return;
   }
 

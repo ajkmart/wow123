@@ -58,6 +58,17 @@ import loyaltyFullRouter from "./loyalty-full.js";
 import { adminAuth } from "./admin-shared.js";
 import { userApiLimiter, publicLimiter } from "../middleware/rate-limit.js";
 import { verifyTokenFamily } from "../middleware/auth.js";
+import type { Request, Response, NextFunction } from "express";
+
+/**
+ * Wraps publicLimiter so it only fires on GET / HEAD requests.
+ * POST/PUT/PATCH/DELETE child routes (e.g. POST /recommendations/track)
+ * are not subject to the read-scraping limit.
+ */
+function publicGetLimiter(req: Request, res: Response, next: NextFunction): void {
+  if (req.method !== "GET" && req.method !== "HEAD") { next(); return; }
+  publicLimiter(req, res, next);
+}
 
 const router: IRouter = Router();
 
@@ -74,13 +85,13 @@ if (process.env["ADMIN_LEGACY_AUTH_DISABLED"] !== "1") {
   router.use("/auth", authRouter);
 }
 router.use("/users", verifyTokenFamily, usersRouter);
-router.use("/products", publicLimiter, productsRouter);
+router.use("/products", publicGetLimiter, productsRouter);
 router.use("/orders", verifyTokenFamily, userApiLimiter, ordersRouter);
 router.use("/cart", verifyTokenFamily, userApiLimiter, cartRouter);
 router.use("/wallet", verifyTokenFamily, userApiLimiter, walletRouter);
 router.use("/rides", verifyTokenFamily, userApiLimiter, ridesRouter);
 router.use("/locations", locationsRouter);
-router.use("/categories", publicLimiter, categoriesRouter);
+router.use("/categories", publicGetLimiter, categoriesRouter);
 router.use("/pharmacy-orders", verifyTokenFamily, userApiLimiter, pharmacyRouter);
 router.use("/parcel-bookings", verifyTokenFamily, userApiLimiter, parcelRouter);
 router.use("/notifications", verifyTokenFamily, userApiLimiter, notificationsRouter);
@@ -112,8 +123,8 @@ router.use("/admin/maps", adminMapsRouter);
 router.use("/school", schoolRouter);
 router.use("/uploads", uploadsRouter);
 router.use("/sos", verifyTokenFamily, userApiLimiter, sosRouter);
-router.use("/recommendations", publicLimiter, userApiLimiter, recommendationsRouter);
-router.use("/banners", publicLimiter, bannersRouter);
+router.use("/recommendations", publicGetLimiter, userApiLimiter, recommendationsRouter);
+router.use("/banners", publicGetLimiter, bannersRouter);
 router.use("/variants", variantsRouter);
 router.use("/push", verifyTokenFamily, userApiLimiter, pushRouter);
 router.use("/kyc", verifyTokenFamily, userApiLimiter, kycRouter);
@@ -122,17 +133,17 @@ router.use("/van", vanRouter);
 router.use("/webhooks", webhooksRouter);
 router.use("/delivery/eligibility", deliveryEligibilityRouter);
 router.use("/popups", popupsRouter);
-router.use("/promotions", publicLimiter, promotionsRouter);
+router.use("/promotions", publicGetLimiter, promotionsRouter);
 router.use("/admin/promotions", promotionsRouter);
 router.use("/support-chat", supportChatRouter);
-router.use("/vendors", publicLimiter, publicVendorsRouter);
+router.use("/vendors", publicGetLimiter, publicVendorsRouter);
 router.use("/stats", statsRouter);
 router.use("/metrics", metricsRouter);
 router.use("/error-reports", errorReportsRouter);
 router.use("/admin/error-reports", errorReportsRouter);
 router.use("/communication", communicationRouter);
 router.use("/weather-config", weatherConfigRouter);
-router.use("/dl", publicLimiter, deepLinksPublicRouter);
+router.use("/dl", publicGetLimiter, deepLinksPublicRouter);
 
 /**
  * Legal / consent surface used by the admin "Consent & Terms Versions"
