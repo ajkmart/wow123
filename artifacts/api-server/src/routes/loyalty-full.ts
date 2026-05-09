@@ -5,7 +5,7 @@ import { usersTable, walletTransactionsTable, loyaltyCampaignsTable, loyaltyRewa
 import { eq, or, sql, desc } from "drizzle-orm";
 import { generateId } from "../lib/id.js";
 import { sendSuccess, sendError, sendNotFound, sendValidationError } from "../lib/response.js";
-import { getCachedSettings } from "./admin-shared.js";
+import { adminAuth, getCachedSettings } from "./admin-shared.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -179,7 +179,7 @@ router.get("/campaigns", async (_req, res) => {
   }
 });
 
-router.post("/campaigns", async (req, res) => {
+router.post("/campaigns", adminAuth, async (req, res) => {
   const p = campaignCreateSchema.safeParse(req.body ?? {});
   if (!p.success) {
     sendValidationError(res, p.error.errors.map(e => e.message).join("; "));
@@ -207,7 +207,7 @@ router.post("/campaigns", async (req, res) => {
   }
 });
 
-router.put("/campaigns/:id", async (req, res) => {
+router.put("/campaigns/:id", adminAuth, async (req, res) => {
   const p = campaignUpdateSchema.safeParse(req.body ?? {});
   if (!p.success) {
     sendValidationError(res, p.error.errors.map(e => e.message).join("; "));
@@ -247,7 +247,7 @@ router.put("/campaigns/:id", async (req, res) => {
   }
 });
 
-router.delete("/campaigns/:id", async (req, res) => {
+router.delete("/campaigns/:id", adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const [existing] = await db
@@ -282,7 +282,7 @@ router.get("/rewards", async (_req, res) => {
   }
 });
 
-router.post("/rewards", async (req, res) => {
+router.post("/rewards", adminAuth, async (req, res) => {
   const p = rewardCreateSchema.safeParse(req.body ?? {});
   if (!p.success) {
     sendValidationError(res, p.error.errors.map(e => e.message).join("; "));
@@ -310,7 +310,7 @@ router.post("/rewards", async (req, res) => {
   }
 });
 
-router.put("/rewards/:id", async (req, res) => {
+router.put("/rewards/:id", adminAuth, async (req, res) => {
   const p = rewardUpdateSchema.safeParse(req.body ?? {});
   if (!p.success) {
     sendValidationError(res, p.error.errors.map(e => e.message).join("; "));
@@ -350,7 +350,7 @@ router.put("/rewards/:id", async (req, res) => {
   }
 });
 
-router.delete("/rewards/:id", async (req, res) => {
+router.delete("/rewards/:id", adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const [existing] = await db

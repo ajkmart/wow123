@@ -9,21 +9,50 @@ import { logger } from "../lib/logger.js";
 
 const router = Router();
 
+const CONDITION_TYPES = [
+  "warning_l1", "warning_l2", "warning_l3",
+  "restriction_service_block", "restriction_wallet_freeze", "restriction_promo_block",
+  "restriction_order_cap", "restriction_review_block", "restriction_cash_only",
+  "restriction_new_order_block", "restriction_rate_limit", "restriction_pending_review_gate",
+  "restriction_device_restriction",
+  "suspension_temporary", "suspension_extended", "suspension_pending_review",
+  "ban_soft", "ban_hard", "ban_fraud",
+] as const;
+
+const SEVERITY_VALUES = [
+  "warning", "restriction_normal", "restriction_strict", "suspension", "ban",
+] as const;
+
+type ConditionType = typeof CONDITION_TYPES[number];
+type SeverityValue = typeof SEVERITY_VALUES[number];
+
 const ruleCreateSchema = z.object({
-  name:          z.string().min(1, "name is required").max(200),
-  description:   z.string().max(500).optional().nullable(),
-  targetRole:    z.string().min(1, "targetRole is required"),
-  metric:        z.string().min(1, "metric is required"),
-  operator:      z.enum([">", "<", ">=", "<=", "==", "!="]),
-  threshold:     z.union([z.string().min(1), z.number()]),
-  conditionType: z.string().min(1, "conditionType is required"),
-  severity:      z.string().optional(),
-  cooldownHours: z.number().int().min(0).optional(),
-  modeApplicability: z.string().optional(),
-  isActive:      z.boolean().optional(),
+  name:              z.string().min(1, "name is required").max(200),
+  description:       z.string().max(500).optional().nullable(),
+  targetRole:        z.string().min(1, "targetRole is required"),
+  metric:            z.string().min(1, "metric is required"),
+  operator:          z.enum([">", "<", ">=", "<=", "==", "!="]),
+  threshold:         z.union([z.string().min(1), z.number()]).transform(v => String(v)),
+  conditionType:     z.enum(CONDITION_TYPES),
+  severity:          z.enum(SEVERITY_VALUES).optional().default("warning"),
+  cooldownHours:     z.number().int().min(0).optional().default(24),
+  modeApplicability: z.string().optional().default("default,ai_recommended,custom"),
+  isActive:          z.boolean().optional().default(true),
 });
 
-const ruleUpdateSchema = ruleCreateSchema.partial();
+const ruleUpdateSchema = z.object({
+  name:              z.string().min(1).max(200).optional(),
+  description:       z.string().max(500).optional().nullable(),
+  targetRole:        z.string().min(1).optional(),
+  metric:            z.string().min(1).optional(),
+  operator:          z.enum([">", "<", ">=", "<=", "==", "!="]).optional(),
+  threshold:         z.union([z.string().min(1), z.number()]).transform(v => String(v)).optional(),
+  conditionType:     z.enum(CONDITION_TYPES).optional(),
+  severity:          z.enum(SEVERITY_VALUES).optional(),
+  cooldownHours:     z.number().int().min(0).optional(),
+  modeApplicability: z.string().optional(),
+  isActive:          z.boolean().optional(),
+});
 
 router.get("/", async (_req, res) => {
   try {
@@ -57,23 +86,23 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    const { name, description, targetRole, metric, operator, threshold, conditionType, severity, cooldownHours, modeApplicability, isActive } = p.data;
+    const d = p.data;
+    const row: typeof conditionRulesTable.$inferInsert = {
+      id:                generateId(),
+      name:              d.name,
+      description:       d.description ?? null,
+      targetRole:        d.targetRole,
+      metric:            d.metric,
+      operator:          d.operator,
+      threshold:         d.threshold,
+      conditionType:     d.conditionType as ConditionType,
+      severity:          d.severity as SeverityValue,
+      cooldownHours:     d.cooldownHours,
+      modeApplicability: d.modeApplicability,
+      isActive:          d.isActive,
+    };
 
-    const [created] = await db.insert(conditionRulesTable).values({
-      id: generateId(),
-      name,
-      description: description ?? null,
-      targetRole,
-      metric,
-      operator,
-      threshold: String(threshold),
-      conditionType: conditionType as any,
-      severity: (severity ?? "warning") as any,
-      cooldownHours: cooldownHours ?? 24,
-      modeApplicability: modeApplicability ?? "default,ai_recommended,custom",
-      isActive: isActive ?? true,
-    } as any).returning();
-
+    const [created] = await db.insert(conditionRulesTable).values(row).returning();
     sendSuccess(res, { rule: created });
   } catch (err) {
     logger.error({ err }, "[business-rules] create error");
@@ -98,13 +127,25 @@ router.put("/:id", async (req, res) => {
 
     if (!existing) { sendNotFound(res, "Business rule not found"); return; }
 
-    const updates: Record<string, unknown> = { ...p.data, updatedAt: new Date() };
-    if (updates.threshold !== undefined) updates.threshold = String(updates.threshold);
-    if (updates.cooldownHours !== undefined) updates.cooldownHours = Number(updates.cooldownHours);
+    const d = p.data;
+    const patch: Partial<typeof conditionRulesTable.$inferInsert> & { updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+    if (d.name              !== undefined) patch.name              = d.name;
+    if (d.description       !== undefined) patch.description       = d.description;
+    if (d.targetRole        !== undefined) patch.targetRole        = d.targetRole;
+    if (d.metric            !== undefined) patch.metric            = d.metric;
+    if (d.operator          !== undefined) patch.operator          = d.operator;
+    if (d.threshold         !== undefined) patch.threshold         = d.threshold;
+    if (d.conditionType     !== undefined) patch.conditionType     = d.conditionType as ConditionType;
+    if (d.severity          !== undefined) patch.severity          = d.severity as SeverityValue;
+    if (d.cooldownHours     !== undefined) patch.cooldownHours     = d.cooldownHours;
+    if (d.modeApplicability !== undefined) patch.modeApplicability = d.modeApplicability;
+    if (d.isActive          !== undefined) patch.isActive          = d.isActive;
 
     const [updated] = await db
       .update(conditionRulesTable)
-      .set(updates as any)
+      .set(patch)
       .where(eq(conditionRulesTable.id, id))
       .returning();
 
@@ -201,11 +242,7 @@ router.post("/validate", async (req, res) => {
         .map(r => ({ id: r.id, name: r.name, conditionType: r.conditionType, severity: r.severity }));
     }
 
-    sendSuccess(res, {
-      triggered: matched.length > 0,
-      matchedRules: matched,
-      dryRun: true,
-    });
+    sendSuccess(res, { triggered: matched.length > 0, matchedRules: matched, dryRun: true });
   } catch (err) {
     logger.error({ err }, "[business-rules] validate error");
     sendError(res, "Failed to validate rule", 500);
@@ -229,17 +266,17 @@ router.post("/evaluate", async (req, res) => {
       if (r.metric !== metric) return false;
       if (role && r.targetRole !== "all" && r.targetRole !== role) return false;
 
-      const threshold = parseFloat(String(r.threshold));
-      const val = parseFloat(String(value));
-      if (isNaN(threshold) || isNaN(val)) return false;
+      const t = parseFloat(String(r.threshold));
+      const v = parseFloat(String(value));
+      if (isNaN(t) || isNaN(v)) return false;
 
       switch (r.operator) {
-        case ">":  return val > threshold;
-        case "<":  return val < threshold;
-        case ">=": return val >= threshold;
-        case "<=": return val <= threshold;
-        case "==": return val === threshold;
-        case "!=": return val !== threshold;
+        case ">":  return v > t;
+        case "<":  return v < t;
+        case ">=": return v >= t;
+        case "<=": return v <= t;
+        case "==": return v === t;
+        case "!=": return v !== t;
         default:   return false;
       }
     });

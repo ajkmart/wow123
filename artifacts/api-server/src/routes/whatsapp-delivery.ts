@@ -87,30 +87,33 @@ router.get("/delivery-log", async (req, res) => {
   const phone  = req.query["phone"]  as string | undefined;
 
   try {
+    const filterValues: unknown[] = [];
     const conditions: string[] = [];
-    const values: unknown[] = [limit, offset];
-    let idx = 3;
+    let idx = 1;
 
     if (status) {
       conditions.push(`status = $${idx++}`);
-      values.push(status);
+      filterValues.push(status);
     }
     if (phone) {
       conditions.push(`recipient_phone ILIKE $${idx++}`);
-      values.push(`%${phone}%`);
+      filterValues.push(`%${phone}%`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    const result = await pool.query(
-      `SELECT * FROM whatsapp_message_log ${where} ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-      values,
-    );
-
-    const countValues = values.slice(2);
     const countResult = await pool.query(
       `SELECT COUNT(*) as count FROM whatsapp_message_log ${where}`,
-      countValues,
+      filterValues,
+    );
+
+    const selectValues: unknown[] = [...filterValues, limit, offset];
+    const limitPlaceholder  = `$${idx}`;
+    const offsetPlaceholder = `$${idx + 1}`;
+
+    const result = await pool.query(
+      `SELECT * FROM whatsapp_message_log ${where} ORDER BY created_at DESC LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`,
+      selectValues,
     );
 
     sendSuccess(res, {
