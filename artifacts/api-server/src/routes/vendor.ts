@@ -278,67 +278,57 @@ router.patch("/orders/:id/status", async (req, res) => {
   let updated: typeof order;
 
   if (status === "confirmed") {
-    /* ── Oversell prevention: check stock and atomically decrement in a transaction ── */
-    const items = Array.isArray(order.items) ? (order.items as Array<{ productId?: string; quantity?: number }>) : [];
-    const itemsWithProducts = items.filter(it => it.productId);
-    if (itemsWithProducts.length > 0) {
-      try {
-        await db.transaction(async (tx) => {
-          for (const item of itemsWithProducts) {
-            const qty = Number(item.quantity) || 1;
-            const [prod] = await tx.select({ id: productsTable.id, stock: productsTable.stock, name: productsTable.name })
-              .from(productsTable)
-              .where(and(eq(productsTable.id, item.productId!), eq(productsTable.vendorId, vendorId)))
-              .limit(1);
-            if (!prod) continue;
-            if (prod.stock !== null && prod.stock < qty) {
-              throw Object.assign(new Error(`Insufficient stock for "${prod.name}". Available: ${prod.stock}, Required: ${qty}`), { code: "INSUFFICIENT_STOCK" });
-            }
-            if (prod.stock !== null) {
-              /* Use RETURNING to verify the UPDATE actually matched (concurrent-safe) */
-              const decremented = await tx.update(productsTable)
-                .set({ stock: sql`stock - ${qty}`, updatedAt: new Date() })
-                .where(and(eq(productsTable.id, prod.id), gte(productsTable.stock, qty)))
-                .returning({ id: productsTable.id, newStock: productsTable.stock });
-              if (decremented.length === 0) {
-                /* Another concurrent confirm already took the last units */
-                throw Object.assign(
-                  new Error(`Insufficient stock for "${prod.name}". Stock was taken by a concurrent order.`),
-                  { code: "INSUFFICIENT_STOCK" },
-                );
-              }
-              /* Record stock history inside the same transaction */
-              await tx.insert(productStockHistoryTable).values({
-                id: generateId(), productId: prod.id, vendorId,
-                previousStock: prod.stock,
-                newStock: decremented[0]!.newStock,
-                source: "order",
-              }).catch(() => {});
-            }
-          }
-          const [result] = await tx.update(ordersTable)
-            .set({ status, updatedAt: new Date() })
-            .where(and(eq(ordersTable.id, orderId), eq(ordersTable.vendorId, vendorId)))
-            .returning();
-          if (!result) throw new Error("Order not found");
-          updated = result;
-        });
-      } catch (e: unknown) {
-        const err = e as Error & { code?: string };
-        if (err.code === "INSUFFICIENT_STOCK") {
-          sendError(res, err.message, 409);
-        } else {
-          sendNotFound(res, err.message || "Failed to confirm order");
-        }
-        return;
-      }
-    } else {
+    /*
+     * SINGLE-DECREMENT DESIGN — DO NOT RE-INTRODUCE STOCK DECREMENT HERE.
+     *
+     * Stock was already decremented atomically at order placement time inside
+     * the `decrementStock()` call in orders.ts (within the placement db.transaction).
+     * That path uses SELECT FOR UPDATE row-locking and writes a full audit record
+     * to product_stock_history with quantityDelta and orderId.
+     *
+     * Adding a second decrement here would silently halve vendor stock on every
+     * confirmed order, causing vendors to run out of inventory at double the real
+     * rate. The confirmation step only needs to advance the order status.
+     *
+     * If you need to guard against oversell at confirmation time, add a
+     * stock-check READ (no UPDATE) here and return 409 if stock has somehow
+     * gone negative — but do NOT decrement again.
+     */
+
+    /* Write an informational (zero-delta) audit record so the history trail
+       shows that this order was confirmed, without touching the stock count. */
+    const confirmItems = Array.isArray(order.items) ? (order.items as Array<{ productId?: string; quantity?: number }>) : [];
+    const confirmItemsWithProducts = confirmItems.filter(it => it.productId);
+
+    try {
       const [result] = await db.update(ordersTable)
         .set({ status, updatedAt: new Date() })
         .where(and(eq(ordersTable.id, orderId), eq(ordersTable.vendorId, vendorId)))
         .returning();
       if (!result) { sendNotFound(res, "Order not found"); return; }
       updated = result;
+
+      /* Informational audit entries — quantityDelta is 0 to make clear no stock moved */
+      for (const item of confirmItemsWithProducts) {
+        const [prod] = await db.select({ id: productsTable.id, stock: productsTable.stock })
+          .from(productsTable)
+          .where(and(eq(productsTable.id, item.productId!), eq(productsTable.vendorId, vendorId)))
+          .limit(1);
+        if (!prod) continue;
+        await db.insert(productStockHistoryTable).values({
+          id: generateId(), productId: prod.id, vendorId,
+          previousStock: prod.stock,
+          newStock: prod.stock,
+          quantityDelta: 0,
+          reason: "order_confirmed",
+          orderId,
+          source: `confirm:${orderId}`,
+        }).catch(() => {});
+      }
+    } catch (e: unknown) {
+      const err = e as Error;
+      sendNotFound(res, err.message || "Failed to confirm order");
+      return;
     }
   } else if (status === "cancelled" && order.paymentMethod === "wallet") {
     /* Atomic: status update + wallet credit + refund stamp in one tx.

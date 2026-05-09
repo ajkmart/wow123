@@ -824,6 +824,7 @@ router.post("/", customerAuth, async (req, res) => {
       inStock: productsTable.inStock,
       name: productsTable.name,
       type: productsTable.type,
+      vendorId: productsTable.vendorId,
     }).from(productsTable).where(and(inArray(productsTable.id, productIds), isNull(productsTable.deletedAt)));
 
     const productMap = new Map(dbProducts.map(p => [p.id, p]));
@@ -866,6 +867,25 @@ router.post("/", customerAuth, async (req, res) => {
     );
     if (resolvedProductTypes.size > 1) {
       sendValidationError(res, `Cart cannot mix item types: found ${[...resolvedProductTypes].join(", ")}. All items must be from the same category (mart, food, or pharmacy).`); return;
+    }
+
+    /* Multi-vendor cart enforcement — all items must belong to the same vendor.
+       vendorId is resolved from the DB record, not from client-supplied data,
+       so a malicious payload cannot spoof this check.
+       If the cart has items from two vendors, only the first vendor would receive
+       the order (silent fulfillment failure). Reject early with a clear error. */
+    const resolvedVendorIds = new Set(
+      (items as Array<Record<string, unknown>>)
+        .map((it) => productMap.get(it.productId as string)?.vendorId)
+        .filter(Boolean)
+    );
+    if (resolvedVendorIds.size > 1) {
+      res.status(400).json({
+        success: false,
+        error: "All items must be from the same vendor. Please place separate orders for items from different stores.",
+        code: "MULTI_VENDOR_CART_NOT_ALLOWED",
+      });
+      return;
     }
   }  /* end price verification block */
 
