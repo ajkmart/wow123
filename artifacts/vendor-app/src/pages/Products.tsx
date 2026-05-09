@@ -1,9 +1,11 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import Papa from "papaparse";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { io, type Socket } from "socket.io-client";
 import { api, apiFetch } from "../lib/api";
 import { usePlatformConfig, useCurrency } from "../lib/useConfig";
 import { useLanguage } from "../lib/useLanguage";
+import { useAuth } from "../lib/auth";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { PageHeader } from "../components/PageHeader";
 import { PullToRefresh } from "../components/PullToRefresh";
@@ -69,6 +71,7 @@ function StockHistoryPanel({ productId }: { productId: string }) {
 
 export default function Products() {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const { isOnline, pendingProductCount, productQueueErrors, enqueueProductAction, retryProductQueueItem, dismissProductQueueError } = useOfflineQueue();
   const { config } = usePlatformConfig();
   const { symbol: currencySymbol, code: currencyCode } = useCurrency();
@@ -76,6 +79,49 @@ export default function Products() {
   const T = (key: TranslationKey) => tDual(key, language);
   const maxItems = config.vendor?.maxItems ?? 100;
   const lowStockThreshold = config.vendor?.lowStockThreshold ?? 10;
+
+  /* ── Real-time stock sync via Socket.IO ── */
+  const socketRef = useRef<Socket | null>(null);
+  const [lastStockSync, setLastStockSync] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const token = api.getToken();
+    const socket = io(window.location.origin, {
+      path: "/api/socket.io",
+      query: { rooms: `vendor:${user.id}` },
+      auth: { token },
+      extraHeaders: { Authorization: `Bearer ${token}` },
+      transports: ["polling", "websocket"],
+    });
+    socketRef.current = socket;
+    let isFirstConnect = true;
+    socket.on("connect", () => {
+      socket.emit("join", `vendor:${user.id}`);
+      if (!isFirstConnect) {
+        qc.invalidateQueries({ queryKey: ["vendor-products"] });
+      }
+      isFirstConnect = false;
+    });
+    socket.on("product:stock_updated", (payload: { productId: string; vendorId: string; stock: number | null; inStock: boolean }) => {
+      /* Optimistically patch the React Query cache — no full refetch needed */
+      qc.setQueriesData<{ products: any[] }>({ queryKey: ["vendor-products"] }, (old) => {
+        if (!old?.products) return old;
+        const updated = old.products.map(p =>
+          p.id === payload.productId
+            ? { ...p, stock: payload.stock, inStock: payload.inStock }
+            : p,
+        );
+        return { ...old, products: updated };
+      });
+      setLastStockSync(new Date());
+    });
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [user?.id, qc]);
+
   const [view, setView]           = useState<"list"|"bulk">("list");
   const [search, setSearch]       = useState("");
   const [filterCat, setFilterCat] = useState("all");
@@ -950,6 +996,14 @@ export default function Products() {
         <input type="search" placeholder="🔍 Search products..." value={search} onChange={e => setSearch(e.target.value)}
           className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-orange-400 text-sm"/>
       </div>
+
+      {/* Live sync indicator */}
+      {lastStockSync && (
+        <div className="hidden md:flex items-center gap-1.5 text-[11px] text-green-600 font-medium px-0 pb-1">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block"/>
+          Last synced: {lastStockSync.toLocaleTimeString()}
+        </div>
+      )}
 
       {/* Category Chips */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 md:static md:border-0 md:bg-transparent md:mt-2">

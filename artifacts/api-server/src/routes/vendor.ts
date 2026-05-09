@@ -645,6 +645,14 @@ router.patch("/products/:id", async (req, res) => {
     }
   }
 
+  /* ── Real-time broadcast: push stock update to vendor room and admin fleet ── */
+  const io = getIO();
+  if (io && (body.stock !== undefined || body.inStock !== undefined)) {
+    const payload = { productId: product.id, vendorId, stock: product.stock, inStock: product.inStock };
+    io.to(`vendor:${vendorId}`).emit("product:stock_updated", payload);
+    io.to("admin-fleet").emit("product:stock_updated", payload);
+  }
+
   sendSuccess(res, { ...product, price: safeNum(product.price) });
 });
 

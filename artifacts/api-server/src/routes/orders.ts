@@ -30,41 +30,60 @@ async function decrementStock(
   for (const item of items) {
     const qty = Number(item.quantity) || 1;
     if (item.variantId) {
-      await tx.execute(sql`
-        UPDATE product_variants
-        SET stock = GREATEST(stock - ${qty}, 0),
-            in_stock = CASE WHEN GREATEST(stock - ${qty}, 0) <= 0 THEN false ELSE in_stock END
-        WHERE id = ${item.variantId} AND stock IS NOT NULL
+      /* Variants: lock row, check stock, decrement — no silent floor */
+      const locked = await tx.execute(sql`
+        SELECT id, stock FROM product_variants WHERE id = ${item.variantId} FOR UPDATE
       `);
+      const variantRow = (locked.rows ?? [])[0] as { id: string; stock: number | null } | undefined;
+      if (variantRow && variantRow.stock !== null) {
+        if (variantRow.stock < qty) {
+          throw Object.assign(
+            new Error(`Insufficient stock for variant. Available: ${variantRow.stock}, Required: ${qty}`),
+            { code: "INSUFFICIENT_STOCK", outOfStockItems: [{ variantId: item.variantId }] },
+          );
+        }
+        await tx.execute(sql`
+          UPDATE product_variants
+          SET stock = stock - ${qty},
+              in_stock = CASE WHEN stock - ${qty} <= 0 THEN false ELSE in_stock END
+          WHERE id = ${item.variantId}
+        `);
+      }
     }
     if (item.productId) {
-      const [before] = await tx
-        .select({ stock: productsTable.stock, vendorId: productsTable.vendorId })
-        .from(productsTable)
-        .where(eq(productsTable.id, item.productId))
-        .limit(1);
-
-      await tx.execute(sql`
-        UPDATE products
-        SET stock = GREATEST(stock - ${qty}, 0),
-            in_stock = CASE WHEN GREATEST(stock - ${qty}, 0) <= 0 THEN false ELSE in_stock END
-        WHERE id = ${item.productId} AND stock IS NOT NULL
+      /* Lock the row at DB level — concurrent transactions queue behind this lock */
+      const locked = await tx.execute(sql`
+        SELECT id, stock, name, vendor_id FROM products WHERE id = ${item.productId} FOR UPDATE
       `);
+      const row = (locked.rows ?? [])[0] as { id: string; stock: number | null; name: string; vendor_id: string } | undefined;
 
-      if (before?.vendorId && before.stock !== null) {
-        const prevStock = before.stock ?? 0;
-        const newStock = Math.max(0, prevStock - qty);
+      if (row && row.stock !== null) {
+        if (row.stock < qty) {
+          /* Reject — do NOT silently floor to 0 for order placement */
+          throw Object.assign(
+            new Error(`Insufficient stock for "${row.name}". Available: ${row.stock}, Required: ${qty}`),
+            { code: "INSUFFICIENT_STOCK", outOfStockItems: [{ productId: item.productId, name: row.name, available: row.stock, required: qty }] },
+          );
+        }
+        const newStock = row.stock - qty;
+        await tx.execute(sql`
+          UPDATE products
+          SET stock = ${newStock},
+              in_stock = CASE WHEN ${newStock} <= 0 THEN false ELSE in_stock END,
+              updated_at = NOW()
+          WHERE id = ${item.productId}
+        `);
         await tx.insert(productStockHistoryTable).values({
           id: generateId(),
           productId: item.productId,
-          vendorId: before.vendorId,
-          previousStock: prevStock,
+          vendorId: row.vendor_id,
+          previousStock: row.stock,
           newStock,
           quantityDelta: -(qty),
           reason: "order",
           orderId,
           source: `order:${orderId}`,
-        });
+        }).catch(() => {});
       }
     }
   }
@@ -1335,10 +1354,15 @@ router.post("/", customerAuth, async (req, res) => {
       sendCreated(res, mapped);
       notifyOnlineRidersOfOrder(order.id, type || "mart").catch((e: Error) => logger.warn({ orderId: order.id, err: e.message }, "[orders/create] wallet notifyOnlineRiders failed"));
     } catch (e: unknown) {
-      const errMsg = (e as Error).message ?? "";
+      const err = e as Error & { code?: string; outOfStockItems?: unknown[] };
+      const errMsg = err.message ?? "";
       logger.error({ err: e, userId }, "[orders/create] wallet payment transaction failed");
       if (idempotencyKey && (errMsg.includes("idempotency_keys_user_key_uniq") || errMsg.includes("duplicate key"))) {
         sendError(res, "Duplicate order request detected. Please wait a moment and try again.", 409);
+        return;
+      }
+      if (err.code === "INSUFFICIENT_STOCK") {
+        sendErrorWithData(res, errMsg, { outOfStockItems: err.outOfStockItems ?? [] }, 409);
         return;
       }
       if (errMsg.includes("Insufficient wallet balance")) {
@@ -1411,9 +1435,14 @@ router.post("/", customerAuth, async (req, res) => {
     emitWebhookEvent("order_placed", { orderId: order!.id, userId, type: type || "mart", total: total.toFixed(2), paymentMethod, status: "pending" }).catch(() => {});
     notifyOnlineRidersOfOrder(order!.id, type || "mart").catch((e: Error) => logger.warn({ orderId: order!.id, err: e.message }, "[orders/create] cash notifyOnlineRiders failed"));
   } catch (e: unknown) {
-    const errMsg = (e as Error).message ?? "";
+    const err = e as Error & { code?: string; outOfStockItems?: unknown[] };
+    const errMsg = err.message ?? "";
     if (idempotencyKey && (errMsg.includes("idempotency_keys_user_key_uniq") || errMsg.includes("duplicate key"))) {
       sendError(res, "Duplicate order request detected. Please wait a moment and try again.", 409);
+      return;
+    }
+    if (err.code === "INSUFFICIENT_STOCK") {
+      sendErrorWithData(res, errMsg, { outOfStockItems: err.outOfStockItems ?? [] }, 409);
       return;
     }
     sendError(res, "Order could not be created. Please try again.", 500);

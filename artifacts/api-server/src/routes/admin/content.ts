@@ -24,6 +24,7 @@ import {
   type AdminRequest, type TranslationKey,
 } from "../admin-shared.js";
 import { sendSuccess, sendCreated, sendError, sendNotFound, sendValidationError } from "../../lib/response.js";
+import { getIO } from "../../lib/socketio.js";
 
 const router = Router();
 /* ── GET /admin/products ─────────────────────────────────────────────────
@@ -336,6 +337,16 @@ router.patch("/products/:id", async (req, res) => {
           await db.delete(stockSubscriptionsTable).where(eq(stockSubscriptionsTable.productId, product.id));
         }
       } catch (e) { logger.warn({ err: e }, "[back-in-stock] admin notify failed"); }
+    }
+  }
+
+  /* ── Real-time broadcast: notify vendor room and admin fleet of stock change ── */
+  if (stock !== undefined || inStock !== undefined) {
+    const io = getIO();
+    if (io) {
+      const payload = { productId: product.id, vendorId: product.vendorId, stock: product.stock, inStock: product.inStock };
+      if (product.vendorId) io.to(`vendor:${product.vendorId}`).emit("product:stock_updated", payload);
+      io.to("admin-fleet").emit("product:stock_updated", payload);
     }
   }
 
