@@ -1,0 +1,92 @@
+FIX ADMIN OTP/AUTH SYSTEM
+Background (Easy English)
+Aapko ek admin panel ka auth/OTP system fix karna hai.
+Kuch cheezein already kaam kar rahi hain — unhe mat todo.
+Kuch cheezein tuti hain ya risky hain — unhe theek karna hai.
+
+Current system ka analysis upar diya gaya hai (Masla 1 to Masla 6).
+Aapka kaam hai sirf wahi fix karna jo broken hai — duplicate function mat banao.
+
+✅ Already Working (Don't Touch)
+Feature	Status
+Admin login (username+password)	✅ Works
+Global OTP Suspend	✅ Works
+Per-User OTP Bypass	✅ Works
+Whitelist + Fixed Code	✅ Works
+Super Admin Master Login	✅ Works
+IP Whitelist/Block	✅ Works
+Login Lockout + Unlock	✅ Works (partial)
+🔴 Fix These Only (One Function Each)
+Fix 1: TOTP Setup Flow (Masla 1)
+Problem: Admin scan kare QR, verify kare bina secret save ho sakta hai.
+Fix: TOTP secret tabhi save ho jab admin verify code enter kare aur match ho.
+
+javascript
+// Expected flow inside ONE function
+function setupTOTP(adminId, secret, verificationCode) {
+    // Step 1: Generate secret
+    // Step 2: Show QR
+    // Step 3: Verify code FIRST
+    // Step 4: Save ONLY IF verified
+    // No duplicate TOTP logic
+}
+Fix 2: Lockout Notification + History (Masla 4)
+Problem: Lock hota hai but admin ko pata nahi chalta, history nahi hai.
+Fix: Lock hone par email alert bhejo + reason store karo.
+
+javascript
+// Inside existing lockout function — add these, don't create new function
+function lockUser(userId, reason) {
+    // existing lock code
+    // ADD: sendEmailAlert(userEmail, "Account locked due to " + reason)
+    // ADD: saveToHistory({ userId, reason, timestamp })
+}
+Fix 3: Unsaved Changes Warning (Masla 6)
+Problem: Admin toggle ON/OFF kare, save bhool jaye, refresh kare — changes gayab.
+Fix: Agar toggle change ho aur save nahi hua to warning dikhao.
+
+javascript
+// Inside auth-methods page component (ONE place)
+function onToggleChange() {
+    if (!saved) {
+        showWarning("⚠️ You have unsaved changes. Click Save button.");
+    }
+}
+Fix 4: Remove Test Bypass from Production (Masla 5)
+Problem: bypassCode: "123456" testing wala production DB mein reh sakta hai.
+Fix: Production environment mein 123456 accept mat karo.
+
+sql
+-- ONE query, no duplicate logic
+DELETE FROM otp_whitelist WHERE bypass_code = '123456' AND environment = 'production';
+Fix 5: Super Admin 2FA Option (Masla 3)
+Problem: Super admin pe kabhi TOTP enforce nahi hoti (skip check hai).
+Fix: Admin setting do → "Require 2FA for Super Admin" toggle.
+
+javascript
+// Modify existing auth check (line 658), don't duplicate
+function shouldSkipTOTP(account) {
+    if (account.role !== 'super') return false;
+    // ADD: check settings.security_super_admin_mfa_required
+    return !settings.security_super_admin_mfa_required;
+}
+Fix 6: Secret Rotation Auto (Masla 2)
+Problem: Rotate button hai but actual rotation nahi hoti, manual env update + restart.
+Fix: Secret rotate karo without server restart.
+
+javascript
+// ONE function to rotate
+async function rotateAdminSecret() {
+    const newSecret = generateStrongSecret();
+    await updateEnvVar("ADMIN_SECRET", newSecret);
+    await notifyAdmins("Secret rotated at " + new Date());
+    // No server restart needed — use runtime config
+}
+🚫 Rules For AI Developer
+Rule	Explanation
+✅ ONE fix per function	Do not combine multiple fixes in one function
+✅ No duplicate functions	Fix inside existing code wherever possible
+✅ No mixing	Don't mix TOTP logic with email logic
+✅ Don't break working features	Test each fix alone
+✅ Keep same API responses	Frontend expects same format
+✅ Add comments	Explain what you changed
