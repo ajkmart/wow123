@@ -532,153 +532,25 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
       _io!.to(`user:${payload.targetUserId}`).emit("comm:call:ice-candidate", { callId: payload.callId, candidate: payload.candidate });
     });
 
-    socket.on("comm:call:end", async (payload: { callId: string; targetUserId: string }) => {
+    socket.on("comm:call:reject", (payload: { callId: string; targetUserId: string }) => {
       if (!cachedSession?.userId || !payload?.callId || !payload?.targetUserId) return;
-      try {
-        const [call] = await db.select().from(callLogsTable).where(and(eq(callLogsTable.id, payload.callId), or(eq(callLogsTable.callerId, cachedSession.userId), eq(callLogsTable.calleeId, cachedSession.userId)))).limit(1);
-        if (!call) return;
-      } catch { return; }
-      _io!.to(`user:${payload.targetUserId}`).emit("comm:call:ended", { callId: payload.callId });
+      _io!.to(`user:${payload.targetUserId}`).emit("comm:call:reject", { callId: payload.callId });
     });
 
-    socket.on("comm:message:delivered", async (payload: { messageId: string; senderId: string }) => {
-      if (!cachedSession?.userId || !payload?.messageId || !payload?.senderId) return;
-      try {
-        const [msg] = await db.select({ senderId: chatMessagesTable.senderId, conversationId: chatMessagesTable.conversationId }).from(chatMessagesTable).where(eq(chatMessagesTable.id, payload.messageId)).limit(1);
-        if (!msg || msg.senderId !== payload.senderId) return;
-        const ok = await isAuthorizedForConversationRoom(msg.conversationId, cachedSession.userId);
-        if (!ok) return;
-        if (msg.senderId === cachedSession.userId) return;
-        await db.update(chatMessagesTable)
-          .set({ deliveryStatus: "delivered", updatedAt: new Date() })
-          .where(and(eq(chatMessagesTable.id, payload.messageId), sql`${chatMessagesTable.deliveryStatus} = 'sent'`));
-        _io!.to(`user:${payload.senderId}`).emit("comm:message:delivered", { messageId: payload.messageId });
-      } catch {}
-    });
-
-    socket.on("leave", (room: string) => {
-      socket.leave(room);
+    socket.on("comm:call:end", (payload: { callId: string; targetUserId: string }) => {
+      if (!cachedSession?.userId || !payload?.callId || !payload?.targetUserId) return;
+      _io!.to(`user:${payload.targetUserId}`).emit("comm:call:end", { callId: payload.callId });
     });
 
     socket.on("disconnect", () => {
-      /* Clean up any pending ride-room buffers for this socket */
-      const prefix = `${socket.id}::`;
-      for (const key of _pendingRideJoins.keys()) {
-        if (key.startsWith(prefix)) _pendingRideJoins.delete(key);
-      }
-
-      /* Evict session cache entry — no longer needed after disconnect */
       _sessionCache.delete(socket.id);
-
-      /* Use the already-resolved session (cached from connection handshake) */
-      if (cachedSession?.userId && cachedSession.role === "rider") {
-        const riderId = cachedSession.userId;
-        const deleteWithRetry = (attempt: number) => {
-          db.delete(liveLocationsTable)
-            .where(eq(liveLocationsTable.userId, riderId))
-            .catch((err: unknown) => {
-              if (attempt < 3) {
-                setTimeout(() => deleteWithRetry(attempt + 1), 1000 * attempt);
-              } else {
-                logger.warn({ err, riderId }, "Failed to clean up stale live_location on disconnect after retries");
-              }
-            });
-        };
-        deleteWithRetry(1);
-        _riderLocLastEmit.delete(riderId);
+      _pendingRideJoins.delete(socket.id); // cleanup all buffers for this socket
+      for (const key of _pendingRideJoins.keys()) {
+        if (key.startsWith(`${socket.id}::`)) _pendingRideJoins.delete(key);
       }
-
-      logger.debug({ socketId: socket.id }, "Socket disconnected");
     });
   });
 
-  /* ── Ghost Rider Expiry: runs every 5 minutes ─────────────────────────────
-     1. Finds riders whose last heartbeat/location update is older than 5 min.
-     2. Emits rider:offline to admin-fleet for each (before deleting from DB).
-     3. Sets users.is_online = false so the DB stays consistent.
-     4. Deletes from live_locations to remove ghost markers from the map.
-  ── */
-  const STALE_LOC_TTL_MS = 5 * 60 * 1000;
-  setInterval(async () => {
-    try {
-      const cutoff = new Date(Date.now() - STALE_LOC_TTL_MS);
-
-      /* Step 1: Find stale rider entries before deleting */
-      const staleRiders = await db
-        .select({ userId: liveLocationsTable.userId, batteryLevel: liveLocationsTable.batteryLevel })
-        .from(liveLocationsTable)
-        .where(lt(liveLocationsTable.updatedAt, cutoff));
-
-      if (staleRiders.length === 0) return;
-
-      const now = new Date().toISOString();
-
-      /* Step 2: Emit rider:offline for each stale rider to admin-fleet */
-      for (const rider of staleRiders) {
-        _io?.to("admin-fleet").emit("rider:offline", {
-          userId: rider.userId,
-          isOnline: false,
-          reason: "heartbeat_timeout",
-          updatedAt: now,
-        });
-        /* Clean per-rider throttle map to release memory */
-        _riderLocLastEmit.delete(rider.userId);
-      }
-
-      /* Step 3: Mark users.is_online = false AND clear lastActive in DB for all stale riders.
-         Clearing lastActive prevents stale timestamps from causing false "recently active"
-         readings in the Admin Panel after a rider drops off without a clean disconnect. */
-      const staleIds = staleRiders.map(r => r.userId);
-      await db
-        .update(usersTable)
-        .set({ isOnline: false, lastActive: null, updatedAt: new Date() })
-        .where(sql`${usersTable.id} = ANY(ARRAY[${sql.join(staleIds.map(id => sql`${id}`), sql`, `)}]::text[])`);
-
-      /* Step 4: Delete stale rows from live_locations */
-      const result = await db
-        .delete(liveLocationsTable)
-        .where(lt(liveLocationsTable.updatedAt, cutoff));
-
-      if (result.rowCount && result.rowCount > 0) {
-        logger.info({ cleaned: result.rowCount, riders: staleIds }, "Ghost rider cleanup: removed stale live_locations and emitted rider:offline");
-      }
-    } catch (err) {
-      logger.warn({ err }, "Ghost rider cleanup failed");
-    }
-  }, STALE_LOC_TTL_MS);
-
-  /* ── Weekly location_history cleanup: runs every Sunday at midnight (server local time) ──
-     Uses a 1-hour polling interval that checks day-of-week (0=Sunday) and hour (0 = midnight).
-     Deletes all location_history rows older than 60 days to keep the table lightweight.
-     A _lastCleanupRun guard ensures it fires at most once per Sunday even if the interval
-     drifts slightly across the midnight boundary. */
-  let _lastHistoryCleanup = 0;
-  const HISTORY_RETENTION_DAYS = 60;
-
-  setInterval(async () => {
-    const now = new Date();
-    const isSundayMidnight = now.getDay() === 0 && now.getHours() === 0;
-    if (!isSundayMidnight) return;
-
-    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    if (_lastHistoryCleanup >= todayMidnight) return;
-    _lastHistoryCleanup = todayMidnight;
-
-    try {
-      const cutoff = new Date(Date.now() - HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-      const result = await db
-        .delete(locationHistoryTable)
-        .where(lte(locationHistoryTable.createdAt, cutoff));
-      logger.info(
-        { deleted: result.rowCount ?? 0, olderThanDays: HISTORY_RETENTION_DAYS },
-        "[cron] location_history weekly cleanup complete",
-      );
-    } catch (err) {
-      logger.warn({ err }, "[cron] location_history weekly cleanup failed");
-    }
-  }, 60 * 60 * 1000);
-
-  logger.info("Socket.io initialized");
   return _io;
 }
 
@@ -686,9 +558,25 @@ export function getIO(): SocketIOServer | null {
   return _io;
 }
 
+/** Broadcast mart/food order event to admin and vendor rooms */
+export function emitOrderUpdate(vendorId: string, order: any) {
+  if (!_io) return;
+  _io.to("admin-fleet").emit("order:update", order);
+  _io.to(`vendor:${vendorId}`).emit("order:update", order);
+}
+
+/** Broadcast parcel booking update to admin and specific participant rooms */
+export function emitParcelUpdate(order: any) {
+  if (!_io) return;
+  _io.to("admin-fleet").emit("parcel:update", order);
+  if (order.userId) _io.to(`user:${order.userId}`).emit("parcel:update", order);
+  if (order.riderId) _io.to(`rider:${order.riderId}`).emit("parcel:update", order);
+}
+
+/** Real-time GPS broadcast: relays rider coordinates to admin-fleet and participants.
+ *  Throttled server-side to max 1 emit per 1500ms per rider to save client CPU/bandwidth. */
 export function emitRiderLocation(payload: {
   userId: string;
-  name?: string;
   latitude: number;
   longitude: number;
   accuracy?: number;
@@ -705,43 +593,35 @@ export function emitRiderLocation(payload: {
 }) {
   if (!_io) return;
 
-  /* ── Server-side broadcast throttle: max 1 emit per rider per RIDER_LOC_THROTTLE_MS ──
-     Prevents downstream clients (Admin Panel, Rider App) from receiving
-     rapid-fire updates that cause map flicker. */
   const now = Date.now();
-  const last = _riderLocLastEmit.get(payload.userId) ?? 0;
-  if (now - last < RIDER_LOC_THROTTLE_MS) return;
+  const lastEmit = _riderLocLastEmit.get(payload.userId) ?? 0;
+
+  if (now - lastEmit < RIDER_LOC_THROTTLE_MS) {
+    /* Throttled: buffer if this rider is currently joining a ride room */
+    if (payload.rideId) {
+      const rooms = Array.from(_pendingRideJoins.keys()).filter(k => k.endsWith(`::ride:${payload.rideId}`));
+      for (const key of rooms) {
+        _pendingRideJoins.get(key)?.push(payload);
+      }
+    }
+    return;
+  }
   _riderLocLastEmit.set(payload.userId, now);
 
   _io.to("admin-fleet").emit("rider:location", payload);
+
   if (payload.rideId) {
-    const room = `ride:${payload.rideId}`;
-    _io.to(room).emit("rider:location", payload);
-    /* Feed any sockets still pending authorization for this ride room */
-    for (const [key, buf] of _pendingRideJoins) {
-      if (key.endsWith(`::${room}`)) {
-        buf.push(payload);
-      }
-    }
-  }
-  if (payload.vendorId) {
-    _io.to(`vendor:${payload.vendorId}`).emit("rider:location", payload);
+    _io.to(`ride:${payload.rideId}`).emit("rider:location", payload);
   }
   if (payload.orderId) {
     _io.to(`order:${payload.orderId}`).emit("rider:location", payload);
   }
+  if (payload.vendorId) {
+    _io.to(`vendor:${payload.vendorId}`).emit("rider:location", payload);
+  }
 }
 
-export function emitRiderForVendor(vendorId: string, payload: {
-  userId: string;
-  latitude: number;
-  longitude: number;
-  updatedAt: string;
-}) {
-  if (!_io) return;
-  _io.to(`vendor:${vendorId}`).emit("rider:location", payload);
-}
-
+/** Broadcast customer location (for specific ride/parcel context) */
 export function emitCustomerLocation(payload: {
   userId: string;
   latitude: number;
@@ -749,127 +629,24 @@ export function emitCustomerLocation(payload: {
   updatedAt: string;
 }) {
   if (!_io) return;
-  _io.to("admin-fleet").emit("customer:location", payload);
+  _io.to(`user:${payload.userId}`).emit("customer:location", payload);
+  /* TODO: emit to specific ride/parcel rooms if active */
 }
 
-export function emitRiderSOS(payload: {
-  userId: string;
-  name: string;
-  phone: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  rideId?: string | null;
-  sentAt: string;
-}) {
+/** Emit specific vendor-only update when a rider moves for their order */
+export function emitRiderForVendor(vendorId: string, payload: any) {
   if (!_io) return;
-  _io.to("admin-fleet").emit("rider:sos", payload);
+  _io.to(`vendor:${vendorId}`).emit("rider:location", payload);
 }
 
-export function emitAdminChatReply(riderId: string, payload: {
-  message: string;
-  sentAt: string;
-  from: "admin";
-}) {
+/** Emit new ride request to all online/available riders */
+export function emitRiderNewRequest(riderId: string, payload: { type: 'ride' | 'order' | 'parcel'; requestId: string; summary: string }) {
   if (!_io) return;
-  _io.to(`rider:${riderId}`).emit("admin:chat", payload);
+  _io.to(`rider:${riderId}`).emit("rider:new_request", payload);
 }
 
-export function emitRiderStatus(payload: {
-  userId: string;
-  isOnline: boolean;
-  name?: string;
-  batteryLevel?: number | null;
-  updatedAt: string;
-}) {
+/** Broadcast chat message to the conversation room */
+export function emitChatMessage(conversationId: string, message: any) {
   if (!_io) return;
-  _io.to("admin-fleet").emit("rider:status", payload);
+  _io.to(`conversation:${conversationId}`).emit("comm:message", message);
 }
-
-/**
- * Push a `rider:new-request` event directly to a specific rider's socket room
- * so their Home screen refreshes instantly (no need to wait for polling interval).
- * Payload mirrors what the rider needs to surface the notification UI.
- */
-export function emitRiderNewRequest(riderId: string, payload: {
-  type: "order" | "ride" | "parcel" | "order_ready";
-  requestId: string;
-  summary?: string;
-}) {
-  if (!_io) return;
-  _io.to(`rider:${riderId}`).emit("rider:new-request", payload);
-}
-
-/* ── SOS lifecycle events ── broadcast to all admin-fleet sessions ── */
-
-export type SosAlertPayload = {
-  id: string;
-  userId: string;
-  title: string;
-  body: string;
-  link: string | null | undefined;
-  sosStatus: string;
-  acknowledgedAt: string | null;
-  acknowledgedBy: string | null;
-  acknowledgedByName: string | null;
-  resolvedAt: string | null;
-  resolvedBy: string | null;
-  resolvedByName: string | null;
-  resolutionNotes: string | null;
-  createdAt: string;
-};
-
-export function emitSosNew(payload: SosAlertPayload) {
-  if (!_io) return;
-  _io.to("admin-fleet").emit("sos:new", payload);
-}
-
-export function emitSosAcknowledged(payload: SosAlertPayload) {
-  if (!_io) return;
-  _io.to("admin-fleet").emit("sos:acknowledged", payload);
-}
-
-export function emitSosResolved(payload: SosAlertPayload) {
-  if (!_io) return;
-  _io.to("admin-fleet").emit("sos:resolved", payload);
-}
-
-export function emitRideDispatchUpdate(payload: {
-  rideId: string;
-  action: string;
-  status: string;
-}) {
-  if (!_io) return;
-  _io.to("admin-fleet").emit("ride:dispatch-update", payload);
-}
-
-export function emitRideOtp(customerId: string, rideId: string, otp: string) {
-  if (!_io) return;
-  _io.to(`user:${customerId}`).to(`ride:${rideId}`).emit("ride:otp", { rideId, otp });
-}
-
-export function emitVanLocation(scheduleId: string, date: string, payload: {
-  latitude: number;
-  longitude: number;
-  speed?: number;
-  heading?: number;
-  updatedAt: string;
-}) {
-  if (!_io) return;
-  const room = `van:${scheduleId}:${date}`;
-  _io.to(room).emit("van:location", payload);
-}
-
-export function emitVanTripUpdate(scheduleId: string, date: string, payload: {
-  event: string;
-  data?: unknown;
-}) {
-  if (!_io) return;
-  const room = `van:${scheduleId}:${date}`;
-  _io.to(room).emit("van:trip-update", payload);
-}
-
-export function getConnectedClientCount(): number {
-  if (!_io) return 0;
-  return _io.sockets.sockets.size;
-}
-

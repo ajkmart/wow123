@@ -16,12 +16,13 @@ import crypto from "crypto";
    and fires an internal admin alert (email + Slack).
    On already-known fingerprint: silently acknowledges.
 
+
    Setup in Sentry:
      Project Settings → Integrations → Webhooks → Add Webhook
      URL: https://<your-domain>/api/admin/sentry-webhook
      Events: Issue (created)
      Secret: value of SENTRY_WEBHOOK_SECRET env var
-══════════════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════════ */
 
 const router = Router();
 

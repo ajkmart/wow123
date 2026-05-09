@@ -4,17 +4,18 @@ import {
   Shield, Save, RefreshCw, Info, AlertTriangle,
   CheckCircle2, XCircle, Lock,
   KeyRound, FileText, Zap, Bike, BarChart3, Globe,
-  ShieldCheck, Loader2, Users, Download, Bug,
+  ShieldCheck, Loader2, Users, Download, Bug, RotateCcw,
+  X, Wifi, Clock, ChevronRight, Activity, LogOut, CheckCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher, apiAbsoluteFetchRaw } from "@/lib/api";
+import { fetcher, apiAbsoluteFetchRaw, fetchAdminAbsoluteResponse } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Toggle, Field, SecretInput } from "@/components/AdminShared";
 import { LastUpdated } from "@/components/ui/LastUpdated";
 
-type SecTab = "auth" | "authmethods" | "ratelimit" | "gps" | "passwords" | "uploads" | "fraud" | "dataexports";
+type SecTab = "auth" | "authmethods" | "ratelimit" | "gps" | "passwords" | "uploads" | "fraud" | "dataexports" | "tokenaudit";
 
 type SecurityDashboard = Record<string, unknown>;
 
@@ -50,6 +51,48 @@ type MfaSetupData = {
   qrCodeDataUrl: string;
 };
 
+type TokenAuditEvent = {
+  id: string;
+  userId: string;
+  userPhone: string | null;
+  userName: string | null;
+  authMethod: string | null;
+  tokenFamilyId: string | null;
+  revokedReason: string | null;
+  eventType: "rotation" | "breach" | "reuse" | "security" | "expired" | "other";
+  revokedAt: string | null;
+  issuedAt: string;
+};
+
+type TimelineToken = {
+  id: string;
+  authMethod: string | null;
+  revoked: boolean;
+  revokedReason: string | null;
+  status: "active" | "rotation" | "breach" | "reuse" | "security" | "expired" | "other";
+  usedAt: string | null;
+  expiresAt: string;
+  revokedAt: string | null;
+  issuedAt: string;
+};
+
+type TimelineFamily = {
+  familyId: string | null;
+  startedAt: string;
+  tokens: TimelineToken[];
+};
+
+type UserTimeline = {
+  userId: string;
+  userPhone: string | null;
+  userName: string | null;
+  totalTokens: number;
+  activeCount: number;
+  breachCount: number;
+  familyCount: number;
+  families: TimelineFamily[];
+};
+
 const SEC_TABS: { id: SecTab; label: string; emoji: string; active: string; desc: string }[] = [
   { id: "auth",        label: "Auth & Sessions",  emoji: "🔐", active: "bg-indigo-600",  desc: "OTP bypass, MFA, login lockout, session durations, live lockouts" },
   { id: "authmethods", label: "Auth Methods",      emoji: "🔑", active: "bg-cyan-600",    desc: "Per-role login method toggles: Phone OTP, Email OTP, Username/Password, Social, Magic Link, 2FA, Biometric" },
@@ -59,6 +102,7 @@ const SEC_TABS: { id: SecTab; label: string; emoji: string; active: string; desc
   { id: "uploads",     label: "File Uploads",      emoji: "📁", active: "bg-teal-600",    desc: "Upload limits, allowed file types, compression" },
   { id: "fraud",       label: "Fraud Detection",   emoji: "🚨", active: "bg-red-600",     desc: "Fake orders, IP auto-block, live IP manager, account limits" },
   { id: "dataexports", label: "Data Exports",      emoji: "📦", active: "bg-violet-600",  desc: "GDPR data export audit log — who exported their data and when, plus suspicious API pattern events" },
+  { id: "tokenaudit",  label: "Token Audit",       emoji: "🔄", active: "bg-rose-600",    desc: "Refresh token rotation trail — rotations, reuse attempts, family invalidations per user" },
 ];
 
 function SecPanel({ title, icon: Icon, color, children }: { title: string; icon: React.ElementType; color: string; children: React.ReactNode }) {
@@ -106,6 +150,15 @@ export default function SecurityPage() {
   const [dataExportsPage,  setDataExportsPage]  = useState(0);
   const DATA_EXPORTS_PAGE_SIZE = 20;
   const [suspiciousEvents, setSuspiciousEvents]  = useState<SecurityEvent[]>([]);
+
+  /* ── Token Audit tab state ── */
+  const [tokenAuditEvents,  setTokenAuditEvents]  = useState<TokenAuditEvent[]>([]);
+  const [tokenAuditTotal,   setTokenAuditTotal]   = useState(0);
+  const [tokenAuditLoading, setTokenAuditLoading] = useState(false);
+  const [tokenAuditPage,    setTokenAuditPage]    = useState(0);
+  const [tokenAuditSearch,  setTokenAuditSearch]  = useState("");
+  const [tokenAuditReason,  setTokenAuditReason]  = useState("");
+  const TOKEN_AUDIT_PAGE_SIZE = 30;
 
   /* ── Load platform settings ── */
   const loadSettings = useCallback(async () => {
@@ -176,12 +229,33 @@ export default function SecurityPage() {
     setDataExportsLoading(false);
   }, [toast, DATA_EXPORTS_PAGE_SIZE]);
 
+  /* ── Load token audit events ── */
+  const fetchTokenAudit = useCallback(async (page = 0, userId = "", reason = "") => {
+    setTokenAuditLoading(true);
+    const offset = page * TOKEN_AUDIT_PAGE_SIZE;
+    const params = new URLSearchParams({
+      limit:  String(TOKEN_AUDIT_PAGE_SIZE),
+      offset: String(offset),
+    });
+    if (userId.trim()) params.set("userId", userId.trim());
+    if (reason.trim()) params.set("reason", reason.trim());
+    try {
+      const data = await apiAbsoluteFetchRaw(`/api/admin/security/token-audit?${params.toString()}`);
+      setTokenAuditEvents(data.events ?? []);
+      setTokenAuditTotal(data.total ?? 0);
+    } catch (e: unknown) {
+      toast({ title: "Failed to load token audit log", description: (e as Error).message, variant: "destructive" });
+    }
+    setTokenAuditLoading(false);
+  }, [toast, TOKEN_AUDIT_PAGE_SIZE]);
+
   /* ── Auto-load live data when switching to auth or fraud tabs ── */
   useEffect(() => {
     if (secTab === "auth" || secTab === "fraud") fetchLiveData();
     if (secTab === "auth") fetchMfaStatus();
     if (secTab === "dataexports") fetchDataExports();
-  }, [secTab, fetchLiveData, fetchMfaStatus, fetchDataExports]);
+    if (secTab === "tokenaudit") fetchTokenAudit(0, tokenAuditSearch, tokenAuditReason);
+  }, [secTab, fetchLiveData, fetchMfaStatus, fetchDataExports, fetchTokenAudit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Platform settings handlers ── */
   const handleChange = (key: string, value: string) => {
@@ -1142,6 +1216,23 @@ export default function SecurityPage() {
         />
       )}
 
+      {secTab === "tokenaudit" && (
+        <TokenAuditTab
+          events={tokenAuditEvents}
+          total={tokenAuditTotal}
+          loading={tokenAuditLoading}
+          page={tokenAuditPage}
+          pageSize={TOKEN_AUDIT_PAGE_SIZE}
+          search={tokenAuditSearch}
+          reasonFilter={tokenAuditReason}
+          onSearchChange={setTokenAuditSearch}
+          onReasonChange={setTokenAuditReason}
+          onSearch={() => { setTokenAuditPage(0); fetchTokenAudit(0, tokenAuditSearch, tokenAuditReason); }}
+          onPageChange={(p) => { setTokenAuditPage(p); fetchTokenAudit(p, tokenAuditSearch, tokenAuditReason); }}
+          onRefresh={() => fetchTokenAudit(tokenAuditPage, tokenAuditSearch, tokenAuditReason)}
+        />
+      )}
+
       <div className="bg-blue-50/60 border border-blue-200/60 rounded-xl p-4 flex gap-3">
         <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
         <p className="text-xs text-blue-700">
@@ -1381,5 +1472,810 @@ function DataExportsTab({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   TOKEN AUDIT TAB — refresh token rotation trail
+   Shows rotations, reuse attempts, family invalidations,
+   and other revocation events per user.
+═══════════════════════════════════════════════════════ */
+const REASON_OPTIONS = [
+  { value: "",                          label: "All reasons" },
+  { value: "ROTATED",                   label: "Rotated (normal)" },
+  { value: "FAMILY_BREACH_DETECTED",    label: "Family breach detected" },
+  { value: "SUSPICIOUS_FAMILY_REUSE",   label: "Suspicious family reuse" },
+  { value: "REUSE_DETECTED",            label: "Reuse detected" },
+  { value: "EXPIRED",                   label: "Expired" },
+  { value: "AUTH_METHOD_DISABLED",      label: "Auth method disabled" },
+  { value: "USER_UNAVAILABLE",          label: "User unavailable" },
+  { value: "ALL_SESSIONS_REVOKED",      label: "All sessions revoked" },
+  { value: "UNKNOWN_METHOD",            label: "Unknown method" },
+  { value: "REVOKED",                   label: "Generic revoke" },
+];
+
+function TokenAuditTab({
+  events,
+  total,
+  loading,
+  page,
+  pageSize,
+  search,
+  reasonFilter,
+  onSearchChange,
+  onReasonChange,
+  onSearch,
+  onPageChange,
+  onRefresh,
+}: {
+  events: TokenAuditEvent[];
+  total: number;
+  loading: boolean;
+  page: number;
+  pageSize: number;
+  search: string;
+  reasonFilter: string;
+  onSearchChange: (v: string) => void;
+  onReasonChange: (v: string) => void;
+  onSearch: () => void;
+  onPageChange: (p: number) => void;
+  onRefresh: () => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  /* ── Session timeline drawer state (self-contained here) ── */
+  const [timelineUserId,    setTimelineUserId]    = useState<string | null>(null);
+  const [timelineUserLabel, setTimelineUserLabel] = useState("");
+
+  const openTimeline = (userId: string, label: string) => {
+    setTimelineUserId(userId);
+    setTimelineUserLabel(label);
+  };
+
+  const formatDate = (iso: string | null) => {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleString("en-GB", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+      });
+    } catch { return iso; }
+  };
+
+  const eventTypeMeta: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
+    rotation: { label: "Rotated",      cls: "bg-blue-100 text-blue-700",      icon: RotateCcw },
+    breach:   { label: "Breach",       cls: "bg-red-100 text-red-800",        icon: AlertTriangle },
+    reuse:    { label: "Reuse",        cls: "bg-orange-100 text-orange-700",  icon: AlertTriangle },
+    security: { label: "Security",     cls: "bg-amber-100 text-amber-700",    icon: ShieldCheck },
+    expired:  { label: "Expired",      cls: "bg-gray-100 text-gray-600",      icon: Lock },
+    other:    { label: "Other",        cls: "bg-slate-100 text-slate-600",    icon: KeyRound },
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Session timeline drawer */}
+      {timelineUserId && (
+        <UserTimelineDrawer
+          userId={timelineUserId}
+          userLabel={timelineUserLabel}
+          onClose={() => setTimelineUserId(null)}
+        />
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h3 className="text-base font-bold text-gray-900">Token Rotation Audit Trail</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Every refresh token revocation is recorded here — rotations, reuse alerts, session invalidations.
+            {total > 0 && ` (${total} total events)`}
+            {" "}<span className="text-rose-500 font-medium">Click a user to see their full session timeline.</span>
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onRefresh}
+          disabled={loading}
+          className="gap-1.5"
+        >
+          {loading
+            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            : <RefreshCw className="w-3.5 h-3.5" />}
+          Refresh
+        </Button>
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex gap-2 flex-wrap">
+        <Input
+          className="h-8 text-xs w-64 font-mono"
+          placeholder="Filter by User ID…"
+          value={search}
+          onChange={e => onSearchChange(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && onSearch()}
+        />
+        <select
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-ring"
+          value={reasonFilter}
+          onChange={e => onReasonChange(e.target.value)}
+        >
+          {REASON_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={onSearch}>
+          Search
+        </Button>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(eventTypeMeta).map(([key, m]) => (
+          <span key={key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${m.cls}`}>
+            <m.icon className="w-3 h-3" />
+            {m.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Events table */}
+      <div className="rounded-2xl border border-border bg-white overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400 gap-2">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm">Loading audit events…</span>
+          </div>
+        ) : events.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
+            <RotateCcw className="w-8 h-8 opacity-40" />
+            <div className="text-center">
+              <p className="text-sm font-medium">No token events found</p>
+              <p className="text-xs mt-1">
+                {search || reasonFilter
+                  ? "Try clearing the filters."
+                  : "Rotation events will appear here as users log in and refresh their sessions."}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border bg-gray-50/70">
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Event</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">User</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Auth Method</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Token Family</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Issued At</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Revoked At</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {events.map(ev => {
+                  const meta = eventTypeMeta[ev.eventType] ?? eventTypeMeta["other"]!;
+                  const Icon = meta.icon;
+                  const isBreach = ev.eventType === "breach" || ev.eventType === "reuse";
+                  const label = ev.userPhone ?? ev.userName ?? ev.userId;
+                  return (
+                    <tr
+                      key={ev.id}
+                      className={`hover:bg-gray-50/60 transition-colors ${isBreach ? "bg-red-50/30" : ""}`}
+                    >
+                      <td className="px-4 py-3">
+                        <Badge className={`${meta.cls} hover:${meta.cls} text-[10px] gap-1`}>
+                          <Icon className="w-3 h-3" />
+                          {meta.label}
+                        </Badge>
+                        {ev.revokedReason && (
+                          <div className="text-[10px] text-gray-400 mt-0.5 font-mono">{ev.revokedReason}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {/* Clickable user cell — opens timeline drawer */}
+                        <button
+                          onClick={() => openTimeline(ev.userId, label)}
+                          className="text-left group w-full"
+                          title="View session timeline"
+                        >
+                          {ev.userPhone ? (
+                            <div className="font-mono text-gray-700 group-hover:text-rose-600 transition-colors flex items-center gap-1">
+                              {ev.userPhone}
+                              <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-rose-500" />
+                            </div>
+                          ) : (
+                            <div className="text-gray-400 italic text-[10px]">deleted user</div>
+                          )}
+                          {ev.userName && (
+                            <div className="text-gray-500 text-[10px] mt-0.5">{ev.userName}</div>
+                          )}
+                          <div className="text-gray-300 text-[10px] font-mono truncate max-w-[120px] group-hover:text-rose-300 transition-colors">
+                            {ev.userId}
+                          </div>
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 capitalize">
+                        {ev.authMethod ? ev.authMethod.replace(/_/g, " ") : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-gray-500 text-[10px]">
+                        {ev.tokenFamilyId
+                          ? <span title={ev.tokenFamilyId}>{ev.tokenFamilyId.slice(0, 8)}…</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(ev.issuedAt)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {isBreach ? (
+                          <span className="text-red-600 font-semibold">{formatDate(ev.revokedAt)}</span>
+                        ) : (
+                          <span className="text-gray-500">{formatDate(ev.revokedAt)}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+                <span className="text-xs text-gray-500">
+                  Page {page + 1} of {totalPages} &middot; {total} total event{total !== 1 ? "s" : ""}
+                </span>
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onPageChange(page - 1)}
+                    disabled={page === 0 || loading}
+                    className="h-7 px-2 text-xs"
+                  >
+                    ← Prev
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onPageChange(page + 1)}
+                    disabled={page >= totalPages - 1 || loading}
+                    className="h-7 px-2 text-xs"
+                  >
+                    Next →
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Info card */}
+      <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-rose-600" />
+          <h4 className="text-sm font-bold text-rose-800">Reuse & Breach Detection</h4>
+        </div>
+        <p className="text-xs text-rose-700 leading-relaxed">
+          If a <strong>Breach</strong>, <strong>Suspicious family reuse</strong> or <strong>Reuse detected</strong> event
+          appears, every token in that family was immediately invalidated — forcing the user to log in again. This
+          indicates a refresh token may have been stolen and replayed from a second device.
+        </p>
+        <div className="flex items-start gap-2 bg-rose-100/70 rounded-xl p-3 text-xs text-rose-700">
+          <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>
+            Click any user row to open their <strong>full session timeline</strong> — all token families,
+            rotation chains, and breach events in one view.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   USER TIMELINE DRAWER
+   Slide-over panel showing a user's complete login →
+   rotation → revocation chain across all token families.
+═══════════════════════════════════════════════════════ */
+function UserTimelineDrawer({
+  userId,
+  userLabel,
+  onClose,
+}: {
+  userId: string;
+  userLabel: string;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [timeline, setTimeline]   = useState<UserTimeline | null>(null);
+  const [loading,  setLoading]    = useState(true);
+  const [error,    setError]      = useState<string | null>(null);
+
+  /* ── Force logout state machine: idle → confirming → loading → done ── */
+  type FLState = "idle" | "confirming" | "loading" | "done";
+  const [flState,        setFlState]        = useState<FLState>("idle");
+  const [flRevokedCount, setFlRevokedCount] = useState(0);
+
+  /* ── Per-family surgical revoke ── */
+  type FamRevokeState = "idle" | "confirming" | "loading";
+  const [familyRevoke, setFamilyRevoke] = useState<Record<string, FamRevokeState>>({});
+
+  const setFamState = (fid: string, state: FamRevokeState) =>
+    setFamilyRevoke(prev => ({ ...prev, [fid]: state }));
+
+  const revokeFamily = async (familyId: string) => {
+    setFamState(familyId, "loading");
+    try {
+      const resp = await apiAbsoluteFetchRaw(
+        `/api/admin/security/revoke-family/${encodeURIComponent(userId)}/${encodeURIComponent(familyId)}`,
+        { method: "POST" },
+      );
+      toast({
+        title:       "Family revoked",
+        description: resp.message ?? `Session family terminated.`,
+      });
+      setFamilyRevoke(prev => { const next = { ...prev }; delete next[familyId]; return next; });
+      fetchTimeline();
+    } catch (err: unknown) {
+      setFamState(familyId, "idle");
+      toast({
+        title:       "Revoke failed",
+        description: (err as Error).message ?? "An error occurred",
+        variant:     "destructive",
+      });
+    }
+  };
+
+  /* ── CSV export ── */
+  const [csvLoading, setCsvLoading] = useState(false);
+
+  const downloadCsv = async () => {
+    if (csvLoading) return;
+    setCsvLoading(true);
+    try {
+      const res = await fetchAdminAbsoluteResponse(
+        `/api/admin/security/token-export/${encodeURIComponent(userId)}`,
+      );
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
+      const blob     = await res.blob();
+      const url      = URL.createObjectURL(blob);
+      const dateStr  = new Date().toISOString().slice(0, 10);
+      const filename = `session-history-${userId.slice(0, 8)}-${dateStr}.csv`;
+
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({ title: "Export ready", description: `${filename} downloaded.` });
+    } catch (err: unknown) {
+      toast({
+        title:       "Export failed",
+        description: (err as Error).message ?? "Could not download CSV",
+        variant:     "destructive",
+      });
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
+  const fetchTimeline = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    apiAbsoluteFetchRaw(`/api/admin/security/token-timeline/${encodeURIComponent(userId)}`)
+      .then((data: UserTimeline) => { setTimeline(data); setLoading(false); })
+      .catch((err: unknown) => { setError((err as Error).message ?? "Failed to load"); setLoading(false); });
+  }, [userId]);
+
+  useEffect(() => { fetchTimeline(); }, [fetchTimeline]);
+
+  const executeForceLogout = async () => {
+    setFlState("loading");
+    try {
+      const resp = await apiAbsoluteFetchRaw(
+        `/api/admin/security/force-logout/${encodeURIComponent(userId)}`,
+        { method: "POST" },
+      );
+      setFlRevokedCount(resp.revokedCount ?? 0);
+      setFlState("done");
+      toast({
+        title: "Sessions revoked",
+        description: resp.message ?? `${resp.revokedCount} session(s) terminated.`,
+      });
+      /* Re-fetch timeline so stats + chain reflect the revocations */
+      fetchTimeline();
+    } catch (err: unknown) {
+      setFlState("idle");
+      toast({
+        title: "Force logout failed",
+        description: (err as Error).message ?? "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  /* Close on Escape key */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const formatDate = (iso: string | null) => {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleString("en-GB", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+    } catch { return iso; }
+  };
+
+  const formatShort = (iso: string | null) => {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleString("en-GB", {
+        day: "2-digit", month: "short",
+        hour: "2-digit", minute: "2-digit",
+      });
+    } catch { return iso; }
+  };
+
+  const statusMeta: Record<string, { label: string; dot: string; textCls: string; icon: React.ElementType }> = {
+    active:   { label: "Active",   dot: "bg-emerald-400",  textCls: "text-emerald-700",  icon: Wifi },
+    rotation: { label: "Rotated",  dot: "bg-blue-400",     textCls: "text-blue-700",     icon: RotateCcw },
+    breach:   { label: "Breach",   dot: "bg-red-500",      textCls: "text-red-700",      icon: AlertTriangle },
+    reuse:    { label: "Reuse",    dot: "bg-orange-400",   textCls: "text-orange-700",   icon: AlertTriangle },
+    security: { label: "Security", dot: "bg-amber-400",    textCls: "text-amber-700",    icon: ShieldCheck },
+    expired:  { label: "Expired",  dot: "bg-gray-300",     textCls: "text-gray-500",     icon: Clock },
+    other:    { label: "Other",    dot: "bg-slate-300",    textCls: "text-slate-600",    icon: KeyRound },
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/30 z-40 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+
+      {/* Drawer */}
+      <div className="fixed top-0 right-0 h-full w-full max-w-xl bg-white z-50 shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 py-5 border-b border-border bg-gradient-to-r from-rose-50 to-white flex-shrink-0">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Activity className="w-4 h-4 text-rose-600 flex-shrink-0" />
+              <h2 className="text-sm font-bold text-gray-900">Session Timeline</h2>
+            </div>
+            {timeline ? (
+              <>
+                <p className="text-sm font-mono text-gray-700 truncate">
+                  {timeline.userPhone ?? userLabel}
+                  {timeline.userName && (
+                    <span className="ml-1.5 font-sans text-gray-500 font-normal text-xs">({timeline.userName})</span>
+                  )}
+                </p>
+                <p className="text-[10px] font-mono text-gray-400 mt-0.5 truncate">{userId}</p>
+              </>
+            ) : (
+              <p className="text-sm font-mono text-gray-500 truncate">{userLabel || userId}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 ml-4 flex-shrink-0">
+            {/* Export CSV */}
+            <button
+              onClick={downloadCsv}
+              disabled={csvLoading || loading}
+              title="Export full session history as CSV"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {csvLoading
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Download className="w-4 h-4" />
+              }
+            </button>
+            {/* Close */}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Summary stats strip */}
+        {timeline && (
+          <div className="grid grid-cols-4 divide-x divide-border border-b border-border flex-shrink-0">
+            {[
+              { label: "Total tokens",    value: timeline.totalTokens, cls: "text-gray-700" },
+              { label: "Active now",      value: timeline.activeCount,  cls: timeline.activeCount > 0 ? "text-emerald-600" : "text-gray-400" },
+              { label: "Families",        value: timeline.familyCount,  cls: "text-blue-600" },
+              { label: "Breach events",   value: timeline.breachCount,  cls: timeline.breachCount > 0 ? "text-red-600 font-bold" : "text-gray-400" },
+            ].map(s => (
+              <div key={s.label} className="flex flex-col items-center justify-center py-3 px-2 text-center">
+                <span className={`text-lg font-bold ${s.cls}`}>{s.value}</span>
+                <span className="text-[10px] text-gray-400 mt-0.5 leading-tight">{s.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Body — scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {loading && (
+            <div className="flex items-center justify-center py-24 text-gray-400 gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">Loading session timeline…</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center py-24 text-red-400 gap-3">
+              <XCircle className="w-8 h-8 opacity-60" />
+              <p className="text-sm text-center">{error}</p>
+              <Button size="sm" variant="outline" onClick={() => {
+                setError(null); setLoading(true);
+                apiAbsoluteFetchRaw(`/api/admin/security/token-timeline/${encodeURIComponent(userId)}`)
+                  .then((data: UserTimeline) => { setTimeline(data); setLoading(false); })
+                  .catch((err: unknown) => { setError((err as Error).message); setLoading(false); });
+              }}>
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {timeline && !loading && (
+            <div className="space-y-6">
+              {timeline.families.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
+                  <Users className="w-8 h-8 opacity-40" />
+                  <p className="text-sm">No token records found for this user.</p>
+                </div>
+              )}
+
+              {timeline.families.map((family, fi) => {
+                const hasBreach = family.tokens.some(t => t.status === "breach" || t.status === "reuse");
+                return (
+                  <div
+                    key={family.familyId ?? `no-family-${fi}`}
+                    className={`rounded-2xl border overflow-hidden ${hasBreach ? "border-red-200 bg-red-50/30" : "border-border bg-white"}`}
+                  >
+                    {/* Family header */}
+                    <div className={`px-4 py-3 border-b flex items-center gap-2 ${hasBreach ? "border-red-200 bg-red-100/40" : "border-border bg-gray-50/60"}`}>
+                      {hasBreach
+                        ? <AlertTriangle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                        : <Shield className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-gray-700">
+                            {family.familyId ? `Family ${String(fi + 1).padStart(2, "0")}` : "Legacy (no family)"}
+                          </span>
+                          {hasBreach && (
+                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[10px]">
+                              Breach detected
+                            </Badge>
+                          )}
+                          <span className="text-[10px] text-gray-400 ml-auto whitespace-nowrap">
+                            Started {formatDate(family.startedAt)}
+                          </span>
+                        </div>
+                        {family.familyId && (
+                          <div className="text-[10px] font-mono text-gray-400 mt-0.5 truncate" title={family.familyId}>
+                            {family.familyId}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100 text-[10px]">
+                          {family.tokens.length} token{family.tokens.length !== 1 ? "s" : ""}
+                        </Badge>
+
+                        {/* Surgical revoke — only for families with active tokens */}
+                        {family.familyId && family.tokens.some(t => t.status === "active") && (() => {
+                          const fid   = family.familyId!;
+                          const fst   = familyRevoke[fid] ?? "idle";
+
+                          if (fst === "loading") return (
+                            <span className="flex items-center gap-1 text-[10px] text-orange-600">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            </span>
+                          );
+
+                          if (fst === "confirming") return (
+                            <span className="flex items-center gap-1">
+                              <button
+                                onClick={() => revokeFamily(fid)}
+                                className="text-[10px] font-semibold text-white bg-orange-500 hover:bg-orange-600 px-2 py-0.5 rounded-full transition-colors"
+                              >
+                                Confirm?
+                              </button>
+                              <button
+                                onClick={() => setFamState(fid, "idle")}
+                                className="text-[10px] text-gray-400 hover:text-gray-600 px-1"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          );
+
+                          return (
+                            <button
+                              onClick={() => setFamState(fid, "confirming")}
+                              className="text-[10px] font-medium text-orange-600 border border-orange-200 bg-orange-50 hover:bg-orange-100 hover:border-orange-300 px-2 py-0.5 rounded-full transition-colors"
+                            >
+                              Revoke
+                            </button>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Token chain */}
+                    <div className="px-4 py-3 space-y-0">
+                      {family.tokens.map((tok, ti) => {
+                        const sm = statusMeta[tok.status] ?? statusMeta["other"]!;
+                        const TokIcon = sm.icon;
+                        const isLast = ti === family.tokens.length - 1;
+                        const isBreach = tok.status === "breach" || tok.status === "reuse";
+
+                        return (
+                          <div key={tok.id} className="flex gap-3 group">
+                            {/* Timeline spine */}
+                            <div className="flex flex-col items-center flex-shrink-0">
+                              <div className={`w-2.5 h-2.5 rounded-full mt-3.5 ring-2 ring-white ${sm.dot} ${isBreach ? "ring-red-200 animate-pulse" : ""}`} />
+                              {!isLast && <div className={`w-0.5 flex-1 mt-1 mb-0 min-h-[20px] ${hasBreach && !isLast ? "bg-red-200" : "bg-gray-200"}`} />}
+                            </div>
+
+                            {/* Token detail */}
+                            <div className={`flex-1 py-2.5 min-w-0 ${!isLast ? "border-b border-dashed border-gray-100" : ""}`}>
+                              <div className="flex items-start justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${sm.textCls}`}>
+                                    <TokIcon className="w-3 h-3 flex-shrink-0" />
+                                    {sm.label}
+                                  </span>
+                                  {tok.authMethod && (
+                                    <span className="text-[10px] text-gray-500 capitalize bg-gray-100 px-1.5 py-0.5 rounded-full">
+                                      {tok.authMethod.replace(/_/g, " ")}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                                  {formatShort(tok.issuedAt)}
+                                </span>
+                              </div>
+
+                              {tok.revokedReason && (
+                                <div className={`text-[10px] font-mono mt-0.5 ${isBreach ? "text-red-500 font-semibold" : "text-gray-400"}`}>
+                                  {tok.revokedReason}
+                                </div>
+                              )}
+
+                              <div className="flex gap-3 mt-1 flex-wrap">
+                                {tok.usedAt && (
+                                  <span className="text-[10px] text-gray-400">
+                                    Used: {formatShort(tok.usedAt)}
+                                  </span>
+                                )}
+                                {tok.revokedAt ? (
+                                  <span className={`text-[10px] ${isBreach ? "text-red-500 font-medium" : "text-gray-400"}`}>
+                                    Revoked: {formatShort(tok.revokedAt)}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-gray-400">
+                                    Expires: {formatShort(tok.expiresAt)}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="text-[10px] font-mono text-gray-300 mt-0.5 truncate" title={tok.id}>
+                                {tok.id}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer — Force Logout action */}
+        <div className="px-6 py-4 border-t border-border bg-gray-50/60 flex-shrink-0 space-y-3">
+
+          {/* idle: show button only if there are active sessions */}
+          {flState === "idle" && (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] text-gray-400 leading-relaxed">
+                Each block is one login session. Tokens chain downward as sessions are refreshed.
+              </p>
+              {timeline && timeline.activeCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 whitespace-nowrap flex-shrink-0"
+                  onClick={() => setFlState("confirming")}
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Force Logout
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* confirming: two-step confirmation */}
+          {flState === "confirming" && (
+            <div className="rounded-xl border border-red-200 bg-red-50/70 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-red-800">Confirm force logout</p>
+                  <p className="text-[11px] text-red-700 mt-0.5 leading-relaxed">
+                    This will immediately revoke all{" "}
+                    <strong>{timeline?.activeCount} active session(s)</strong> for this user. They
+                    will be signed out on every device and must log in again.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 h-8 text-xs"
+                  onClick={() => setFlState("idle")}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 h-8 text-xs bg-red-600 hover:bg-red-700 text-white gap-1.5"
+                  onClick={executeForceLogout}
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Yes, Force Logout
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* loading: revocation in progress */}
+          {flState === "loading" && (
+            <div className="flex items-center justify-center gap-2 py-2 text-red-600">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-xs font-medium">Revoking sessions…</span>
+            </div>
+          )}
+
+          {/* done: success state */}
+          {flState === "done" && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-emerald-700">
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                <p className="text-xs font-medium">
+                  {flRevokedCount} session{flRevokedCount !== 1 ? "s" : ""} revoked. User must re-authenticate.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700 flex-shrink-0"
+                onClick={() => setFlState("idle")}
+              >
+                Dismiss
+              </Button>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </>
   );
 }

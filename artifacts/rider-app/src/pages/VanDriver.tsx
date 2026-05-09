@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bus, Users, CheckCircle, Clock, ChevronRight, AlertCircle, Play, Square, Navigation, TrendingUp, Wallet, Timer } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { enqueueAction, subscribeActionSuccess } from "../lib/offline/queueManager";
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../lib/auth";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
@@ -74,6 +75,7 @@ async function markBoarded(bookingId: string): Promise<void> {
     body: JSON.stringify({ boarded: true, boardedAt: new Date().toISOString() }),
   });
 }
+
 
 async function startTrip(scheduleId: string, date: string): Promise<void> {
   await apiFetch(`/van/driver/schedules/${scheduleId}/date/${date}/start-trip`, { method: "POST", body: JSON.stringify({}) });
@@ -178,6 +180,7 @@ export default function VanDriver() {
       }
       setError(e.message);
     },
+
   });
 
   const startMut = useMutation({
@@ -197,6 +200,7 @@ export default function VanDriver() {
       stopGpsBroadcast();
       setTripEndingOffline(false);
       setSelectedSchedule(null);
+
     },
     onError: (e: Error) => {
       /* Persist to IndexedDB queue so the trip completion survives connectivity loss */
@@ -204,13 +208,12 @@ export default function VanDriver() {
       if (looksLikeNetErr && selectedSchedule) {
         enqueueAction("complete_trip", selectedSchedule.id, { date: selectedSchedule.date }).catch(() => {});
         /* Immediately show optimistic "Trip Ending…" state so the UI never appears
-           frozen while the action waits in the offline queue to sync. */
+           frozen while the action hits the offline queue to sync. */
         setTripEndingOffline(true);
       } else {
         setError(e.message);
       }
     },
-  });
 
   /* When the offline queue replays complete_trip successfully, reset the
      optimistic state and refresh the schedule/passenger data. */
@@ -643,6 +646,7 @@ export default function VanDriver() {
                 </button>
               </>
             )}
+
           </>
         )}
       </div>

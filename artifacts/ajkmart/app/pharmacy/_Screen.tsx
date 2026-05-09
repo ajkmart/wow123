@@ -146,7 +146,6 @@ function PharmacyScreenInner() {
       setShowCheckout(true);
     }
   }, [openCheckout]);
-
   const restoredFromCartRef = React.useRef(false);
   useEffect(() => {
     if (restoredFromCartRef.current || !cartItemsParam) return;
@@ -233,7 +232,6 @@ function PharmacyScreenInner() {
     setPendingPhotoUri(uri);
     setShowPrescriptionPreview(true);
   };
-
   const pickFromGallery = async () => {
     setShowPhotoSourceModal(false);
     try {

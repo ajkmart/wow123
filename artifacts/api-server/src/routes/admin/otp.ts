@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable, platformSettingsTable, authAuditLogTable, otpBypassAuditTable, whitelistUsersTable, ridesTable } from "@workspace/db/schema";
+import { usersTable, platformSettingsTable, authAuditLogTable, otpBypassAuditTable, whitelistUsersTable, ridesTable, otpAttemptsTable } from "@workspace/db/schema";
 import { eq, desc, and, sql, inArray, type SQL } from "drizzle-orm";
 import {
   addAuditEntry, getClientIp, getPlatformSettings, invalidateSettingsCache,
@@ -93,6 +93,10 @@ router.post("/otp/disable", async (req, res) => {
   const adminReq = req as AdminRequest;
 
   try {
+    const auditDetails = reason
+      ? `Disabled OTP for ${minutes} minutes. Reason: ${reason}`
+      : `Disabled OTP for ${minutes} minutes`;
+
     const result = await AuditService.executeWithAudit(
       {
         adminId: adminReq.adminId,
@@ -656,5 +660,4 @@ router.get("/otp/delivery-otp/:rideId", async (req, res) => {
     sendServerError(res, error, "fetch delivery OTP");
   }
 });
-
 export default router;

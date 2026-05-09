@@ -113,7 +113,6 @@ export default function Profile() {
       setTestingNotif(false);
     }
   }, [notifPermission]);
-
   useEffect(() => {
     if (!user) return;
     setName(user.name || "");
@@ -338,7 +337,6 @@ export default function Profile() {
                 </p>
               </div>
             </div>
-
             {/* Language Picker */}
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
               <button

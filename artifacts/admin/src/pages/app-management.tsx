@@ -316,11 +316,11 @@ export default function AppManagement() {
   /* ── Sync compliance state from platform settings (in useEffect to avoid setState-in-render) ── */
   useEffect(() => {
     if (!settingsData?.settings) return;
-    const s: Array<{ key: string; value: string }> = settingsData.settings ?? [];
-    const savedMinAppVersion = s.find(x => x.key === "min_app_version")?.value || "";
-    const savedTermsVersion  = s.find(x => x.key === "terms_version")?.value  || "";
-    const savedAppStoreUrl   = s.find(x => x.key === "app_store_url")?.value   || "";
-    const savedPlayStoreUrl  = s.find(x => x.key === "play_store_url")?.value  || "";
+    const s: any[] = settingsData.settings ?? [];
+    const savedMinAppVersion = s.find((x: any) => x.key === "min_app_version")?.value || "";
+    const savedTermsVersion  = s.find((x: any) => x.key === "terms_version")?.value  || "";
+    const savedAppStoreUrl   = s.find((x: any) => x.key === "app_store_url")?.value   || "";
+    const savedPlayStoreUrl  = s.find((x: any) => x.key === "play_store_url")?.value  || "";
     if (savedMinAppVersion) setMinAppVersion(prev => prev || savedMinAppVersion);
     if (savedTermsVersion)  setTermsVersion(prev  => prev || savedTermsVersion);
     if (savedAppStoreUrl)   setAppStoreUrl(prev   => prev || savedAppStoreUrl);

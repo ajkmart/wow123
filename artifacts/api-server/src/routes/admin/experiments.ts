@@ -48,6 +48,101 @@ router.post("/experiments", async (req, res) => {
   sendSuccess(res, { experiment: created });
 });
 
+function validateExperimentPayload(payload: any, partial = false): string[] {
+  const errors: string[] = [];
+  if (!partial || payload.name !== undefined) {
+    if (!payload.name || typeof payload.name !== "string" || !payload.name.trim()) {
+      errors.push("Name is required");
+    }
+  }
+  if (!partial || payload.variants !== undefined) {
+    if (!Array.isArray(payload.variants) || payload.variants.length < 2) {
+      errors.push("At least 2 variants are required");
+    } else {
+      const names = new Set<string>();
+      for (const v of payload.variants) {
+        if (!v || typeof v !== "object") {
+          errors.push("Each variant must be an object");
+          break;
+        }
+        if (!v.name || typeof v.name !== "string" || !v.name.trim()) {
+          errors.push("All variants must have a non-empty name");
+          break;
+        }
+        if (typeof v.weight !== "number" || isNaN(v.weight) || v.weight < 0) {
+          errors.push("All variant weights must be non-negative numbers");
+          break;
+        }
+        if (names.has(v.name.trim())) {
+          errors.push("Variant names must be unique");
+          break;
+        }
+        names.add(v.name.trim());
+      }
+    }
+  }
+  if (payload.trafficPct !== undefined) {
+    const pct = Number(payload.trafficPct);
+    if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+      errors.push("trafficPct must be a number between 0 and 100");
+    }
+  }
+  if (!partial || payload.description !== undefined) {
+    if (payload.description !== undefined && typeof payload.description !== "string") {
+      errors.push("Description must be a string");
+    }
+  }
+  return errors;
+}
+
+router.get("/experiments", async (req, res) => {
+  const limit = Math.min(Math.max(parseInt((req.query.limit as string) || "20", 10), 1), 200);
+  const offset = Math.max(parseInt((req.query.offset as string) || "0", 10), 0);
+
+  const [countRow] = await db.select({ total: sql<number>`count(*)::int` }).from(abExperimentsTable).limit(1);
+  const experiments = await db
+    .select()
+    .from(abExperimentsTable)
+    .orderBy(desc(abExperimentsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  sendSuccess(res, {
+    experiments,
+    total: countRow?.total ?? 0,
+    limit,
+    offset,
+  });
+});
+
+router.get("/experiments/:id", async (req, res) => {
+  const id = req.params["id"]!;
+  const [experiment] = await db.select().from(abExperimentsTable).where(eq(abExperimentsTable.id, id)).limit(1);
+  if (!experiment) { sendNotFound(res, "Experiment not found"); return; }
+  sendSuccess(res, { experiment });
+});
+
+router.put("/experiments/:id", async (req, res) => {
+  const id = req.params["id"]!;
+  const { name, description, variants, trafficPct } = req.body;
+  const payload = { name, description, variants, trafficPct };
+  const errors = validateExperimentPayload(payload, true);
+  if (errors.length > 0) { sendValidationError(res, errors.join("; ")); return; }
+
+  const [existing] = await db.select().from(abExperimentsTable).where(eq(abExperimentsTable.id, id)).limit(1);
+  if (!existing) { sendNotFound(res, "Experiment not found"); return; }
+
+  const updates: any = { updatedAt: new Date() };
+  if (name !== undefined) updates.name = String(name).trim();
+  if (description !== undefined) updates.description = String(description);
+  if (variants !== undefined) updates.variants = variants;
+  if (trafficPct !== undefined) updates.trafficPct = Number(trafficPct);
+
+  const [updated] = await db.update(abExperimentsTable).set(updates).where(eq(abExperimentsTable.id, id)).returning();
+  addAuditEntry({ action: "experiment_update", ip: getClientIp(req), adminId: (req as AdminRequest).adminId, details: `Updated experiment: ${existing.name}`, result: "success" });
+  sendSuccess(res, { experiment: updated });
+});
+
 router.patch("/experiments/:id/status", async (req, res) => {
   const id = req.params["id"]!;
   const { status } = req.body;

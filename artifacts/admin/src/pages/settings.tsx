@@ -238,7 +238,10 @@ export default function SettingsPage() {
     setShowDiffPreview(false);
     setSaving(true);
     try {
-      const changed = pendingDiff.map(d => ({ key: d.key, value: d.newValue }));
+      const changed = pendingDiff.length > 0
+        ? pendingDiff.map(d => ({ key: d.key, value: d.newValue }))
+        : Array.from(dirtyKeys).map(key => ({ key, value: localValues[key] ?? "" }));
+
       await fetcher("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: changed }) });
       setSavedValues(prev => {
         const updated = { ...prev };
@@ -253,6 +256,7 @@ export default function SettingsPage() {
     setSaving(false);
     setPendingDiff([]);
   };
+
 
   const [backingUp, setBackingUp] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -465,6 +469,7 @@ export default function SettingsPage() {
           localValues={localValues} dirtyKeys={dirtyKeys}
           handleChange={handleChange} handleToggle={handleToggle}
           onNavigateFeatures={() => setActiveTop10("general")}
+
         />
       );
     }
@@ -502,6 +507,7 @@ export default function SettingsPage() {
         />
       );
     }
+
     if (cat === "system") return <SystemSection />;
     if (cat === "weather") return <WeatherSection />;
     const childSettings = grouped[cat] ?? [];
@@ -895,6 +901,12 @@ export default function SettingsPage() {
                   <p className="text-sm">No settings in this section</p>
                 </div>
               ) : activeChildrenWithContent.map((child, idx) => {
+
+                <div className="text-center py-12 text-muted-foreground">
+                  <Settings2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No settings in this section</p>
+                </div>
+              ) : activeChildrenWithContent.map((child, idx) => {
                 const subCfg = CATEGORY_CONFIG[child];
                 const SubIcon = subCfg.icon;
                 const childSettings = grouped[child] ?? [];
@@ -974,6 +986,7 @@ export default function SettingsPage() {
         onConfirm={() => { void performSave(); }}
         onClose={() => setShowDiffPreview(false)}
       />
+
     </div>
   );
 }

@@ -133,14 +133,12 @@ export async function seedDefaultSuperAdmin(): Promise<SeedResult> {
   // Surface the bootstrap credentials on first boot so an operator that
   // is bringing the system up for the first time can capture them from
   // the logs. Subsequent boots are no-ops.
-  console.log("==================================================================");
   console.log("[admin-seed] default super-admin created");
   console.log(`[admin-seed]   email:    ${email}`);
   console.log(`[admin-seed]   username: ${username}`);
   console.log("[admin-seed]   password: (default — see ADMIN_SEED_PASSWORD env)");
   console.log("[admin-seed] ℹ  The SPA will offer an OPTIONAL popup on first login");
   console.log("[admin-seed]    so the super-admin can customise their credentials.");
-  console.log("==================================================================");
 
   // Persist a permanent audit-log entry so the seeded super-admin shows up
   // in the same audit trail super-admins use day-to-day. Best-effort: a
@@ -215,12 +213,10 @@ export async function reconcileSeededSuperAdmin(): Promise<{ reset: boolean }> {
     },
   });
 
-  console.log("==================================================================");
   console.log("[admin-seed] seeded super-admin reconciled to default credentials");
   console.log(`[admin-seed]   username: ${username}`);
   console.log("[admin-seed]   password: (default — see ADMIN_SEED_PASSWORD env)");
   console.log("[admin-seed] ℹ  The SPA will surface the optional credentials popup.");
-  console.log("==================================================================");
 
   return { reset: true };
 }

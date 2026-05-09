@@ -111,6 +111,8 @@ export default function CategoriesPage() {
     sortOrder: number;
     isActive: boolean;
   };
+  const errMsg = (e: unknown): string =>
+    e instanceof Error ? e.message : typeof e === "string" ? e : "Unknown error";
   const saveMutation = useMutation({
     mutationFn: async (body: SaveCategoryBody) => {
       if (editing) return fetcher(`/categories/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) });
@@ -123,7 +125,10 @@ export default function CategoriesPage() {
       setForm({ ...EMPTY_FORM });
       toast({ title: editing ? "Category updated" : "Category created" });
     },
-    onError: onCategoryError,
+    onError: (e: unknown) => {
+      onCategoryError(e);
+      toast({ title: "Error", description: errMsg(e), variant: "destructive" });
+    },
   });
 
   const deleteMutation = useMutation({

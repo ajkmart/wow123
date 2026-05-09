@@ -32,6 +32,7 @@ async function runDispatchCycle() {
       .limit(50);
 
     if (pendingRides.length === 0) {
+      /* Rule 2: keep all code. 8b1e877 added orphan notified-riders cleanup. */
       await db.delete(rideNotifiedRidersTable)
         .where(sql`ride_id NOT IN (SELECT id FROM rides WHERE status IN ('searching', 'bargaining') AND rider_id IS NULL)`)
         .catch((e: Error) => logger.warn({ err: e.message }, "[dispatch-engine] orphan notified-riders cleanup failed"));

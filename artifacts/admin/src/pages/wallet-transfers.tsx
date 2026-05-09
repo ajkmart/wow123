@@ -136,7 +136,36 @@ function TransactionsPanel() {
   const { toast } = useToast();
   const { onError: onWalletError } = useErrorHandler({ title: "Failed" });
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  const handleBulkApprove = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    setBulkProcessing(true);
+    try {
+      await Promise.all(ids.map(id => apiFetch(`/wallets/transfers/${id}/approve`, { method: "POST" })));
+      toast({ title: "Approved", description: `Successfully approved ${ids.length} transfers` });
+      setSelectedIds(new Set());
+      qc.invalidateQueries({ queryKey: ["admin-wallet-transfers"] });
+    } catch (e: any) {
+      onWalletError(e);
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const params = new URLSearchParams({ page: String(page), limit: "50" });
+
   if (userId)   params.set("userId", userId);
   if (dateFrom) params.set("dateFrom", dateFrom);
   if (dateTo)   params.set("dateTo", dateTo);

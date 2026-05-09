@@ -24,6 +24,7 @@ export interface QueuedPing {
   mockProvider?: boolean;
   suspicious?: boolean;
   suspicionReason?: string;
+
 }
 
 interface DismissedEntry {
@@ -104,6 +105,7 @@ export async function enqueue(ping: QueuedPing): Promise<void> {
     speed: ping.speed,
     heading: ping.heading,
     isMockProvider: ping.mockProvider,
+
   });
   if (!result.valid) {
     /* Rejected pings are silently dropped from the queue.
@@ -115,6 +117,7 @@ export async function enqueue(ping: QueuedPing): Promise<void> {
   if (result.suspicious) {
     ping = { ...ping, suspicious: true, suspicionReason: result.suspicionReason };
   }
+
   _lastValidPing = {
     timestamp: ping.timestamp,
     latitude: ping.latitude,
@@ -123,6 +126,7 @@ export async function enqueue(ping: QueuedPing): Promise<void> {
     speed: ping.speed,
     heading: ping.heading,
     isMockProvider: ping.mockProvider,
+
   };
   try {
     const db = await openDB();

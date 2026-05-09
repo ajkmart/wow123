@@ -231,6 +231,7 @@ async function _doRefresh(): Promise<RefreshResult> {
       sessionSet(data.token);
       sweepLegacyTokens();
       _tokenRefreshCallbacks.forEach(fn => { try { fn(); } catch {} });
+
     }
     if (data.refreshToken) localSet(data.refreshToken);
     return "refreshed";

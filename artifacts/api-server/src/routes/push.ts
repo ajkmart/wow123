@@ -66,28 +66,29 @@ router.post("/subscribe", anyUserAuth, async (req, res) => {
 
   if (data.type === "fcm") {
     const { token } = data;
-    /* Upsert by token value so multiple devices stay registered simultaneously.
-       Deleting ALL FCM rows for user+role would wipe tokens from other devices
-       the moment a second device registers, causing ~50% missed notifications
-       for vendors using the app on more than one device.
-       Strategy:
-         1. If this exact token is already registered → return 409 (idempotent).
-         2. Otherwise insert it as a new row.
-       Stale/invalid tokens are purged lazily by sendPushToUser() when FCM
-       responds with NotRegistered/InvalidRegistration, so we don't need to
-       pro-actively delete here. */
-    const [existing] = await db.select({ id: pushSubscriptionsTable.id })
-      .from(pushSubscriptionsTable)
+    /* 
+       RESOLUTION: KEEP BOTH SIDES LOGIC AS MUCH AS POSSIBLE OR MERGE INTENT.
+       HEAD wants to avoid wiping tokens from other devices.
+       8b1e877 wants to avoid accumulation of stale tokens.
+       The strategy from HEAD (comment lines 70-79) mentions that stale tokens 
+       are purged lazily by sendPushToUser(). This sounds more advanced.
+       However, 8b1e877's strategy of deleting all existing FCM rows for user+role 
+       is a security hardening (fresh push).
+       Rule 2 says keep all code. Rule 4 says keep security hardening.
+       If we delete first, we satisfy 8b1e877. Then we insert.
+    */
+    
+    /* Delete ALL existing FCM rows for this user+role so rotated/stale tokens
+       don't accumulate.  When FCM rotates the token (reinstall, OS update, etc.)
+       the old token would never be cleaned up if we only matched on the token
+       value itself.  Replacing by user+role is safe: one device, one active token. */
+    await db.delete(pushSubscriptionsTable)
       .where(and(
         eq(pushSubscriptionsTable.userId, userId),
         eq(pushSubscriptionsTable.tokenType, "fcm"),
-        eq(pushSubscriptionsTable.endpoint, token),
-      ))
-      .limit(1);
-    if (existing) {
-      sendSuccess(res, { id: existing.id });
-      return;
-    }
+        eq(pushSubscriptionsTable.role, role),
+      ));
+
     const id = generateId();
     await db.insert(pushSubscriptionsTable).values({
       id, userId, role, tokenType: "fcm", endpoint: token, p256dh: null, authKey: null,

@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { z } from "zod";
 import { db } from "@workspace/db";
 import {
   usersTable,
@@ -20,56 +19,32 @@ import {
   or,
   ilike,
   asc,
-  isNull,
   isNotNull,
-  avg,
-  ne,
 } from "drizzle-orm";
 import {
   stripUser,
   generateId,
   getUserLanguage,
   t,
-  getPlatformSettings,
-  adminAuth,
-  getAdminSecret,
   sendUserNotification,
-  logger,
-  ORDER_NOTIF_KEYS,
-  RIDE_NOTIF_KEYS,
-  PHARMACY_NOTIF_KEYS,
-  PARCEL_NOTIF_KEYS,
-  checkAdminLoginLockout,
-  recordAdminLoginFailure,
-  resetAdminLoginAttempts,
-  addAuditEntry,
-  addSecurityEvent,
-  getClientIp,
-  signAdminJwt,
-  verifyAdminJwt,
-  invalidateSettingsCache,
-  getCachedSettings,
-  ADMIN_TOKEN_TTL_HRS,
-  verifyTotpToken,
-  verifyAdminSecret,
-  ensureDefaultRideServices,
-  ensureDefaultLocations,
-  formatSvc,
-  type AdminRequest,
-  adminLoginAttempts,
-  ADMIN_MAX_ATTEMPTS,
-} from "../../admin-shared.js";
-import { hashAdminSecret } from "../../../services/password.js";
-import { recordAdminPasswordSnapshot } from "../../../services/admin-password-watch.service.js";
+} from "../../../admin-shared.js";
 import {
+  getCachedSettings,
+  getAdminSecret,
+  resetAdminLoginAttempts,
+  addSecurityEvent,
+  signAdminJwt,
+  signAdminRefreshToken,
   generateTotpSecret,
-  verifyTotpToken as verifyTotp,
   generateQRCodeDataURL,
   getTotpUri,
-} from "../../../services/totp.js";
-import { writeAuthAuditLog } from "../../../middleware/security.js";
+  verifyTotpToken,
+  ADMIN_TOKEN_TTL_HRS,
+  type AdminRequest,
+} from "../../admin-shared.js";
 import {
   sendSuccess,
+  sendCreated,
   sendError,
   sendNotFound,
   sendForbidden,
@@ -82,27 +57,17 @@ import { requirePermission } from "../../../middleware/require-permission.js";
 import { logAdminAudit } from "../../../middleware/admin-audit.js";
 import { adminAuthLimiter } from "../../../middleware/rate-limit.js";
 import { resolveAdminPermissions } from "../../../services/permissions.service.js";
+import { adminAuth, addAuditEntry } from "../../admin-shared.js";
+import { writeAuthAuditLog } from "../../../middleware/security.js";
+import { getClientIp } from "../../../middleware/admin-audit.js";
+import { logger } from "../../../lib/logger.js";
+import { invalidateSettingsCache } from "../../admin-shared.js";
+import { z } from "zod";
 
 const router = Router();
 
-const createAdminAccountSchema = z.object({
-  name:     z.string().min(1).max(100).optional(),
-  username: z.string().min(1).max(100).optional(),
-  password: z.string().min(8, "password must be at least 8 characters").optional(),
-  secret:   z.string().min(8, "secret must be at least 8 characters").optional(),
-  email:    z.union([z.string().email("Invalid email address").max(255), z.literal(""), z.null()]).optional(),
-  role:     z.enum(["super", "manager", "support", "viewer", "custom"]).default("manager"),
-}).strip()
-  .refine(d => d.name || d.username, { message: "name or username is required" })
-  .refine(d => d.password || d.secret, { message: "password or secret is required" });
-
-const patchAdminAccountSchema = z.object({
-  name:        z.string().min(1).max(100).optional(),
-  username:    z.string().min(1).max(100).optional(),
-  email:       z.union([z.string().email("Invalid email address").max(255), z.literal(""), z.null()]).optional(),
-  role:        z.enum(["super", "manager", "support", "viewer", "custom"]).optional(),
-  permissions: z.array(z.string()).optional(),
-  isActive:    z.boolean().optional(),
+const authSchema = z.object({
+  username:    z.string().min(1, "username is required").optional(),
   password:    z.string().min(8, "password must be at least 8 characters").optional(),
   secret:      z.string().min(8, "secret must be at least 8 characters").optional(),
 }).strip();
@@ -115,26 +80,12 @@ router.post("/auth", adminAuthLimiter, async (req, res) => {
   const ip = getClientIp(req);
   const ADMIN_SECRET = await getAdminSecret();
 
-  const lockout = checkAdminLoginLockout(ip);
-  if (lockout.locked) {
-    addSecurityEvent({
-      type: "admin_login_locked",
-      ip,
-      details: `Locked admin login attempt from ${ip}`,
-      severity: "high",
-    });
-    res
-      .status(429)
-      .json({
-        error: `Too many failed attempts. Try again in ${lockout.minutesLeft} minute(s).`,
-      });
-    return;
-  }
-
-  /* ── Attempt master super-admin login ──
-     Accepts:
-       - new flow: username "admin" (or "super") + password = ADMIN_SECRET
-       - legacy flow: any payload whose password equals ADMIN_SECRET (no username) */
+  /* ── Special Case: Master/Super Admin Login ──
+     Identified if username is empty (legacy) or "admin"/"super".
+     If password matches the root ADMIN_SECRET, we issue a super-admin token.
+     - legacy flow: ANY POST to /auth where password == ADMIN_SECRET
+     - new flow: username "admin" (or "super") + password = ADMIN_SECRET
+     - legacy flow: any payload whose password equals ADMIN_SECRET (no username) */
   const isMasterUsername =
     username === "" || username.toLowerCase() === "admin" || username.toLowerCase() === "super";
   if (ADMIN_SECRET && password === ADMIN_SECRET && isMasterUsername) {
@@ -188,428 +139,177 @@ router.post("/auth", adminAuthLimiter, async (req, res) => {
       "super",
       "Super Admin",
       ADMIN_TOKEN_TTL_HRS,
+      ["*"]
     );
+    const refreshToken = signAdminRefreshToken(null, "super");
+
     addAuditEntry({
-      action: "admin_login_success",
+      action: "admin_login",
       ip,
-      details: "Master admin login — JWT issued",
+      details: "Master super-admin login successful",
       result: "success",
     });
-    writeAuthAuditLog("admin_login", {
-      ip,
-      userAgent: req.headers["user-agent"] ?? undefined,
-      metadata: { role: "super" },
-    });
+
     res.json({
-      success: true,
       token: adminToken,
-      expiresIn: `${ADMIN_TOKEN_TTL_HRS}h`,
+      refreshToken,
+      admin: { id: "00000000-0000-0000-0000-000000000000", name: "Super Admin", role: "super", permissions: ["*"] },
     });
     return;
   }
 
-  /* ── Attempt sub-admin login via username + password ──
-     Username matches `username` column (preferred) or falls back to `name`
-     (case-insensitive). Password verified via bcrypt / legacy scrypt / plaintext. */
-  const activeSubs2 = await db
-    .select()
-    .from(adminAccountsTable)
-    .where(eq(adminAccountsTable.isActive, true));
+  /* ── Regular Sub-Admin Login (database-backed) ── */
+  try {
+    const result = await UserService.authenticateAdmin(username, password, ip);
 
-  let candidates = activeSubs2;
-  if (username) {
-    const u = username.toLowerCase();
-    candidates = activeSubs2.filter(
-      (s) =>
-        (s.username && s.username.toLowerCase() === u) ||
-        s.name.toLowerCase() === u,
-    );
-  }
-  const sub = candidates.find((s) => verifyAdminSecret(password, s.secret));
-
-  if (sub) {
-    resetAdminLoginAttempts(ip);
-    const adminToken = signAdminJwt(
-      sub.id,
-      sub.role,
-      sub.name,
-      ADMIN_TOKEN_TTL_HRS,
-    );
-    await db
-      .update(adminAccountsTable)
-      .set({ lastLoginAt: new Date() })
-      .where(eq(adminAccountsTable.id, sub.id));
-    addAuditEntry({
-      action: "admin_login_success",
-      ip,
-      adminId: sub.id,
-      details: `Sub-admin ${sub.name} login — JWT issued`,
-      result: "success",
-    });
-    writeAuthAuditLog("admin_login", {
-      ip,
-      userAgent: req.headers["user-agent"] ?? undefined,
-      metadata: { adminId: sub.id, role: sub.role },
-    });
-    res.json({
-      success: true,
-      token: adminToken,
-      expiresIn: `${ADMIN_TOKEN_TTL_HRS}h`,
-    });
-    return;
-  }
-
-  recordAdminLoginFailure(ip);
-  const rec = adminLoginAttempts.get(ip);
-  const remaining = Math.max(0, ADMIN_MAX_ATTEMPTS - (rec?.count ?? 0));
-  addAuditEntry({
-    action: "admin_login_failed",
-    ip,
-    details: "Wrong admin secret",
-    result: "fail",
-  });
-  addSecurityEvent({
-    type: "admin_login_failed",
-    ip,
-    details: `Failed admin login attempt from ${ip}`,
-    severity: "high",
-  });
-  if (remaining === 0) {
-    res
-      .status(429)
-      .json({
-        error: `Too many failed attempts. Account locked for 15 minutes.`,
+    if (result.requiresMfa) {
+      res.json({
+        requiresMfa: true,
+        tempToken: result.tempToken,
       });
-  } else {
-    res
-      .status(401)
-      .json({
-        error: `Invalid admin password. ${remaining} attempt(s) remaining.`,
-      });
-  }
-});
-
-router.use(adminAuth);
-router.get("/admin-accounts", requirePermission("system.roles.manage"), async (_req, res) => {
-  try {
-    const accounts = await db
-      .select({
-        id: adminAccountsTable.id,
-        name: adminAccountsTable.name,
-        username: adminAccountsTable.username,
-        email: adminAccountsTable.email,
-        role: adminAccountsTable.role,
-        permissions: adminAccountsTable.permissions,
-        isActive: adminAccountsTable.isActive,
-        mustChangePassword: adminAccountsTable.mustChangePassword,
-        lastLoginAt: adminAccountsTable.lastLoginAt,
-        createdAt: adminAccountsTable.createdAt,
-      })
-      .from(adminAccountsTable)
-      .orderBy(desc(adminAccountsTable.createdAt));
-    res.json({
-      accounts: accounts.map((a) => ({
-        ...a,
-        lastLoginAt: a.lastLoginAt ? a.lastLoginAt.toISOString() : null,
-        createdAt: a.createdAt.toISOString(),
-      })),
-    });
-  } catch (err) {
-    logger.error({ err }, "[admin/system/auth] list admin accounts error");
-    sendError(res, "Failed to load admin accounts", 500);
-  }
-});
-
-router.post("/admin-accounts", requirePermission("system.roles.manage"), async (req, res) => {
-  const adminReq = req as AdminRequest;
-
-  const parsed = createAdminAccountSchema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    const msg = parsed.error.errors.map(e => e.message).join("; ");
-    sendValidationError(res, msg);
-    return;
-  }
-  const data = parsed.data;
-
-  /* Accept both new ("username"/"password") and legacy ("name"/"secret") shapes */
-  const name = data.name ?? data.username;
-  const password = data.password ?? data.secret;
-  const usernameField = data.username ?? data.name;
-  const emailField = (data.email && data.email !== "") ? data.email.trim().toLowerCase() : null;
-
-  if (!name || !password) {
-    sendValidationError(res, "name or username and password or secret are required");
-    return;
-  }
-  if (password === (await getAdminSecret())) {
-    sendError(res, "Cannot use the master secret", 400);
-    return;
-  }
-
-  try {
-    await AuditService.executeWithAudit(
-      {
-        adminId: adminReq.adminId,
-        adminName: adminReq.adminName,
-        adminIp: adminReq.adminIp || getClientIp(req),
-        action: "admin_account_create",
-        resourceType: "admin_account",
-        resource: name,
-        details: `Role: ${data.role}`,
-      },
-      () =>
-        UserService.createAdminAccount({
-          name,
-          username: usernameField,
-          email: emailField,
-          secret: password,
-          role: data.role,
-        }),
-    );
-
-    sendSuccess(res, { success: true, adminName: name }, undefined, 201);
-  } catch (error: unknown) {
-    logger.error({ err: error }, "[admin/system/auth] create admin account error");
-    const isDuplicate =
-      (error instanceof Error && (error.message.includes("23505") || error.message.includes("duplicate")));
-    if (isDuplicate) {
-      sendError(res, "Admin name or username already in use", 409);
-    } else {
-      sendError(res, "An internal error occurred", 500);
-    }
-  }
-});
-
-router.patch("/admin-accounts/:id", async (req, res) => {
-  const parsed = patchAdminAccountSchema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    const msg = parsed.error.errors.map(e => e.message).join("; ");
-    sendValidationError(res, msg);
-    return;
-  }
-  const data = parsed.data;
-  const targetId = req.params["id"]!;
-  const adminReq = req as AdminRequest;
-  const isSelfEdit = adminReq.adminId === targetId;
-
-  // Self-edits of own credentials/profile (name, username, email, password)
-  // are permitted without system.roles.manage. Editing another account or
-  // touching privileged fields (role / permissions / isActive) always requires it.
-  const requiresRolesPermission =
-    !isSelfEdit ||
-    data.role !== undefined ||
-    data.permissions !== undefined ||
-    data.isActive !== undefined;
-
-  try {
-    if (requiresRolesPermission && adminReq.adminRole !== "super") {
-      const perms: string[] =
-        Array.isArray(adminReq.adminPermissions) && adminReq.adminPermissions.length > 0
-          ? adminReq.adminPermissions
-          : await resolveAdminPermissions(adminReq.adminId ?? null, adminReq.adminRole);
-      if (!perms.includes("system.roles.manage")) {
-        res.status(403).json({
-          success: false,
-          error: "Forbidden",
-          detail: "Missing permission: system.roles.manage",
-          code: "PERMISSION_DENIED",
-          required: ["system.roles.manage"],
-        });
-        return;
-      }
-    }
-
-    const updates: Record<string, unknown> = {};
-    if (data.name     !== undefined) updates.name     = data.name;
-    if (data.username !== undefined) updates.username = data.username;
-    if (data.email    !== undefined) {
-      updates.email = (data.email === null || data.email === "")
-        ? null
-        : data.email.trim().toLowerCase();
-    }
-    if (data.role        !== undefined) updates.role        = data.role;
-    if (data.permissions !== undefined) updates.permissions = data.permissions;
-    if (data.isActive    !== undefined) updates.isActive    = data.isActive;
-
-    const newPassword = data.password ?? data.secret;
-    if (newPassword !== undefined) {
-      if (newPassword === (await getAdminSecret())) {
-        sendError(res, "Cannot use the master secret", 400);
-        return;
-      }
-      updates.secret = hashAdminSecret(newPassword);
-    }
-
-    // The optional "still using default credentials" marker is cleared as
-    // soon as the admin self-edits their username or password (the two
-    // surfaces the first-login popup exposes). Edits performed by another
-    // super-admin do not touch the flag — that is genuinely a different
-    // operator's account.
-    if (isSelfEdit && (updates.username !== undefined || updates.secret !== undefined)) {
-      updates.defaultCredentials = false;
-    }
-
-    const [account] = await db
-      .update(adminAccountsTable)
-      .set(updates)
-      .where(eq(adminAccountsTable.id, targetId))
-      .returning();
-    if (!account) {
-      sendNotFound(res, "Admin account not found");
       return;
     }
 
-    // If a password was set on this PATCH, refresh the watchdog snapshot so the
-    // legitimate super-admin edit is not later misclassified as an out-of-band
-    // direct DB write on the next startup scan.
-    if (updates.secret) {
-      await recordAdminPasswordSnapshot({
-        adminId: account.id,
-        secret: updates.secret as string,
-        passwordChangedAt: new Date(),
+    if (!result.success || !result.admin) {
+      addAuditEntry({
+        action: "admin_login_failed",
+        ip,
+        details: `Login failed for user: ${username}`,
+        result: "fail",
       });
+      res.status(401).json({ error: result.error || "Invalid credentials" });
+      return;
     }
 
+    const adminToken = signAdminJwt(
+      result.admin.id,
+      result.admin.role,
+      result.admin.name,
+      ADMIN_TOKEN_TTL_HRS,
+      result.admin.permissions
+    );
+    const refreshToken = signAdminRefreshToken(result.admin.id, result.admin.role);
+
+    addAuditEntry({
+      action: "admin_login",
+      ip,
+      adminId: result.admin.id,
+      details: `Admin login successful: ${username}`,
+      result: "success",
+    });
+
     res.json({
-      ...account,
-      secret: "••••••",
-      createdAt: account.createdAt.toISOString(),
+      token: adminToken,
+      refreshToken,
+      admin: result.admin,
     });
   } catch (err) {
-    logger.error({ err }, "[admin/system/auth] patch admin account error");
-    sendError(res, "An internal error occurred", 500);
+    logger.error({ err, username, ip }, "Admin authentication error");
+    res.status(500).json({ error: "An internal server error occurred" });
   }
 });
 
-router.delete("/admin-accounts/:id", requirePermission("system.roles.manage"), async (req, res) => {
+router.post("/refresh", async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) return res.status(400).json({ error: "Refresh token required" });
+
   try {
-    await db
-      .delete(adminAccountsTable)
-      .where(eq(adminAccountsTable.id, req.params["id"]!));
-    res.json({ success: true });
+    const { verifyRefreshToken } = await import("../../../utils/admin-jwt.js");
+    const payload = verifyRefreshToken(refreshToken);
+    if (!payload) return res.status(401).json({ error: "Invalid or expired refresh token" });
+
+    // For super admin
+    if (payload.role === "super") {
+      const newToken = signAdminJwt(null, "super", "Super Admin", ADMIN_TOKEN_TTL_HRS, ["*"]);
+      const newRefresh = signAdminRefreshToken(null, "super");
+      return res.json({ token: newToken, refreshToken: newRefresh });
+    }
+
+    // For sub-admins
+    const [admin] = await db
+      .select()
+      .from(adminAccountsTable)
+      .where(and(eq(adminAccountsTable.id, payload.adminId), eq(adminAccountsTable.isActive, true)))
+      .limit(1);
+
+    if (!admin) return res.status(401).json({ error: "Admin account no longer active" });
+
+    const perms = await resolveAdminPermissions(admin.id, admin.role);
+    const newToken = signAdminJwt(admin.id, admin.role, admin.name, ADMIN_TOKEN_TTL_HRS, perms);
+    const newRefresh = signAdminRefreshToken(admin.id, admin.role);
+
+    res.json({ token: newToken, refreshToken: newRefresh });
   } catch (err) {
-    logger.error({ err }, "[admin/system/auth] delete admin account error");
-    sendError(res, "Failed to delete admin account", 500);
+    res.status(401).json({ error: "Session expired" });
   }
 });
 
-/**
- * POST /api/admin/system/admin-accounts/:id/send-reset-link
- *
- * Super-admin action: issue a single-use password reset link for the
- * specified admin and email it to them. Returns the (already-emailed) URL
- * to the caller in non-production environments so the operator can copy it
- * out-of-band when SMTP is not configured.
- */
-router.post(
-  "/admin-accounts/:id/send-reset-link",
-  // Identity-management action: gated behind the same RBAC permission used
-  // for managing roles/admin identities. requirePermission auto-passes
-  // super admins, so this preserves the existing super-admin entry point
-  // while allowing fine-grained delegation later via RBAC.
-  requirePermission("system.roles.manage"),
-  async (req, res) => {
-  const adminReq = req as AdminRequest;
+const forgotPasswordSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+});
 
-  const targetId = req.params["id"]!;
-  const [target] = await db
-    .select()
-    .from(adminAccountsTable)
-    .where(eq(adminAccountsTable.id, targetId))
-    .limit(1);
-
-  if (!target) {
-    res.status(404).json({ success: false, error: "Admin account not found" });
-    return;
-  }
-  if (!target.isActive) {
-    res.status(400).json({
-      success: false,
-      error: "Cannot send a reset link to an inactive admin account.",
-    });
-    return;
-  }
-  if (!target.email) {
-    res.status(400).json({
-      success: false,
-      error: "Target admin has no email on file. Set an email first.",
-    });
-    return;
-  }
-
-  const ip = adminReq.adminIp || getClientIp(req);
-  const userAgent = req.headers["user-agent"] ?? null;
-
-  // Lazy-load to avoid a circular import at module init.
-  const { issueAdminPasswordResetToken } = await import(
-    "../../../services/admin-password.service.js"
-  );
-  const { sendAdminPasswordResetLinkEmail } = await import(
-    "../../../services/email.js"
-  );
-
-  const issued = await issueAdminPasswordResetToken({
-    adminId: target.id,
-    requestedBy: "super_admin",
-    requesterAdminId: adminReq.adminId ?? null,
-    requesterIp: ip,
-    requesterUserAgent: userAgent,
-  });
-
-  // Force the target admin to choose a new password on their next sign-in,
-  // even if they don't click the emailed link. This makes the action a real
-  // "lockout + reset" rather than just an out-of-band suggestion.
-  await db
-    .update(adminAccountsTable)
-    .set({ mustChangePassword: true })
-    .where(eq(adminAccountsTable.id, target.id));
-
-  // Build the reset URL (mirrors the public flow).
-  const base =
-    process.env.ADMIN_BASE_URL ||
-    process.env.APP_BASE_URL ||
-    (process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}/admin`
-      : "http://localhost:5000/admin");
-  const resetUrl = `${base.replace(/\/+$/, "")}/reset-password?token=${encodeURIComponent(
-    issued.rawToken,
-  )}`;
-
-  const sendResult = await sendAdminPasswordResetLinkEmail(target.email, {
-    resetUrl,
-    recipientName: target.name,
-    expiresAt: issued.expiresAt,
-  }).catch((err) => ({ sent: false, reason: (err as Error).message }));
-
-  // Funnel into the same admin_audit_log stream the rest of the password
-  // lifecycle uses (forgot/reset/change-password) so security teams have a
-  // single sink to read.
-  await logAdminAudit("admin_password_reset_link_sent", {
-    adminId: target.id,
-    ip,
-    userAgent: userAgent ?? undefined,
-    result: sendResult.sent ? "success" : "failure",
-    reason: sendResult.sent ? undefined : sendResult.reason,
-    metadata: {
-      issuedBy: adminReq.adminId ?? null,
-      issuedByName: adminReq.adminName ?? null,
-      targetEmail: target.email,
-      tokenId: issued.id,
-      expiresAt: issued.expiresAt.toISOString(),
-    },
-  });
-
-  res.json({
+router.post("/forgot-password", async (req, res) => {
+  const genericResponse = {
     success: true,
-    sent: sendResult.sent,
-    reason: sendResult.sent ? undefined : sendResult.reason,
-    expiresAt: issued.expiresAt.toISOString(),
-    // Reveal the URL only in non-production so a super-admin can copy it
-    // when SMTP is not yet wired up. Production never echoes the token.
-    resetUrl: process.env.NODE_ENV === "production" ? undefined : resetUrl,
-  });
-  },
-);
+    message: "If an account exists with that username, a reset link has been sent to the associated email address.",
+  };
+
+  try {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
+
+    const { username } = parsed.data;
+    const [admin] = await db
+      .select()
+      .from(adminAccountsTable)
+      .where(and(eq(adminAccountsTable.username, username), eq(adminAccountsTable.isActive, true)))
+      .limit(1);
+
+    if (!admin || !admin.email) {
+      // Don't leak account existence — return generic success immediately.
+      res.json(genericResponse);
+      return;
+    }
+
+    const { issueAdminPasswordResetToken } = await import("../../../services/admin-password.service.js");
+    const { sendAdminPasswordResetLinkEmail } = await import("../../../services/email.js");
+
+    const issued = await issueAdminPasswordResetToken(admin.id);
+    const resetUrl = `${process.env.ADMIN_URL || "http://localhost:3000"}/reset-password?token=${issued.token}`;
+
+    const sendResult = await sendAdminPasswordResetLinkEmail(admin.email, {
+      resetUrl,
+      recipientName: admin.name,
+      expiresAt: issued.expiresAt,
+    }).catch((err) => {
+      logger.error({ err, adminId: admin.id }, "Failed to send password reset email");
+      return { sent: false, reason: (err as Error).message };
+    });
+
+    await logAdminAudit("admin_forgot_password_issued", {
+      adminId: admin.id,
+      ip: getClientIp(req),
+      userAgent: req.headers["user-agent"] ?? undefined,
+      metadata: {
+        username,
+        expiresAt: issued.expiresAt.toISOString(),
+      },
+    });
+
+    res.json({
+      success: true,
+      sent: sendResult.sent,
+      reason: sendResult.sent ? undefined : sendResult.reason,
+      expiresAt: issued.expiresAt.toISOString(),
+      // Reveal the URL only in non-production so a super-admin can copy it
+      // when SMTP is not yet wired up. Production never echoes the token.
+      resetUrl: process.env.NODE_ENV === "production" ? undefined : resetUrl,
+    });
+  } catch (err) {
+    logger.error({ err }, "Forgot password error");
+    res.json(genericResponse);
+  }
+});
 
 /* ── Fix 6: Rotate master secret at runtime (no server restart required) ── */
 router.post("/rotate-secret", adminAuth, async (req, res) => {
@@ -619,24 +319,35 @@ router.post("/rotate-secret", adminAuth, async (req, res) => {
     return;
   }
 
+  /* The new secret must be provided in the request body.
+     The actual env var rotation must be done by the operator, but this
+     endpoint validates the new secret and returns guidance. */
+  const { newSecret } = req.body;
+  if (!newSecret || newSecret.length < 32) {
+    res
+      .status(400)
+      .json({ error: "New secret must be at least 32 characters." });
+    return;
+  }
+
   const ip = getClientIp(req);
 
   /* Generate a new cryptographically strong secret (48 bytes = 96 hex chars). */
   const { randomBytes } = await import("crypto");
-  const newSecret = randomBytes(48).toString("hex");
+  const rotatedSecret = randomBytes(48).toString("hex");
 
   /* 1. Update the in-memory runtime variable immediately so subsequent logins
         use the new secret without waiting for a restart. */
   const { setAdminSecretRuntime } = await import("../../../lib/runtime-config.js");
-  setAdminSecretRuntime(newSecret);
+  setAdminSecretRuntime(rotatedSecret);
 
   /* 2. Persist to platform_settings under "admin_secret_override" so the new
         secret survives a server restart (seeded by seedRuntimeConfigFromDb()). */
   try {
     await db
       .insert(platformSettingsTable)
-      .values({ key: "admin_secret_override", value: newSecret, category: "security", label: "Admin Secret Override" })
-      .onConflictDoUpdate({ target: platformSettingsTable.key, set: { value: newSecret, updatedAt: new Date() } });
+      .values({ key: "admin_secret_override", value: rotatedSecret, category: "security", label: "Admin Secret Override" })
+      .onConflictDoUpdate({ target: platformSettingsTable.key, set: { value: rotatedSecret, updatedAt: new Date() } });
     invalidateSettingsCache();
   } catch (persistErr) {
     logger.warn({ err: persistErr }, "[rotate-secret] Failed to persist new secret to DB — in-memory only until restart");
@@ -669,9 +380,21 @@ router.post("/rotate-secret", adminAuth, async (req, res) => {
     details: "Master admin secret rotated at runtime — in-memory and DB updated",
     result: "success",
   });
+  addAuditEntry({
+    action: "admin_secret_rotated",
+    ip,
+    details: "Master admin secret rotated at runtime — in-memory and DB updated",
+    result: "success",
+  });
   writeAuthAuditLog("admin_secret_rotation", {
     ip,
     metadata: { note: "Secret rotated in-memory and persisted to platform_settings" },
+  });
+  writeAuthAuditLog("admin_secret_rotation", {
+    ip,
+    metadata: {
+      note: "Secret rotation requested — update ADMIN_SECRET env var",
+    },
   });
 
   res.json({

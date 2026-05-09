@@ -11,6 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { adminGet, adminPut } from "@/lib/adminFetcher";
+import { fetcher } from "@/lib/api";
+import { adminGet } from "@/lib/adminFetcher";
 import { useLanguage } from "@/lib/useLanguage";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { PullToRefresh } from "@/components/PullToRefresh";
@@ -22,7 +24,7 @@ function exportDashboard(
   setExporting: (v: boolean) => void,
 ) {
   setExporting(true);
-  adminGet("/fleet/dashboard-export").then((data: any) => {
+  (adminGet ? adminGet("/fleet/dashboard-export") : fetcher("/fleet/dashboard-export")).then((data: any) => {
     const enriched = { ...data, trend: data.trend ?? trend };
     const blob = new Blob([JSON.stringify(enriched, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -143,6 +145,40 @@ function LiveMetricsStrip() {
         { key: "dashboard_sos_threshold",     value: draftSos  || "3"  },
         { key: "dashboard_pending_threshold", value: draftOrd  || "30" },
       ] });
+      toast({ title: "Thresholds saved", description: "Alert thresholds updated." });
+      setEditingThresholds(false);
+      void refetchSettings();
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    }
+    setSavingTh(false);
+  };
+
+  const sosBreached  = sosCnt  >= sosThreshold;
+  const ordBreached  = newOrd  >= pendThreshold;
+
+  const [editingThresholds, setEditingThresholds] = useState(false);
+  const [draftSos,  setDraftSos]  = useState(String(sosThreshold));
+  const [draftOrd,  setDraftOrd]  = useState(String(pendThreshold));
+  const [savingTh,  setSavingTh]  = useState(false);
+
+  useEffect(() => {
+    if (!editingThresholds) {
+      setDraftSos(String(sosThreshold));
+      setDraftOrd(String(pendThreshold));
+    }
+  }, [sosThreshold, pendThreshold, editingThresholds]);
+
+  const saveThresholds = async () => {
+    setSavingTh(true);
+    try {
+      await fetcher("/platform-settings", {
+        method: "PUT",
+        body: JSON.stringify({ settings: [
+          { key: "dashboard_sos_threshold",     value: draftSos  || "3"  },
+          { key: "dashboard_pending_threshold", value: draftOrd  || "30" },
+        ]}),
+      });
       toast({ title: "Thresholds saved", description: "Alert thresholds updated." });
       setEditingThresholds(false);
       void refetchSettings();
@@ -289,7 +325,6 @@ function LiveMetricsStrip() {
     </div>
   );
 }
-
 const SERVICE_SERIES = [
   { key: "mart",     label: "Mart",     color: "#f97316" },
   { key: "rides",    label: "Rides",    color: "#6366f1" },
@@ -482,7 +517,6 @@ export default function Dashboard() {
 
       {/* ── Live Metrics Strip ── */}
       <LiveMetricsStrip />
-
       {/* 4 Hero Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Revenue → /transactions */}

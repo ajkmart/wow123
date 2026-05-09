@@ -93,7 +93,10 @@ function ApproveModal({ w, onClose }: { w: Withdrawal; onClose: () => void }) {
     if (!refNo.trim()) { toast({ title: "Reference number required", variant: "destructive" }); return; }
     approve.mutate({ id: w.id, refNo: refNo.trim(), note: note.trim() || undefined }, {
       onSuccess: () => { toast({ title: "Withdrawal approved", description: `${fc(Number(w.amount))} marked as paid — Ref: ${refNo}` }); onClose(); },
-      onError: onApproveError,
+      onError: (e: any) => {
+        onApproveError(e);
+        toast({ title: "Error", description: e.message, variant: "destructive" });
+      },
     });
   };
 
@@ -159,7 +162,10 @@ function RejectModal({ w, onClose }: { w: Withdrawal; onClose: () => void }) {
         toast({ title: "Withdrawal rejected", description: `${fc(data.refunded)} refunded to the rider's wallet.` });
         onClose();
       },
-      onError: onRejectError,
+      onError: (e: any) => {
+        onRejectError(e);
+        toast({ title: "Error", description: e.message, variant: "destructive" });
+      },
     });
   };
 

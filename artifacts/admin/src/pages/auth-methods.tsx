@@ -256,7 +256,6 @@ export default function AuthMethodsPage() {
       setRotatingSecret(false);
     }
   }, [toast]);
-
   const handleSave = useCallback(async () => {
     if (dirtyKeys.size === 0) return;
     setSaving(true);
@@ -424,7 +423,6 @@ export default function AuthMethodsPage() {
               </p>
             </div>
           )}
-
           {/* Info banner */}
           <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-indigo-50/60 border border-indigo-200 text-indigo-900">
             <Info className="w-4 h-4 mt-0.5 shrink-0" />

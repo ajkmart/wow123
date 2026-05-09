@@ -453,6 +453,7 @@ export default function Vendors() {
     return [...filtered].sort((a: any, b: any) => {
       const av = sortKey === "storeName" ? (a.storeName || "").toLowerCase() : (a[sortKey] ?? 0);
       const bv = sortKey === "storeName" ? (b.storeName || "").toLowerCase() : (b[sortKey] ?? 0);
+
       if (av < bv) return sortDir === "asc" ? -1 : 1;
       if (av > bv) return sortDir === "asc" ? 1 : -1;
       return 0;
@@ -646,6 +647,7 @@ export default function Vendors() {
                       className="w-4 h-4 rounded accent-indigo-600 shrink-0 cursor-pointer"
                       onClick={e => e.stopPropagation()}
                     />
+
                     <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0 text-2xl">
                       🏪
                     </div>
@@ -654,6 +656,7 @@ export default function Vendors() {
                         <p className="font-bold text-sm text-foreground truncate">{v.storeName || "Unnamed Store"}</p>
                         {getStatusBadge(v)}
                         <TierBadge tier={v.accountLevel as VendorTier} />
+
                         {(deliveryMode === "stores" || deliveryMode === "both") && (
                           whitelistedVendorIds.has(v.id)
                             ? <Badge
@@ -751,6 +754,7 @@ export default function Vendors() {
                       </select>
                       <Award className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-amber-600 pointer-events-none" />
                     </div>
+
                     <Button size="sm" variant="outline" onClick={() => setCommModal(v)} disabled={!canWrite}
                       className="h-9 rounded-xl gap-1.5 text-xs border-purple-200 text-purple-700 hover:bg-purple-50">
                       <Percent className="w-3.5 h-3.5" /> Commission
@@ -802,6 +806,7 @@ export default function Vendors() {
       {suspendModal && <SuspendModal vendor={suspendModal} onClose={() => setSuspendModal(null)} />}
       {commModal    && <CommissionModal vendor={commModal} defaultPct={vendorCommissionPct} onClose={() => setCommModal(null)} />}
       {verifyModal  && <VendorVerificationDrawer vendor={verifyModal} onClose={() => setVerifyModal(null)} />}
+
 
       {/* Invite Vendor Dialog (triggered by N shortcut) */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>

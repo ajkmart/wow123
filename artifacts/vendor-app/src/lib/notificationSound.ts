@@ -31,7 +31,6 @@ export function wasOrderSeenRecently(orderId: string): boolean {
   }
   return true;
 }
-
 interface WindowWithWebkit extends Window {
   AudioContext?: typeof AudioContext;
   webkitAudioContext?: typeof AudioContext;

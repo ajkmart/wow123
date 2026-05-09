@@ -27,6 +27,7 @@ export interface ProductQueueError {
 }
 
 const QUEUE_KEY = "@ajkmart_vendor_queue";
+
 const PRODUCT_QUEUE_KEY = "ajkmart_vendor_product_queue";
 const PRODUCT_FAILURES_KEY = "ajkmart_vendor_product_failures";
 const MAX_RETRIES = 3;
@@ -149,6 +150,7 @@ export function useOfflineQueue() {
         await api.updateOrder(item.orderId, item.status);
         synced++;
         setSyncToast(`Syncing ${synced} / ${total}…`);
+
       } catch {
         failed.push(item);
       }
@@ -161,6 +163,7 @@ export function useOfflineQueue() {
     if (failed.length === 0) {
       showSyncToast(`✅ Synced ${total} update${total > 1 ? "s" : ""}`);
     } else {
+
       showSyncToast(`⚠️ ${failed.length} update${failed.length > 1 ? "s" : ""} failed to sync`);
     }
   }, [qc]);

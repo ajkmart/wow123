@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
+import { rotateRefreshToken, invalidateTokenFamily } from "../../services/auth/tokenRotation.js";
 import { z } from "zod";
 import { db } from "@workspace/db";
 import { usersTable, walletTransactionsTable, notificationsTable, refreshTokensTable, magicLinkTokensTable, rateLimitsTable, pendingOtpsTable, userSessionsTable, loginHistoryTable, vendorProfilesTable, riderProfilesTable, totpRecoveryCodesTable } from "@workspace/db/schema";
@@ -1729,25 +1730,40 @@ async function handleRefreshToken(req: Request, res: any) {
 /** Core refresh-token logic, extracted so cookie and dev-body paths share it. */
 async function doRefresh(refreshToken: string, ip: string, req: Request, res: any) {
   const tokenHash = hashRefreshToken(refreshToken);
-  const [rt] = await db.select().from(refreshTokensTable).where(eq(refreshTokensTable.tokenHash, tokenHash)).limit(1);
 
-  if (!rt) {
+  /* ── Token family replay detection ── */
+  let rt: typeof import("@workspace/db/schema").refreshTokensTable.$inferSelect;
+  try {
+    const { detectAndInvalidateFamily, TokenFamilyBreachError } = await import("../../services/auth/tokenRotation.js");
+    rt = await detectAndInvalidateFamily(tokenHash);
+  } catch (err: any) {
+    if (err?.name === "TokenFamilyBreachError") {
+      writeAuthAuditLog("token_family_breach", { userId: err.userId, ip, userAgent: req.headers["user-agent"] ?? undefined });
+      res.status(401).json({ error: "Security breach detected. All sessions revoked. Please log in again." });
+      return;
+    }
+    /* Token not found */
     writeAuthAuditLog("refresh_failed_not_found", { ip, userAgent: req.headers["user-agent"] ?? undefined });
     res.status(401).json({ error: "Invalid refresh token. Please log in again." });
     return;
   }
 
-  if (rt.revokedAt) {
-    /* Token reuse detected — revoke all tokens for this user (possible token theft) */
-    await revokeAllUserRefreshTokens(rt.userId);
+  /* Token reuse detected: already revoked but someone is trying to use it again.
+     Invalidate the entire token family (possible token theft). */
+  if (rt.revoked || rt.revokedAt) {
+    if (rt.tokenFamilyId) {
+      await invalidateTokenFamily(rt.tokenFamilyId, rt.userId, "SUSPICIOUS_FAMILY_REUSE", ip);
+    } else {
+      await revokeAllUserRefreshTokens(rt.userId, "REUSE_DETECTED");
+    }
     writeAuthAuditLog("refresh_token_reuse", { userId: rt.userId, ip, userAgent: req.headers["user-agent"] ?? undefined });
-    addSecurityEvent({ type: "refresh_token_reuse", ip, userId: rt.userId, details: "Refresh token reuse detected — all sessions revoked", severity: "high" });
+    addSecurityEvent({ type: "refresh_token_reuse", ip, userId: rt.userId, details: "Refresh token reuse detected — token family invalidated", severity: "high" });
     res.status(401).json({ error: "Session invalidated for security. Please log in again." });
     return;
   }
 
   if (new Date() > rt.expiresAt) {
-    await revokeRefreshToken(tokenHash);
+    await revokeRefreshToken(tokenHash, "EXPIRED");
     writeAuthAuditLog("refresh_token_expired", { userId: rt.userId, ip });
     res.status(401).json({ error: "Session expired. Please log in again." });
     return;
@@ -1755,7 +1771,7 @@ async function doRefresh(refreshToken: string, ip: string, req: Request, res: an
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, rt.userId)).limit(1);
   if (!user || user.isBanned || !user.isActive) {
-    await revokeRefreshToken(tokenHash);
+    await revokeRefreshToken(tokenHash, "USER_UNAVAILABLE");
     res.status(401).json({ error: "Account not available. Please log in again." });
     return;
   }
@@ -1764,64 +1780,57 @@ async function doRefresh(refreshToken: string, ip: string, req: Request, res: an
   const userRole = user.roles ?? "customer";
 
   const methodToSettingsKey: Record<string, string> = {
-    phone_otp: "auth_phone_otp_enabled",
-    email_otp: "auth_email_otp_enabled",
-    password: "auth_username_password_enabled",
-    social_google: "auth_google_enabled",
-    social_facebook: "auth_facebook_enabled",
-    magic_link: "auth_magic_link_enabled",
+    phone_otp:      "auth_phone_otp_enabled",
+    email_otp:      "auth_email_otp_enabled",
+    password:       "auth_username_password_enabled",
+    social_google:  "auth_google_enabled",
+    social_facebook:"auth_facebook_enabled",
+    magic_link:     "auth_magic_link_enabled",
   };
 
   const originalMethod = rt.authMethod;
   if (originalMethod && methodToSettingsKey[originalMethod]) {
     const settingsKey = methodToSettingsKey[originalMethod]!;
     const legacyKeys: Record<string, string> = {
-      social_google: "auth_social_google",
+      social_google:   "auth_social_google",
       social_facebook: "auth_social_facebook",
-      magic_link: "auth_magic_link",
+      magic_link:      "auth_magic_link",
     };
     const legacyKey = legacyKeys[originalMethod];
     const isEnabled = legacyKey
       ? isAuthMethodEnabledStrict(settings, settingsKey, legacyKey, userRole)
       : isAuthMethodEnabled(settings, settingsKey, userRole);
     if (!isEnabled) {
-      await revokeRefreshToken(tokenHash);
+      await revokeRefreshToken(tokenHash, "AUTH_METHOD_DISABLED");
       res.status(403).json({ error: "Your login method has been disabled. Please log in again using an available method." });
       return;
     }
   } else {
-    await revokeRefreshToken(tokenHash);
+    await revokeRefreshToken(tokenHash, "UNKNOWN_METHOD");
     res.status(403).json({ error: "Session expired. Please log in again." });
     return;
   }
 
-  /* Rotate: revoke old token and issue a new one */
-  await revokeRefreshToken(tokenHash);
-
-  const newAccessToken = signAccessToken(user.id, user.phone ?? "", user.roles ?? "customer", user.roles ?? "customer", user.tokenVersion ?? 0);
-  const { raw: newRefreshRaw, hash: newRefreshHash } = generateRefreshToken();
-  const newRefreshExpiresAt = new Date(Date.now() + getRefreshTokenTtlDays() * 24 * 60 * 60 * 1000);
-
-  await db.insert(refreshTokensTable).values({
-    id:        generateId(),
-    userId:    user.id,
-    tokenHash: newRefreshHash,
-    authMethod: rt.authMethod ?? null,
-    expiresAt: newRefreshExpiresAt,
-  });
+  /* Rotate: revoke old token, issue new access + refresh token via the
+     tokenRotation service which also handles token-family tracking. */
+  const rotation = await rotateRefreshToken(
+    rt,
+    { id: user.id, phone: user.phone ?? null, roles: user.roles ?? null, tokenVersion: user.tokenVersion ?? null },
+    ip,
+  );
 
   writeAuthAuditLog("token_refresh", { userId: user.id, ip, userAgent: req.headers["user-agent"] ?? undefined });
 
   /* Re-issue HttpOnly cookies with the rotated refresh token. The session
      checks use stored user roles (not req.body.role) so these fire correctly
      for refresh requests, which carry no role hint. */
-  setRiderRefreshCookie(req, res, newRefreshRaw, user);
-  setVendorRefreshCookie(req, res, newRefreshRaw, user);
+  setRiderRefreshCookie(req, res, rotation.refreshToken, user);
+  setVendorRefreshCookie(req, res, rotation.refreshToken, user);
 
   res.json({
-    token:        newAccessToken,
-    refreshToken: newRefreshRaw,
-    expiresAt:    new Date(Date.now() + getAccessTokenTtlSec() * 1000).toISOString(),
+    token:        rotation.accessToken,
+    refreshToken: rotation.refreshToken,
+    expiresAt:    rotation.expiresAt,
   });
 }
 

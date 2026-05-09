@@ -321,7 +321,7 @@ async function processLocationUpdate(opts: {
           if (!histRideId) {
             try {
               const [activeOrder] = await db
-                .select({ id: ordersTable.id })
+                .select({ id: ordersTable.id, vendorId: ordersTable.vendorId })
                 .from(ordersTable)
                 .where(and(
                   eq(ordersTable.riderId, userId),
@@ -587,27 +587,31 @@ router.post("/batch", async (req, res) => {
     if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) { skipped++; continue; }
 
     const now = ping.timestamp ? new Date(ping.timestamp) : new Date();
+
     const result = await processLocationUpdate({
       userId, effectiveRole, lat, lon,
       accuracy: ping.accuracy !== undefined ? parseFloat(ping.accuracy) : undefined,
       speed: ping.speed !== undefined ? parseFloat(ping.speed) : undefined,
       heading: ping.heading !== undefined ? parseFloat(ping.heading) : undefined,
       batteryLevel: ping.batteryLevel !== undefined ? parseFloat(ping.batteryLevel) : undefined,
-      mockProvider: ping.mockProvider === true,
+      mockProvider: ping.mockProvider === true || ping.mockProvider === "true",
       action: ping.action ?? null,
       ip, settings, now,
     });
 
-    if (result.skip) { skipped++; continue; }
-    processed++;
-    lastUpdatedAt = now.toISOString();
-    lastValidPing = ping;
-    lastValidLat = lat;
-    lastValidLon = lon;
+    if (!result.skip) {
+      processed++;
+      lastUpdatedAt = now.toISOString();
+      lastValidPing = ping;
+      lastValidLat = lat;
+      lastValidLon = lon;
+    } else {
+      skipped++;
+    }
   }
 
-  /* Broadcast the final valid position to admin fleet after the loop */
-  if (processed > 0 && lastValidPing !== null && effectiveRole === "rider") {
+  /* Broadcast the LAST valid ping from the batch to participants */
+  if (lastValidPing && effectiveRole === "rider") {
     await broadcastRiderLocation(userId, lastValidLat, lastValidLon, {
       accuracy: lastValidPing.accuracy !== undefined ? parseFloat(lastValidPing.accuracy) : undefined,
       speed: lastValidPing.speed !== undefined ? parseFloat(lastValidPing.speed) : undefined,
@@ -618,47 +622,7 @@ router.post("/batch", async (req, res) => {
     });
   }
 
-  res.json({ success: true, processed, skipped, lastUpdatedAt });
-});
-
-/* ── DELETE /locations/clear — clear authenticated user's live location on logout ── */
-router.delete("/clear", async (req, res) => {
-  const authHeader = req.headers.authorization ?? "";
-  if (!authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-  const jwtPayload = verifyUserJwt(authHeader.slice(7));
-  if (!jwtPayload?.userId) {
-    res.status(401).json({ error: "Invalid or expired token" });
-    return;
-  }
-  const userId = jwtPayload.userId;
-
-  await db.delete(liveLocationsTable).where(eq(liveLocationsTable.userId, userId));
-  res.json({ success: true });
-});
-
-/* ── GET /locations/:userId — fetch current location (auth required) ── */
-router.get("/:userId", customerAuth, async (req, res) => {
-  const settings = await getCachedSettings();
-  if ((settings["feature_live_tracking"] ?? "on") === "off") {
-    res.status(503).json({ error: "Live GPS tracking is currently disabled." });
-    return;
-  }
-  const [loc] = await db
-    .select()
-    .from(liveLocationsTable)
-    .where(eq(liveLocationsTable.userId, String(req.params["userId"])))
-    .limit(1);
-  if (!loc) { res.status(404).json({ error: "Location not found" }); return; }
-  res.json({
-    userId: loc.userId,
-    latitude: parseFloat(String(loc.latitude)),
-    longitude: parseFloat(String(loc.longitude)),
-    role: loc.role,
-    updatedAt: loc.updatedAt.toISOString(),
-  });
+  res.json({ success: true, processed, skipped, updatedAt: lastUpdatedAt });
 });
 
 export default router;

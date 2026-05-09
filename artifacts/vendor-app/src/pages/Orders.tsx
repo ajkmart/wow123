@@ -322,7 +322,6 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
       joinVendorRoom();
       setSocketConnected(true);
     });
-
     socket.on("rider:location", (payload: { userId: string; latitude: number; longitude: number; updatedAt: string }) => {
       setRiderPositions(prev => ({
         ...prev,
@@ -840,12 +839,58 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
             <div className="px-5 py-3 border-b border-gray-50">
               <button
                 disabled={autoAssignMut.isPending}
+            {/* Location guidance banner — shown when vendor location is unavailable */}
+            {vendorLat === null && (
+              <div className={`mx-5 mt-3 rounded-xl p-3 flex gap-2.5 ${locationPermission === "denied" ? "bg-red-50 border border-red-200" : "bg-amber-50 border border-amber-200"}`}>
+                <span className="text-base flex-shrink-0 mt-0.5">{locationPermission === "denied" ? "🚫" : "📍"}</span>
+                <div className="flex-1 min-w-0">
+                  {locationPermission === "denied" ? (
+                    <>
+                      <p className="text-xs font-bold text-red-700">Location permission blocked</p>
+                      <p className="text-[11px] text-red-600 mt-0.5 leading-snug">
+                        {/Firefox/.test(navigator.userAgent)
+                          ? "In Firefox: click the lock icon in the address bar → Connection Secure → More Information → Permissions → Access Your Location → unblock."
+                          : /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)
+                            ? "In Safari: go to Settings → Safari → Location → set this website to Allow."
+                            : "In Chrome/Edge: click the lock 🔒 icon in the address bar → Site Settings → Location → Allow. Then refresh this page."}
+                      </p>
+                      <a
+                        href="https://support.google.com/chrome/answer/142065"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 inline-block text-[11px] font-bold text-red-700 underline">
+                        How to enable location →
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs font-bold text-amber-700">Location access required for auto-assign</p>
+                      <p className="text-[11px] text-amber-600 mt-0.5 leading-snug">Riders are shown without distance sorting. Allow location for nearest-rider auto-assign.</p>
+                      <button
+                        onClick={retryLocation}
+                        className="mt-1.5 text-[11px] font-bold text-amber-700 underline">
+                        Try Again (re-request location)
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Auto-assign button */}
+            <div className="px-5 py-3 border-b border-gray-50">
+              <button
+                disabled={autoAssignMut.isPending}
                 onClick={() => autoAssignMut.mutate(assignModal.orderId)}
                 className="w-full h-11 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50">
                 {autoAssignMut.isPending ? (
                   <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Auto-assigning...</>
                 ) : (
                   <>⚡ Auto-Assign Nearest Rider (≤5 km)</>
+                )}
+              </button>
+              <p className="text-[10px] text-gray-400 text-center mt-1.5">Selects the closest rider within 5 km of the delivery address</p>
+                  <>⚡ Auto-Assign Nearest Rider</>
                 )}
               </button>
               <p className="text-[10px] text-gray-400 text-center mt-1.5">Selects the closest rider within 5 km of the delivery address</p>

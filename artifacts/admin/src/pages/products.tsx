@@ -24,6 +24,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { LastUpdated } from "@/components/ui/LastUpdated";
 
+const errMsg = (e: unknown): string =>
+  e instanceof Error ? e.message : typeof e === "string" ? e : "Unknown error";
 const EMPTY_FORM = {
   name: "", description: "", price: "", originalPrice: "",
   category: "", type: "mart", unit: "", vendorName: "",
@@ -236,7 +238,10 @@ function RejectModal({ product, onClose }: { product: ProductRow; onClose: () =>
     if (!reason.trim()) { toast({ title: "Reason required", variant: "destructive" }); return; }
     reject.mutate({ id: product.id, reason: reason.trim() }, {
       onSuccess: () => { toast({ title: "Product rejected" }); onClose(); },
-      onError: onRejectError,
+      onError: (e: unknown) => {
+        onRejectError(e);
+        toast({ title: "Error", description: errMsg(e), variant: "destructive" });
+      },
     });
   };
   return (
@@ -418,7 +423,7 @@ export default function Products() {
       setFormData(prev => ({ ...prev, image: url }));
       toast({ title: "Image uploaded" });
     } catch (err: unknown) {
-      toast({ title: "Upload failed", description: parseApiError(err), variant: "destructive" });
+      toast({ title: "Upload failed", description: parseApiError(err) || errMsg(err), variant: "destructive" });
       setImagePreview(formData.image || "");
     } finally {
       setImageUploading(false);
@@ -470,12 +475,16 @@ export default function Products() {
     if (editingId) {
       updateMutation.mutate({ id: editingId, ...payload }, {
         onSuccess: () => { toast({ title: "Product updated" }); setIsFormOpen(false); },
-        onError: onProductError,
+        onError: (err: any) => {
+          onProductError(err);
+          toast({ title: "Update failed", description: err.message, variant: "destructive" });
+        },
       });
     } else {
       createMutation.mutate(payload, {
         onSuccess: () => { toast({ title: "Product created" }); setIsFormOpen(false); },
         onError: onProductError,
+        onError: err => toast({ title: "Create failed", description: err.message, variant: "destructive" })
       });
     }
   };
@@ -485,6 +494,7 @@ export default function Products() {
     deleteMutation.mutate(deleteTarget.id, {
       onSuccess: () => { toast({ title: "Product deleted" }); setDeleteTarget(null); },
       onError: onProductError,
+      onError: err => toast({ title: "Delete failed", description: err.message, variant: "destructive" })
     });
   };
 
@@ -492,6 +502,7 @@ export default function Products() {
     approveMutation.mutate({ id: prod.id }, {
       onSuccess: () => toast({ title: "Product approved", description: `${prod.name} is now live in the store` }),
       onError: onProductError,
+      onError: (err: unknown) => toast({ title: "Error", description: errMsg(err), variant: "destructive" }),
     });
   };
 
@@ -499,6 +510,7 @@ export default function Products() {
     updateMutation.mutate({ id: prod.id, inStock: !prod.inStock }, {
       onSuccess: () => toast({ title: prod.inStock ? "Marked out of stock" : "Marked in stock" }),
       onError: onProductError,
+      onError: err => toast({ title: "Failed", description: err.message, variant: "destructive" }),
     });
   };
 
@@ -618,6 +630,117 @@ export default function Products() {
       {tab === "pricing" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">Define global pricing rules that apply across products. Rules are applied at checkout.</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button size="sm" variant="outline" className="h-9 rounded-xl gap-2" onClick={() => {
+                const newRule = { id: String(Date.now()), name: "New Rule", type: "discount_pct", value: "5", category: "all", active: false };
+                setPricingRules(prev => [...prev, newRule]);
+              }}>
+                <Plus className="w-4 h-4" /> Add Rule
+              </Button>
+              <Button size="sm" className="h-9 rounded-xl gap-2" onClick={() => void savePricingRules()} disabled={pricingSaving || pricingLoading}>
+                {pricingSaving ? "Saving…" : "Save Rules"}
+              </Button>
+            </div>
+          </div>
+          {pricingLoading && <div className="h-24 rounded-xl bg-muted animate-pulse" />}
+          <Card className="rounded-2xl border-border/50 shadow-sm overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="font-bold">Rule Name</TableHead>
+                  <TableHead className="font-bold">Type</TableHead>
+                  <TableHead className="font-bold">Value</TableHead>
+                  <TableHead className="font-bold">Category</TableHead>
+                  <TableHead className="font-bold text-center">Active</TableHead>
+                  <TableHead className="font-bold text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pricingRules.map(rule => (
+                  <TableRow key={rule.id}>
+                    <TableCell>
+                      <input
+                        value={rule.name}
+                        onChange={e => setPricingRules(prev => prev.map(r => r.id === rule.id ? { ...r, name: e.target.value } : r))}
+                        className="w-full text-sm bg-transparent border border-transparent hover:border-border focus:border-primary rounded-lg px-2 py-1 focus:outline-none"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <select
+                        value={rule.type}
+                        onChange={e => setPricingRules(prev => prev.map(r => r.id === rule.id ? { ...r, type: e.target.value } : r))}
+                        className="text-xs rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="discount_pct">% Discount</option>
+                        <option value="discount_flat">Flat Discount (PKR)</option>
+                        <option value="markup_pct">% Markup</option>
+                        <option value="markup_flat">Flat Markup (PKR)</option>
+                      </select>
+                    </TableCell>
+                    <TableCell>
+                      <input
+                        type="number"
+                        value={rule.value}
+                        onChange={e => setPricingRules(prev => prev.map(r => r.id === rule.id ? { ...r, value: e.target.value } : r))}
+                        className="w-20 text-sm bg-transparent border border-border rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <select
+                        value={rule.category}
+                        onChange={e => setPricingRules(prev => prev.map(r => r.id === rule.id ? { ...r, category: e.target.value } : r))}
+                        className="text-xs rounded-lg border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="all">All Categories</option>
+                        <option value="mart">Mart</option>
+                        <option value="food">Food</option>
+                        <option value="pharmacy">Pharmacy</option>
+                      </select>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <button
+                        onClick={() => setPricingRules(prev => prev.map(r => r.id === rule.id ? { ...r, active: !r.active } : r))}
+                        className={`w-10 h-5 rounded-full relative transition-colors ${rule.active ? "bg-green-500" : "bg-slate-200"}`}
+                      >
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${rule.active ? "translate-x-5" : "translate-x-0.5"}`} />
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-red-600 hover:bg-red-50"
+                        onClick={() => setPricingRules(prev => prev.filter(r => r.id !== rule.id))}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {pricingRules.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">No pricing rules. Click "Add Rule" to create one.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+          {pricingRules.some(r => r.active) && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-700 flex items-center gap-2">
+              <Percent className="w-4 h-4 shrink-0" />
+              <span>{pricingRules.filter(r => r.active).length} active rule{pricingRules.filter(r => r.active).length !== 1 ? "s" : ""} will apply at checkout. Rules are applied in order from top to bottom.</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      </div>
+
+      {/* Pricing Rules Tab */}
+      {tab === "pricing" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Define global pricing rules that apply across products. Rules are applied at checkout.</p>
             <div className="flex items-center gap-2 shrink-0">
               <Button size="sm" variant="outline" className="h-9 rounded-xl gap-2" onClick={() => {
@@ -1229,6 +1352,21 @@ export default function Products() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">Loading products...</TableCell></TableRow>
+                  ) : filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">No products found.</TableCell></TableRow>
+                  ) : (
+                    filtered.map((p: ProductRow) => (
+                      <TableRow key={p.id} className={`hover:bg-muted/30 ${selectedProductIds.has(p.id) ? "bg-violet-50/60" : ""}`}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded accent-violet-600 cursor-pointer"
+                            checked={selectedProductIds.has(p.id)}
+                            onChange={() => toggleProductSelect(p.id)}
+                            onClick={e => e.stopPropagation()}
+                          />
+                        </TableCell>
+                    <TableRow><TableCell colSpan={6} className="h-32 text-center text-muted-foreground">Loading products...</TableCell></TableRow>
                   ) : filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">No products found.</TableCell></TableRow>
                   ) : (

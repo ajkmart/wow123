@@ -170,6 +170,7 @@ function RideDetailModal({
   const handleCancel = () => {
     cancelMut.mutate({ id: rideId, reason: cancelReason || undefined }, {
       onSuccess: () => { toast({ title: "Ride cancelled" }); onClose(); },
+      onError: (e: Error) => { toast({ title: "Failed to cancel ride", description: e.message, variant: "destructive" }); },
     });
   };
 
@@ -180,6 +181,7 @@ function RideDetailModal({
     }
     refundMut.mutate({ id: rideId, amount: amt, reason: refundReason || undefined }, {
       onSuccess: (d: any) => { toast({ title: `Refunded ${formatCurrency(Number(d.refundedAmount))}` }); setShowRefund(false); refetch(); },
+      onError: (e: Error) => { toast({ title: "Refund failed", description: e.message, variant: "destructive" }); },
     });
   };
 
@@ -200,6 +202,7 @@ function RideDetailModal({
     }
     reassignMut.mutate({ id: rideId, riderId: selectedRiderId, riderName: assignName.trim(), riderPhone: assignPhone.trim() }, {
       onSuccess: () => { toast({ title: "Rider reassigned" }); setShowReassign(false); refetch(); },
+      onError: (e: Error) => { toast({ title: "Reassignment failed", description: e.message, variant: "destructive" }); },
     });
   };
 
@@ -617,6 +620,7 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
 /* Fix leaflet default icons in Vite builds */
 const _fixLeafletIcons = () => {
   delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl;
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
   L.Icon.Default.mergeOptions({
     iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
     iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -1111,6 +1115,7 @@ function ServiceFormPanel({ isNew, form, setForm, onSubmit, onCancel, isPending 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[{ label: "Base Fare", key: "baseFare" }, { label: "Per Km", key: "perKm" }, { label: "Min Fare", key: "minFare" }, { label: "Max Pax", key: "maxPassengers" }].map(f => (
             <div key={f.key}><label className="text-xs font-semibold text-muted-foreground mb-1 block">{f.label}</label><Input type="number" value={form[f.key as keyof ServiceFormValues] as string} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} /></div>
+            <div key={f.key}><label className="text-xs font-semibold text-muted-foreground mb-1 block">{f.label}</label><Input type="number" value={(form as any)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} /></div>
           ))}
         </div>
       </div>

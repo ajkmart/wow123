@@ -1,0 +1,82 @@
+Implement Token Family Invalidation (CRITICAL)
+Files to modify:
+
+artifacts/api-server/src/services/auth/tokenRotation.ts (extend from Task 2)
+artifacts/api-server/src/middleware/auth.ts (add family check to JWT verification)
+What's broken: If a refresh token is stolen and both the attacker and legitimate user try to refresh, there's no way to detect this and invalidate the entire family. This allows the attacker to keep using stolen tokens.
+
+What to do:
+
+Extend tokenRotation.ts to add detectAndInvalidateFamily() function
+On every token refresh:
+Check if the token has been used before (usedAt is set)
+If usedAt is in the past AND we're trying to use it again, it's a REPLAY
+When replay detected, mark ENTIRE token_family_id as revoked
+Add a middleware that checks token_family_id on every API request
+If family is revoked, reject with 401 and log SECURITY alert
+Notify user of suspected breach (email/SMS)
+Code pattern:
+
+TypeScript
+// services/auth/tokenRotation.ts
+export async function detectAndInvalidateFamily(tokenJWT: string) {
+  const decoded = jwt.verify(tokenJWT, process.env.JWT_REFRESH_SECRET) as JWTPayload;
+  const token = await db.select().from(refreshTokens)
+    .where(eq(refreshTokens.jti, decoded.jti));
+  
+  if (!token.length) return;
+  
+  // If token was already used and we're using it AGAIN, it's a replay attack
+  if (token[0].usedAt && token[0].usedAt < new Date()) {
+    logger.error('[SECURITY:BREACH] Token replay detected!', {
+      userId: decoded.sub,
+      originalUse: token[0].usedAt,
+      familyId: token[0].tokenFamilyId
+    });
+    
+    // Invalidate ENTIRE family
+    await db.update(refreshTokens)
+      .set({ 
+        revoked: true, 
+        revokedReason: 'FAMILY_BREACH_DETECTED',
+        revokedAt: new Date()
+      })
+      .where(eq(refreshTokens.tokenFamilyId, token[0].tokenFamilyId));
+    
+    // Notify user
+    await sendBreachNotification(decoded.sub, 'Suspicious account activity detected');
+    
+    throw new Error('Security breach detected. All tokens invalidated.');
+  }
+  
+  // Mark this token as used
+  await db.update(refreshTokens)
+    .set({ usedAt: new Date() })
+    .where(eq(refreshTokens.jti, decoded.jti));
+}
+
+// middleware/auth.ts
+export async function verifyTokenFamily(req: Request, res: Response, next: NextFunction) {
+  const token = req.cookies.refreshToken || req.headers.authorization?.split(' ')[1];
+  if (!token) return next();
+  
+  const decoded = jwt.decode(token) as JWTPayload;
+  if (!decoded) return next();
+  
+  const tokenRecord = await db.select().from(refreshTokens)
+    .where(eq(refreshTokens.jti, decoded.jti));
+  
+  if (tokenRecord.length && tokenRecord[0].revoked) {
+    logger.warn('[SECURITY] Access attempt with revoked token family', { userId: decoded.sub });
+    return res.status(401).json({ error: 'Account compromised. Please login again.' });
+  }
+  
+  next();
+}
+Deliverable:
+
+Complete family invalidation logic
+Middleware to check family status
+Breach notification function
+Confirm replay detection works
+Show audit logging for breach events

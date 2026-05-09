@@ -57,6 +57,7 @@ import businessRulesRouter from "./business-rules.js";
 import loyaltyFullRouter from "./loyalty-full.js";
 import { adminAuth } from "./admin-shared.js";
 import { userApiLimiter } from "../middleware/rate-limit.js";
+import { verifyTokenFamily } from "../middleware/auth.js";
 
 const router: IRouter = Router();
 
@@ -72,12 +73,12 @@ router.use("/health", healthRouter);
 if (process.env["ADMIN_LEGACY_AUTH_DISABLED"] !== "1") {
   router.use("/auth", authRouter);
 }
-router.use("/users", usersRouter);
+router.use("/users", verifyTokenFamily, usersRouter);
 router.use("/products", productsRouter);
-router.use("/orders", userApiLimiter, ordersRouter);
-router.use("/cart", userApiLimiter, cartRouter);
-router.use("/wallet", userApiLimiter, walletRouter);
-router.use("/rides", userApiLimiter, ridesRouter);
+router.use("/orders", verifyTokenFamily, userApiLimiter, ordersRouter);
+router.use("/cart", verifyTokenFamily, userApiLimiter, cartRouter);
+router.use("/wallet", verifyTokenFamily, userApiLimiter, walletRouter);
+router.use("/rides", verifyTokenFamily, userApiLimiter, ridesRouter);
 router.use("/locations", locationsRouter);
 router.use("/categories", categoriesRouter);
 router.use("/pharmacy-orders", pharmacyRouter);
@@ -156,7 +157,16 @@ router.use("/referrals", userApiLimiter, referralsRouter);
  * Express resolves requests sequentially; the first router to match a path wins,
  * so the split works correctly without any handler collisions.
  */
+/* loyalty/redeem lives at POST /api/loyalty/redeem — separate from /users */
 router.use("/loyalty", userApiLimiter, loyaltyRouter);
+/* loyalty-full provides comprehensive loyalty features — points, tiers, rewards */
+router.use("/loyalty-full", userApiLimiter, loyaltyFullRouter);
+/* experiments — A/B testing and feature experimentation */
+router.use("/experiments", experimentsRouter);
+/* whatsapp-delivery — WhatsApp message sending and delivery tracking */
+router.use("/whatsapp", whatsappDeliveryRouter);
+/* business-rules — Dynamic platform business rules engine */
+router.use("/business-rules", businessRulesRouter);
 /* admin/school/subscriptions — paginated list + cancel */
 router.use("/admin/school", adminSchoolRouter);
 

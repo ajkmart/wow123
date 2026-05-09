@@ -44,6 +44,7 @@ function buildTransporterFromSettings(settings: Record<string, string>): Transpo
     auth: { user, pass },
     tls: { rejectUnauthorized },
   });
+  });
 }
 
 function resolveFrom(settings?: Record<string, string>): string {
@@ -502,11 +503,9 @@ export async function sendAdminPasswordResetLinkEmail(
   const transport = tr || getEnvTransporter();
 
   if (!transport) {
-    console.log("==================================================================");
     console.log(`[EMAIL] (SMTP not configured) Admin password reset link for ${to}`);
     console.log(`[EMAIL]   ${resetUrl}`);
     console.log(`[EMAIL]   expires at ${expiresIso}`);
-    console.log("==================================================================");
     return { sent: false, reason: "SMTP not configured" };
   }
 
@@ -597,11 +596,9 @@ export async function sendAdminPasswordOutOfBandResetEmail(
   const transport = tr || getEnvTransporter();
 
   if (!transport) {
-    console.log("==================================================================");
     console.log(`[EMAIL] (SMTP not configured) Out-of-band admin password reset alert for ${to}`);
     console.log(`[EMAIL]   detectedAt:        ${detectedIso}`);
     console.log(`[EMAIL]   previousChangedAt: ${previousIso}`);
-    console.log("==================================================================");
     return { sent: false, reason: "SMTP not configured" };
   }
 

@@ -50,6 +50,13 @@
       "when": 1746960000000,
       "tag": "0006_pii_encryption_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778330600168,
+      "tag": "0007_reflective_grey_gargoyle",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,120 @@
+TASK 1: Fix Seed Endpoint Exposure (CRITICAL)
+
+**File to modify:** `artifacts/api-server/src/routes/seed.ts`
+
+**What's broken:**
+The POST /api/seed/full endpoint only checks a header key (x-admin-seed-key).
+In production, this endpoint can be called and will reset the entire database.
+This is a CRITICAL security hole.
+
+**What to do:**
+1. Add NODE_ENV check at the TOP of the seed route handler
+2. If NODE_ENV === 'production', return 403 Forbidden immediately
+3. Also check that ADMIN_SEED_KEY env var exists and matches the header
+4. If NODE_ENV !== 'production', allow the endpoint but log a WARNING
+
+**Code pattern:**
+```typescript
+if (process.env.NODE_ENV === 'production') {
+  return res.status(403).json({ 
+    error: 'Seed endpoint is disabled in production',
+    timestamp: new Date().toISOString()
+  });
+}
+
+const providedKey = req.headers['x-admin-seed-key'];
+const expectedKey = process.env.ADMIN_SEED_KEY || 'local-dev-seed-ajkmart';
+if (providedKey !== expectedKey) {
+  logger.warn('[SECURITY] Unauthorized seed attempt', { ip: req.ip });
+  return res.status(403).json({ error: 'Invalid seed key' });
+}
+
+logger.warn('[SEED] Database reset initiated in development. Use with caution.');
+// ... rest of seed logic
+Deliverable:
+
+Show me the COMPLETE updated seed.ts file with security checks
+Confirm NODE_ENV check is at the TOP
+Confirm production blocks the endpoint
+TASK 2: Implement Refresh Token Rotation (CRITICAL)
+Files to modify:
+
+artifacts/api-server/src/db/schema.ts (add columns if needed)
+artifacts/api-server/src/services/auth/token.ts (NEW service)
+artifacts/api-server/src/routes/auth.ts (update POST /auth/refresh)
+What's broken: Refresh tokens are issued but never rotated. If a refresh token is stolen, an attacker can reuse it forever. This violates OAuth 2.0 best practices and is HIGH RISK.
+
+What to do:
+
+Create a new service tokenRotation.ts with function rotateRefreshToken(oldToken: string)
+
+This function should: a. Verify old token is valid and not revoked b. Decode JWT to get user_id and jti c. Mark old token as revoked in DB (UPDATE refresh_tokens SET revoked = true WHERE jti = $jti) d. Issue NEW access token AND new refresh token e. Return { accessToken, refreshToken, expiresIn } f. Log the rotation for audit
+
+Update POST /auth/refresh route to call this function
+
+Also implement token family tracking:
+
+Add column token_family_id (UUID) to refresh_tokens table
+All tokens in the same family share one token_family_id
+If a refresh token is used out-of-order, invalidate the ENTIRE family (security signal)
+Database schema changes:
+
+SQL
+ALTER TABLE refresh_tokens ADD COLUMN token_family_id UUID DEFAULT gen_random_uuid();
+ALTER TABLE refresh_tokens ADD COLUMN revoked BOOLEAN DEFAULT false;
+ALTER TABLE refresh_tokens ADD COLUMN revoked_at TIMESTAMPTZ;
+ALTER TABLE refresh_tokens ADD COLUMN revoked_reason TEXT;
+Code pattern:
+
+TypeScript
+// services/auth/tokenRotation.ts
+export async function rotateRefreshToken(oldTokenJWT: string) {
+  try {
+    // 1. Verify and decode old token
+    const decoded = jwt.verify(oldTokenJWT, process.env.JWT_REFRESH_SECRET) as JWTPayload;
+    
+    // 2. Check token in DB
+    const oldToken = await db.select().from(refreshTokens)
+      .where(eq(refreshTokens.jti, decoded.jti))
+      .limit(1);
+    
+    if (!oldToken.length || oldToken[0].revoked) {
+      throw new Error('Token already revoked or not found');
+    }
+    
+    // 3. Check for suspicious reuse (token family invalidation)
+    if (oldToken[0].usedAt && oldToken[0].usedAt > new Date(Date.now() - 10000)) {
+      // Token was used very recently — suspicious!
+      await db.update(refreshTokens)
+        .set({ revokedReason: 'SUSPICIOUS_FAMILY_REUSE' })
+        .where(eq(refreshTokens.tokenFamilyId, oldToken[0].tokenFamilyId));
+      
+      logger.error('[SECURITY] Token family invalidated', { userId: decoded.sub });
+      throw new Error('Suspicious token reuse detected. Family invalidated.');
+    }
+    
+    // 4. Revoke old token
+    await db.update(refreshTokens)
+      .set({ revoked: true, revokedAt: new Date(), revokedReason: 'ROTATED' })
+      .where(eq(refreshTokens.jti, decoded.jti));
+    
+    // 5. Issue new tokens
+    const newAccessToken = generateAccessToken(decoded.sub);
+    const newRefreshToken = await generateRefreshToken(decoded.sub, oldToken[0].tokenFamilyId);
+    
+    // 6. Log audit
+    logger.info('[AUDIT:AUTH] Refresh token rotated', { userId: decoded.sub });
+    
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+  } catch (err) {
+    logger.error('[SECURITY] Token rotation failed', err);
+    throw err;
+  }
+}
+Deliverable:
+
+Complete tokenRotation.ts service file
+Updated refresh_tokens table schema
+Updated POST /auth/refresh route handler
+Show token family tracking logic
+Confirm revocation works

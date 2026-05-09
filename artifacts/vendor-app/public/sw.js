@@ -2,6 +2,7 @@
 /* Clears all old caches on install/activate so stale assets never persist. */
 /* Push-notification handlers show system notifications for background orders. */
 
+
 self.addEventListener("install", function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
@@ -47,13 +48,13 @@ self.addEventListener("push", function (event) {
     actions: [
       { action: "view-orders", title: "View Orders" },
     ],
+
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
-
   /* Derive the app base from the service worker registration scope so click
      navigation works whether the vendor app is served at /vendor/, /app/, or
      root (/). The scope is always a full URL (e.g. https://host/vendor/) so
@@ -96,4 +97,5 @@ self.addEventListener("notificationclick", function (event) {
       return clients.openWindow(targetPath);
     })
   );
+
 });

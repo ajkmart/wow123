@@ -79,7 +79,6 @@ export default function Products() {
   const T = (key: TranslationKey) => tDual(key, language);
   const maxItems = config.vendor?.maxItems ?? 100;
   const lowStockThreshold = config.vendor?.lowStockThreshold ?? 10;
-
   /* ── Real-time stock sync via Socket.IO ── */
   const socketRef = useRef<Socket | null>(null);
   const [lastStockSync, setLastStockSync] = useState<Date | null>(null);
@@ -138,7 +137,6 @@ export default function Products() {
       socketRef.current = null;
     };
   }, [user?.id, qc]);
-
   const [view, setView]           = useState<"list"|"bulk">("list");
   const [search, setSearch]       = useState("");
   const [filterCat, setFilterCat] = useState("all");
@@ -466,12 +464,32 @@ export default function Products() {
             category:    (row["category"] || row["Category"] || bulkCat || "").trim(),
             unit:        (row["unit"] || row["Unit"] || "").trim(),
             stock:       stockRaw,
+            stock:       (row["stock"] || row["Stock"] || "").trim(),
             type:        ((row["type"] || row["Type"] || "mart").trim()) || "mart",
           });
         },
         complete: (results: Papa.ParseResult<Record<string, string>>) => {
           if (results.meta.aborted) {
             showToast("❌ CSV has more than 500 rows — split into files of ≤500 rows.");
+            return;
+          }
+          setParseErrors(rowErrors);
+          if (parsed.length === 0) {
+            showToast("❌ No valid rows found — check that 'name' and 'price' columns have values");
+            return;
+          }
+          /* Idempotency: check for name collisions against existing products */
+          const existingNames = new Set(products.map((p: any) => p.name.toLowerCase().trim()));
+          const dupes = parsed.map(r => r.name).filter(n => existingNames.has(n.toLowerCase().trim()));
+          if (dupes.length > 0) setDuplicateWarning(dupes);
+          else setDuplicateWarning([]);
+          setBulkRows(r => {
+            const empty = r.filter(x => !x.name.trim() && !x.price.trim());
+            return [...(empty.length === r.length ? [] : r), ...parsed];
+          });
+          if (switchToBulk) setView("bulk");
+          showToast(`✅ Imported ${parsed.length} rows${rowErrors.length ? ` (${rowErrors.length} skipped)` : ""}`);
+            showToast("❌ CSV has more than 500 rows — import rejected. Split into files of 500 rows or fewer.");
             return;
           }
           setParseErrors(rowErrors);
@@ -542,6 +560,9 @@ export default function Products() {
 
   const runBulkImport = useCallback(async () => {
     const valid = bulkRows.filter(r => r.name.trim() && r.price && !Number.isNaN(Number(r.price)) && Number(r.price) > 0);
+
+  const runBulkImport = useCallback(async () => {
+    const valid = bulkRows.filter(r => r.name.trim() && r.price && !Number.isNaN(Number(r.price)) && Number(r.price) > 0);
     if (totalProductCount === null) { showToast("Cannot verify product count — please wait and try again."); return; }
     if (totalProductCount + valid.length > maxItems) { showToast(`Product limit reached. You can add at most ${maxItems - totalProductCount} more product(s).`); return; }
     if (valid.length === 0) return;
@@ -549,6 +570,37 @@ export default function Products() {
     setBulkImportResults(initial);
     setBulkImporting(true);
     setBulkImportProgress({ done: 0, total: valid.length });
+    let successCount = 0;
+    let doneCount = 0;
+    const results: Array<{ name: string; status: "pending" | "success" | "error"; message?: string }> = [...initial];
+
+    /* Send in batches of 50 to match server limit */
+    const BATCH = 50;
+    for (let batchStart = 0; batchStart < valid.length; batchStart += BATCH) {
+      const batch = valid.slice(batchStart, batchStart + BATCH);
+      for (let j = 0; j < batch.length; j++) {
+        const i = batchStart + j;
+        const r = batch[j]!;
+        try {
+          await api.createProduct({
+            name:        r.name.trim(),
+            price:       Number(r.price),
+            description: r.description.trim() || null,
+            image:       r.image.trim() || null,
+            category:    r.category.trim() || bulkCat || "general",
+            unit:        r.unit.trim() || null,
+            stock:       r.stock ? Number(r.stock) : null,
+            type:        r.type || "mart",
+          });
+          results[i] = { ...results[i]!, status: "success" };
+          successCount++;
+        } catch (e) {
+          results[i] = { ...results[i]!, status: "error", message: e instanceof Error ? e.message : "Failed" };
+        }
+        doneCount++;
+        setBulkImportProgress({ done: doneCount, total: valid.length });
+        setBulkImportResults([...results]);
+      }
     let successCount = 0;
     let doneCount = 0;
     const results: Array<{ name: string; status: "pending" | "success" | "error"; message?: string }> = [...initial];
@@ -797,6 +849,7 @@ export default function Products() {
             <button onClick={() => setView("list")} className="h-10 px-4 bg-white/20 md:bg-gray-100 md:text-gray-700 text-white font-bold rounded-xl text-sm android-press min-h-0">← Back</button>
           </div>
         }
+        actions={<button onClick={() => setView("list")} className="h-10 px-4 bg-white/20 md:bg-gray-100 md:text-gray-700 text-white font-bold rounded-xl text-sm android-press min-h-0">← Back</button>}
       />
       <div className="px-4 py-4 space-y-4 md:px-0 md:py-4">
 
@@ -877,6 +930,13 @@ export default function Products() {
           )}
 
           {/* Parse errors */}
+          {parseErrors.length > 0 && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-2xl">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-bold text-red-700">⚠️ {parseErrors.length} row{parseErrors.length !== 1 ? "s" : ""} skipped — fix and re-upload to include them</p>
+                <button onClick={() => setParseErrors([])} className="text-xs text-red-400 hover:underline">Dismiss</button>
+              </div>
+              <ul className="space-y-0.5 max-h-32 overflow-y-auto">
           {parseErrors.length > 0 && (
             <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-2xl">
               <div className="flex items-center justify-between mb-1">
@@ -1071,6 +1131,35 @@ export default function Products() {
               {!bulkImporting && (
                 <button onClick={() => { setBulkImportResults(null); setBulkImportProgress(null); setDuplicateWarning([]); setParseErrors([]); setView("list"); setBulkRows([{...EMPTY_ROW},{...EMPTY_ROW},{...EMPTY_ROW}]); setBulkCat(""); }} className={`mt-3 ${BTN_PRIMARY}`}>
                   ✓ Done — View Products
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Import Progress</p>
+              {bulkImportResults.map((r, i) => (
+                <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${r.status === "success" ? "bg-green-50" : r.status === "error" ? "bg-red-50" : "bg-gray-50"}`}>
+                  <span className="text-base flex-shrink-0">
+                    {r.status === "success" ? "✅" : r.status === "error" ? "❌" : <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin inline-block"/>}
+                  </span>
+                  <span className="flex-1 font-medium text-gray-800 truncate">{r.name}</span>
+                  {r.status === "error" && r.message && <span className="text-xs text-red-500 truncate max-w-[120px]">{r.message}</span>}
+                  {r.status === "success" && <span className="text-xs text-green-600 font-bold">Added</span>}
+                  {r.status === "pending" && <span className="text-xs text-gray-400">Waiting...</span>}
+                </div>
+              )}
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Row details</p>
+              <div className="max-h-64 overflow-y-auto space-y-1">
+                {bulkImportResults.map((r, i) => (
+                  <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${r.status === "success" ? "bg-green-50" : r.status === "error" ? "bg-red-50" : "bg-gray-50"}`}>
+                    <span className="text-base flex-shrink-0">
+                      {r.status === "success" ? "✅" : r.status === "error" ? "❌" : <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin inline-block"/>}
+                    </span>
+                    <span className="flex-1 font-medium text-gray-800 truncate">{r.name}</span>
+                    {r.status === "error" && r.message && <span className="text-xs text-red-500 truncate max-w-[140px]" title={r.message}>{r.message}</span>}
+                    {r.status === "success" && <span className="text-xs text-green-600 font-bold">Added</span>}
+                    {r.status === "pending" && <span className="text-xs text-gray-400">Waiting…</span>}
+                  </div>
+                ))}
+              </div>
+              {!bulkImporting && (
+                <button onClick={() => { setBulkImportResults(null); setBulkImportProgress(null); setDuplicateWarning([]); setParseErrors([]); setView("list"); setBulkRows([{...EMPTY_ROW},{...EMPTY_ROW},{...EMPTY_ROW}]); setBulkCat(""); }} className={`mt-3 ${BTN_PRIMARY}`}>
+                  ✓ Done — View Products
                 </button>
               )}
             </div>
@@ -1078,6 +1167,7 @@ export default function Products() {
           {!bulkImportResults && (
             <div className="flex gap-3">
               <button onClick={() => { setView("list"); setDuplicateWarning([]); setParseErrors([]); }} className={BTN_SECONDARY}>Cancel</button>
+              <button onClick={() => setView("list")} className={BTN_SECONDARY}>Cancel</button>
               <button onClick={runBulkImport} disabled={bulkImporting || validRows.length === 0 || allDataLoading} className={BTN_PRIMARY}>
                 {allDataLoading ? "Checking limit..." : bulkImporting ? "Adding..." : `➕ Add ${validRows.length} Products`}
               </button>
@@ -1097,6 +1187,7 @@ export default function Products() {
         subtitle={totalProductCount !== null ? `${totalProductCount}/${maxItems} items used` : `—/${maxItems} items`}
         actions={
           <div className="flex gap-2 flex-wrap justify-end">
+          <div className="flex gap-2">
             <button
               onClick={() => { setBulkEditMode(m => { const next = !m; if (!next) { setBulkEditSelected(new Set()); setBulkEditError(""); } return next; }); }}
               className={`h-9 px-3.5 text-xs font-bold rounded-xl android-press min-h-0 ${bulkEditMode ? "bg-orange-500 text-white" : "bg-white/20 md:bg-gray-100 md:text-gray-700 text-white"}`}>
@@ -1117,6 +1208,7 @@ export default function Products() {
                 }}
               />
             </label>
+            <button onClick={() => setView("bulk")} disabled={allDataLoading || totalProductCount === null || totalProductCount >= maxItems} className={`h-9 px-3.5 text-xs font-bold rounded-xl android-press min-h-0 ${(allDataLoading || totalProductCount === null || totalProductCount >= maxItems) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-white/20 md:bg-gray-100 md:text-gray-700 text-white"}`}>Bulk Add</button>
             <button onClick={() => setShowAdd(true)} disabled={allDataLoading || totalProductCount === null || totalProductCount >= maxItems} className={`h-9 px-3.5 text-sm font-bold rounded-xl android-press min-h-0 ${(allDataLoading || totalProductCount === null || totalProductCount >= maxItems) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-white text-orange-500 md:bg-orange-500 md:text-white"}`}>+ Add</button>
           </div>
         }

@@ -8,6 +8,7 @@ export type ActionType =
   | "complete_trip"
   | "board_passenger";
 
+
 export interface QueuedAction {
   id: string;
   type: ActionType;
@@ -154,6 +155,7 @@ export async function syncQueue(): Promise<void> {
         await _executor(action);
         await removeAction(action.id);
         notifyActionSuccess(action);
+
       } catch {
         await bumpRetryCount(action).catch(() => {});
         break; /* stop here; retry next sync cycle to preserve ordering */
@@ -213,4 +215,5 @@ if (typeof window !== "undefined") {
   setInterval(() => {
     if (navigator.onLine) { syncQueue().catch(() => {}); }
   }, 30_000);
+
 }

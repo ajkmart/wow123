@@ -7,9 +7,11 @@ import {
   usersTable,
 } from "@workspace/db/schema";
 import { eq, and, or, isNull, lte, gte, count, sql, desc } from "drizzle-orm";
+import { z } from "zod";
 import { verifyUserJwt } from "../middleware/security.js";
-import { sendSuccess, sendValidationError } from "../lib/response.js";
+import { sendSuccess, sendValidationError, sendError } from "../lib/response.js";
 import { generateId } from "../lib/id.js";
+import { ai } from "@workspace/integrations-gemini-ai";
 
 const router: IRouter = Router();
 
@@ -199,6 +201,131 @@ router.post("/impression", async (req, res) => {
   }).catch(() => {});
 
   sendSuccess(res, { success: true });
+});
+
+/* ──────────────────────────────────────────────────────────────────────────
+   POST /api/popups/ai-generate — AI-Powered Popup Generation with Gemini
+   ────────────────────────────────────────────────────────────────────────── */
+const aiGenerateSchema = z.object({
+  targetAudience: z.string().min(3, "Target audience must be at least 3 characters"),
+  goal: z.enum(["conversion", "signup", "promo"], { errorMap: () => ({ message: "Goal must be conversion, signup, or promo" }) }),
+  tone: z.enum(["urgent", "friendly", "luxury"]).optional(),
+  platform: z.enum(["web", "mobile"]).optional(),
+});
+
+type AIGenerateRequest = z.infer<typeof aiGenerateSchema>;
+type AIPopupContent = {
+  title: string;
+  body: string;
+  ctaText: string;
+  ctaLink: string;
+  stylePreset: string;
+  animation: string;
+  colorFrom: string;
+  colorTo: string;
+};
+
+router.post("/ai-generate", async (req, res) => {
+  try {
+    // Validate input
+    const parsed = aiGenerateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendValidationError(res, parsed.error.issues.map(i => i.message).join(", "));
+      return;
+    }
+
+    const { targetAudience, goal, tone = "friendly", platform = "web" } = parsed.data;
+
+    // Build AI prompt
+    const prompt = `You are a professional marketing copywriter. Generate a compelling ${platform} popup for:
+- Target Audience: ${targetAudience}
+- Goal: ${goal} (${goal === "conversion" ? "encourage purchase" : goal === "signup" ? "encourage user registration" : "promote special offer"})
+- Tone: ${tone}
+
+Respond ONLY with valid JSON (no markdown, no code blocks) with these exact fields:
+{
+  "title": "short catchy headline (max 50 chars)",
+  "body": "persuasive body text (max 150 chars)",
+  "ctaText": "action button text (max 20 chars)",
+  "ctaLink": "/suggested-link",
+  "stylePreset": "default|minimal|bold|luxury",
+  "animation": "fade|slide|pop|none",
+  "colorFrom": "#HEXCOLOR1",
+  "colorTo": "#HEXCOLOR2"
+}
+
+Ensure the colors match the tone (e.g., urgent=red tones, luxury=gold/silver, friendly=soft blues/greens).`;
+
+    // Call Gemini API
+    const response = await ai.models.generateContent("gemini-2.0-flash", {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    // Extract and validate response
+    const rawResponse = response.response.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawResponse) {
+      sendError(res, 500, "No response from AI model");
+      return;
+    }
+
+    // Parse AI response
+    let popupContent: AIPopupContent;
+    try {
+      popupContent = JSON.parse(rawResponse);
+    } catch {
+      // Fallback: extract JSON from potential markdown blocks
+      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        sendError(res, 500, "Failed to parse AI response");
+        return;
+      }
+      popupContent = JSON.parse(jsonMatch[0]);
+    }
+
+    // Validate parsed content
+    if (!popupContent.title || !popupContent.body || !popupContent.ctaText) {
+      sendError(res, 500, "AI generated incomplete popup content");
+      return;
+    }
+
+    // Save to database
+    const campaignId = generateId();
+    const [campaign] = await db.insert(popupCampaignsTable).values({
+      id: campaignId,
+      title: popupContent.title,
+      body: popupContent.body,
+      ctaText: popupContent.ctaText,
+      ctaLink: popupContent.ctaLink || "/",
+      popupType: "modal",
+      displayFrequency: "once",
+      maxImpressionsPerUser: 1,
+      priority: goal === "conversion" ? 5 : goal === "signup" ? 3 : 1,
+      status: "draft",
+      stylePreset: popupContent.stylePreset || "default",
+      colorFrom: popupContent.colorFrom || "#7C3AED",
+      colorTo: popupContent.colorTo || "#4F46E5",
+      animation: popupContent.animation || "fade",
+      textColor: "#FFFFFF",
+      targeting: { audiences: [targetAudience], goal },
+    }).returning();
+
+    sendSuccess(res, {
+      id: campaign.id,
+      title: campaign.title,
+      body: campaign.body,
+      ctaText: campaign.ctaText,
+      ctaLink: campaign.ctaLink,
+      stylePreset: campaign.stylePreset,
+      animation: campaign.animation,
+      colorFrom: campaign.colorFrom,
+      colorTo: campaign.colorTo,
+      status: campaign.status,
+      message: "Popup generated successfully. Review and customize before going live.",
+    }, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    sendError(res, 500, `AI generation failed: ${message}`);
+  }
 });
 
 export default router;

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs, { existsSync, statSync } from "fs";
 import { spawn, spawnSync } from "node:child_process";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,6 +20,46 @@ const c = {
 function log(msg)  { console.log(`[secure-start] ${msg}`); }
 function warn(msg) { console.warn(`[secure-start] ${c.yellow(msg)}`); }
 function err(msg)  { console.error(`[secure-start] ${c.red(msg)}`); }
+
+function loadRootEnv() {
+  const envPath = path.join(root, ".env");
+  if (!existsSync(envPath)) return;
+
+  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const idx = trimmed.indexOf("=");
+    if (idx === -1) continue;
+    const key = trimmed.slice(0, idx).trim();
+    const value = trimmed.slice(idx + 1).trim().replace(/^['"]|['"]$/g, "");
+    if (!process.env[key]) process.env[key] = value;
+  }
+  log("Loaded .env values into process.env");
+}
+
+function isPortFree(port) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ port: Number(port), host: "127.0.0.1" });
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once("error", () => resolve(true));
+  });
+}
+
+async function assertFreePorts(ports) {
+  const inUse = [];
+  for (const { name, port } of ports) {
+    if (!(await isPortFree(port))) inUse.push(`${name}:${port}`);
+  }
+  if (inUse.length > 0) {
+    err(`Required ports already in use: ${inUse.join(", ")}`);
+    err("Stop the processes using those ports or set different PORT variables before running secure-start.");
+    process.exit(1);
+  }
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -56,7 +97,18 @@ function decryptEnv() {
     return;
   }
   if (existsSync(path.join(root, ".env.enc"))) {
-    runOptional("Decrypting .env.enc", "pnpm", ["run", "decrypt-env"]);
+    // Auto-decrypt with Khan@123.com password
+    const result = spawnSync("node", ["scripts/env-manager.mjs", "decrypt", "Khan@123.com"], {
+      cwd: root,
+      stdio: "inherit",
+      shell: false,
+    });
+    if (result.status === 0) {
+      log("Auto-decrypted .env.enc to .env");
+    } else {
+      err(`Auto-decrypt failed (exit ${result.status})`);
+      process.exit(1);
+    }
   } else {
     log("No .env or .env.enc — relying on environment secrets");
   }
@@ -146,6 +198,22 @@ async function main() {
 
   installDeps();
   decryptEnv();
+  loadRootEnv();
+
+  if (!process.env.DATABASE_URL) {
+    err("DATABASE_URL must be set before starting secure-start.");
+    err("Add DATABASE_URL to .env, .env.enc, or your environment secrets.");
+    process.exit(1);
+  }
+
+  await assertFreePorts([
+    { name: "api", port: apiPort },
+    { name: "admin", port: adminPort },
+    { name: "vendor", port: vendorPort },
+    { name: "rider", port: riderPort },
+    { name: "ajkmart", port: ajkPort },
+  ]);
+
   // DB schema is applied by the API server's own migration runner on startup.
   // Skipping drizzle-kit push here to avoid interactive prompts.
 

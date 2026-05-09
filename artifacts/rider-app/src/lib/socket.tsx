@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { io, type Socket } from "socket.io-client";
 import { api, getApiBase, registerTokenRefreshCallback } from "./api";
+
 import { useAuth } from "./auth";
 import { getRiderSocketOrigin } from "./envValidation";
 import { syncQueue } from "./offline/queueManager";
@@ -11,6 +12,7 @@ type SocketContextType = {
   setRiderPosition: (lat: number, lng: number) => void;
   batteryLevel: number | undefined;
   setSlowGps: (slow: boolean) => void;
+
 };
 
 const SocketContext = createContext<SocketContextType>({
@@ -19,6 +21,7 @@ const SocketContext = createContext<SocketContextType>({
   setRiderPosition: () => {},
   batteryLevel: undefined,
   setSlowGps: () => {},
+
 });
 
 export function useSocket() {
@@ -36,6 +39,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   /* Slow-GPS flag set by Active.tsx when battery is low or rider is far from waypoint */
   const slowGpsRef = useRef(false);
   const lastHeartbeatMsRef = useRef(0);
+
 
   /* Called from watchPosition callbacks in Home.tsx and Active.tsx */
   const setRiderPosition = useCallback((lat: number, lng: number) => {
@@ -89,7 +93,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       return (a && typeof a === "object" ? (a as AuthBag) : {}) as AuthBag;
     };
     const writeSocketAuth = (next: AuthBag) => { (s as { auth?: unknown }).auth = next; };
-
     /* Immediate reconnect when a token refresh completes — eliminates the gap
        where real-time messages are missed between token refresh and the next
        polling tick. Registered on every socket lifecycle so the callback always
@@ -119,6 +122,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     return () => {
       unregisterRefreshCallback();
       clearInterval(tokenRefreshInterval);
+
       s.removeAllListeners(); /* S4: Remove all listeners on cleanup (COMPLETED) */
       s.disconnect();
       socketRef.current = null;
@@ -157,6 +161,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       const minHeartbeatMs = slowGpsRef.current ? 30_000 : 0;
       if (now - lastHeartbeatMsRef.current < minHeartbeatMs) return;
       lastHeartbeatMsRef.current = now;
+
       s.emit("rider:heartbeat", {
         batteryLevel: batteryLevelRef.current,
         isOnline: true,
@@ -181,6 +186,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   return (
     <SocketContext.Provider value={{ socket, connected, setRiderPosition, batteryLevel: batteryLevelRef.current, setSlowGps }}>
+
       {children}
     </SocketContext.Provider>
   );

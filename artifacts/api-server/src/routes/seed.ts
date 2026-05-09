@@ -44,24 +44,36 @@ const router: IRouter = Router();
 
 /**
  * Dev-only seed bypass.
- * Active only when BOTH conditions are true:
- *   1. ALLOW_DEV_SEED=true is explicitly set in the environment.
- *   2. DEV_SEED_KEY is explicitly set to a non-empty value AND the request
- *      presents that same key in the x-admin-seed-key header.
+ * Blocked unconditionally in production (NODE_ENV === 'production').
  *
- * Falls back to normal adminAuth for any mismatch or when not in dev mode.
+ * In non-production environments, active only when BOTH conditions are true:
+ *   1. ALLOW_DEV_SEED=true is explicitly set in the environment.
+ *   2. ADMIN_SEED_KEY (or legacy DEV_SEED_KEY) is set to a non-empty value AND
+ *      the request presents that same key in the x-admin-seed-key header.
+ *
+ * Falls back to normal adminAuth for any mismatch.
  * This two-factor gate prevents accidental exposure in mis-configured deploys.
  */
 function devSeedAuth(req: Request, res: Response, next: NextFunction): void {
-  const allowDevSeed = process.env.ALLOW_DEV_SEED === "true";
-  const configuredKey = process.env.DEV_SEED_KEY ?? "";
-  const presentedKey  = req.headers["x-admin-seed-key"] as string | undefined;
+  if (process.env.NODE_ENV === "production") {
+    logger.warn("[SECURITY] Seed endpoint blocked — production environment", { ip: req.ip });
+    res.status(403).json({
+      error: "Seed endpoint is disabled in production",
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  const allowDevSeed  = process.env.ALLOW_DEV_SEED === "true";
+  const configuredKey = (process.env.ADMIN_SEED_KEY ?? process.env.DEV_SEED_KEY ?? "").trim();
+  const presentedKey  = (req.headers["x-admin-seed-key"] as string | undefined ?? "").trim();
 
   if (
     allowDevSeed &&
     configuredKey.length > 0 &&
     presentedKey === configuredKey
   ) {
+    logger.warn("[SEED] Dev bypass active — database reset initiated in development. Use with caution.");
     return next();
   }
   adminAuth(req, res, next);
@@ -611,6 +623,30 @@ async function seedWeatherConfig(): Promise<{ inserted: boolean }> {
 
 // ─── FULL SEED ENDPOINT ───────────────────────────────────────────────────────
 router.post("/full", devSeedAuth, async (req, res) => {
+  /* Defense-in-depth: block production even if the router was somehow mounted */
+  if (process.env.NODE_ENV === "production") {
+    logger.warn("[SECURITY] Seed endpoint reached in production — this should not happen", { ip: req.ip });
+    res.status(403).json({
+      error: "Seed endpoint is disabled in production",
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  /* Re-verify key inside handler to prevent middleware bypass */
+  const expectedKey   = (process.env.ADMIN_SEED_KEY ?? process.env.DEV_SEED_KEY ?? "local-dev-seed-ajkmart").trim();
+  const presentedKey  = (req.headers["x-admin-seed-key"] as string | undefined ?? "").trim();
+  const isDevBypass   = process.env.ALLOW_DEV_SEED === "true" && presentedKey === expectedKey && expectedKey.length > 0;
+  const isAdminAuthed = !!(req as Record<string, unknown>)["adminId"] || !!(req as Record<string, unknown>)["adminRole"];
+
+  if (!isDevBypass && !isAdminAuthed) {
+    logger.warn("[SECURITY] Unauthorized seed attempt", { ip: req.ip });
+    res.status(403).json({ error: "Invalid seed key" });
+    return;
+  }
+
+  logger.warn("[SEED] Database seed initiated in development. Use with caution.", { ip: req.ip });
+
   try {
     await ensureSystemVendor();
 

@@ -170,6 +170,17 @@ const FEATURE_ICONS: Record<string,string> = {
   integration_push_notif:"🔔", integration_analytics:"📊", integration_email:"📧", integration_sentry:"🐛", integration_whatsapp:"💬",
 };
 
+/**
+ * Keys managed exclusively in the OTP Control Center page (/admin/otp-control).
+ * Excluded from the generic settings render loop to avoid duplicate controls.
+ * The SecuritySection in security.tsx also skips these to prevent duplication.
+ */
+export const OTP_CC_MANAGED_KEYS = new Set([
+  "security_otp_max_per_phone",
+  "security_otp_max_per_ip",
+  "security_otp_window_min",
+]);
+
 const CONTENT_TEXTAREA_KEYS = new Set([
   "content_announcement","content_maintenance_msg","content_support_msg","content_banner",
   "content_vendor_notice","content_rider_notice",

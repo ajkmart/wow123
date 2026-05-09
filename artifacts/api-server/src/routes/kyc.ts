@@ -585,179 +585,78 @@ router.get("/admin/:id", adminAuth, async (req, res) => {
   });
 });
 
-/* ─── Admin: POST /api/kyc/admin/:id/approve ─── */
-router.post("/admin/:id/approve", adminAuth, async (req, res) => {
-  if (!req.adminId) {
-    res.status(403).json({ error: "Admin identity could not be verified." });
-    return;
+/* ─── Admin: PATCH /api/kyc/admin/:id — Review KYC ─── */
+router.patch("/admin/:id", adminAuth, async (req, res) => {
+  const { status, rejectionReason } = req.body;
+  if (!["approved", "rejected", "resubmit"].includes(status)) {
+    res.status(400).json({ error: "Invalid status" }); return;
   }
-  const adminId = req.adminId;
-
-  const rawReason = typeof req.body?.reason === "string" ? req.body.reason : "";
-  const approveNote = rawReason.trim() ? stripHtml(rawReason).slice(0, 500) : "";
 
   const [record] = await db
-    .select()
-    .from(kycVerificationsTable)
-    .where(eq(kycVerificationsTable.id, req.params["id"]!))
-    .limit(1);
-
-  if (!record) { res.status(404).json({ error: "KYC record not found" }); return; }
-  if (record.status === "approved") { res.status(400).json({ error: "Already approved" }); return; }
-
-  const [currentUser] = await db
-    .select({ name: usersTable.name, phone: usersTable.phone })
-    .from(usersTable)
-    .where(eq(usersTable.id, record.userId))
-    .limit(1);
-
-  const now = new Date();
-  await db
-    .update(kycVerificationsTable)
-    .set({ status: "approved", reviewedBy: adminId, reviewedAt: now, updatedAt: now })
-    .where(eq(kycVerificationsTable.id, record.id));
-
-  const syncName = (!currentUser?.name || currentUser.name.trim() === "") ? (record.fullName ?? undefined) : undefined;
-
-  await db
-    .update(usersTable)
-    .set({
-      kycStatus: "verified",
-      approvalStatus: "approved",
-      isActive: true,
-      cnic: record.cnic ?? undefined,
-      ...(syncName !== undefined ? { name: syncName } : {}),
-      city: record.city ?? undefined,
-      address: record.address ?? undefined,
-      updatedAt: now,
-    })
-    .where(eq(usersTable.id, record.userId));
-
-  /* ── Sync vendor/rider profile rows on KYC approval (best-effort) ──
-   *
-   * Neither vendorProfilesTable nor riderProfilesTable has an approvalStatus,
-   * kycStatus, or isVerified column in the current schema — the authoritative
-   * KYC/approval state lives on usersTable (kycStatus, approvalStatus).
-   * We touch updatedAt so any downstream cache-invalidation by updatedAt works,
-   * and rows that don't exist are silently skipped via Promise.allSettled.
-   * ── */
-  await Promise.allSettled([
-    db.update(riderProfilesTable)
-      .set({ updatedAt: now })
-      .where(eq(riderProfilesTable.userId, record.userId)),
-    db.update(vendorProfilesTable)
-      .set({ updatedAt: now })
-      .where(eq(vendorProfilesTable.userId, record.userId)),
-  ]);
-
-  /* ── Notify the user that KYC was approved (in-app + push) ── */
-  await db.insert(notificationsTable).values({
-    id: randomUUID(),
-    userId: record.userId,
-    title: "KYC Verified ✅",
-    body: "Your KYC verification has been approved. You now have full access to wallet features.",
-    type: "kyc",
-    icon: "shield-checkmark-outline",
-    link: "/profile",
-  }).catch((e: Error) => logger.warn({ userId: record.userId, err: e.message }, "[kyc/approve] notification insert failed"));
-
-  sendPushToUser(record.userId, {
-    title: "KYC Verified ✅",
-    body: "Your KYC verification has been approved. You now have full access.",
-    tag: `kyc-approved-${record.id}`,
-    data: { kycId: record.id, status: "approved" },
-  }).catch((e: Error) => logger.warn({ userId: record.userId, err: e.message }, "[kyc/approve] push failed"));
-
-  /* ── Audit log entry (with admin id, timestamp, optional verification note) ── */
-  logAdminAudit("kyc_approve", {
-    adminId,
-    ip: getClientIp(req),
-    userAgent: req.headers["user-agent"],
-    result: "success",
-    reason: approveNote || "Documents verified — KYC approved",
-    metadata: { kycId: record.id, userId: record.userId, cnic: record.cnic, note: approveNote || null },
-  }).catch(() => {});
-
-  res.json({ success: true, message: "KYC approved and account activated" });
-});
-
-/* ─── Admin: POST /api/kyc/admin/:id/reject ─── */
-router.post("/admin/:id/reject", adminAuth, async (req, res) => {
-  if (!req.adminId) {
-    res.status(403).json({ error: "Admin identity could not be verified." });
-    return;
-  }
-  const adminId = req.adminId;
-
-  const { reason } = req.body;
-  if (typeof reason !== "string" || !reason.trim()) {
-    res.status(400).json({ error: "Rejection reason is required" });
-    return;
-  }
-  const trimmedReason = stripHtml(reason).slice(0, 500);
-  if (!trimmedReason) { res.status(400).json({ error: "Rejection reason is required" }); return; }
-
-  const [record] = await db
-    .select()
+    .select({ id: kycVerificationsTable.id, userId: kycVerificationsTable.userId, fullName: kycVerificationsTable.fullName })
     .from(kycVerificationsTable)
     .where(eq(kycVerificationsTable.id, req.params["id"]!))
     .limit(1);
 
   if (!record) { res.status(404).json({ error: "KYC record not found" }); return; }
 
-  const [targetUser] = await db
-    .select({ phone: usersTable.phone })
-    .from(usersTable)
-    .where(eq(usersTable.id, record.userId))
-    .limit(1);
-
   const now = new Date();
-  await db
-    .update(kycVerificationsTable)
-    .set({ status: "rejected", rejectionReason: trimmedReason, reviewedBy: adminId, reviewedAt: now, updatedAt: now })
-    .where(eq(kycVerificationsTable.id, record.id));
+  const adminId = (req as any).adminId;
 
-  await db
-    .update(usersTable)
-    .set({ kycStatus: "rejected", updatedAt: now })
-    .where(eq(usersTable.id, record.userId));
+  try {
+    await db.transaction(async (tx) => {
+      await tx.update(kycVerificationsTable).set({
+        status,
+        rejectionReason: (status === "rejected" || status === "resubmit") ? rejectionReason : null,
+        reviewedAt: now,
+        reviewedBy: adminId,
+        updatedAt: now,
+      }).where(eq(kycVerificationsTable.id, record.id));
 
-  /* ── Notify the user that KYC was rejected (in-app + push + SMS) ── */
-  await db.insert(notificationsTable).values({
-    id: randomUUID(),
-    userId: record.userId,
-    title: "KYC Rejected ❌",
-    body: `Your KYC verification was rejected. Reason: ${trimmedReason}. Please re-submit with corrected information.`,
-    type: "kyc",
-    icon: "alert-circle-outline",
-    link: "/profile",
-  }).catch((e: Error) => logger.warn({ userId: record.userId, err: e.message }, "[kyc/reject] notification insert failed"));
+      const finalKycStatus = status === "approved" ? "verified" : (status === "resubmit" ? "resubmit" : "rejected");
+      await tx.update(usersTable)
+        .set({ kycStatus: finalKycStatus, updatedAt: now })
+        .where(eq(usersTable.id, record.userId));
 
-  sendPushToUser(record.userId, {
-    title: "KYC Rejected ❌",
-    body: `Reason: ${trimmedReason}. Please re-submit with corrected information.`,
-    tag: `kyc-rejected-${record.id}`,
-    data: { kycId: record.id, status: "rejected", reason: trimmedReason },
-  }).catch((e: Error) => logger.warn({ userId: record.userId, err: e.message }, "[kyc/reject] push failed"));
+      const [user] = await tx.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, record.userId)).limit(1);
 
-  if (targetUser?.phone) {
-    sendSms({
-      to: targetUser.phone,
-      message: `AJKMart: Your KYC was rejected. Reason: ${trimmedReason}. Please re-submit corrected documents in the app.`,
-    }).catch((e: Error) => logger.warn({ userId: record.userId, err: e.message }, "[kyc/reject] SMS failed"));
+      /* Task 12: Sync approved name to users.name if it was different */
+      if (status === "approved" && record.fullName) {
+        await tx.update(usersTable).set({ name: record.fullName }).where(eq(usersTable.id, record.userId));
+      }
+
+      /* Notification */
+      const notifTitle = status === "approved" ? "KYC Approved ✅" : "KYC Update Required ⚠️";
+      const notifBody = status === "approved"
+        ? `Shukriya ${record.fullName || user?.name || "Customer"}, aapka KYC verify ho gaya hai.`
+        : `Aapka KYC review kiya gaya: ${rejectionReason || "Details mismatch"}. Dobara submit karein.`;
+
+      await tx.insert(notificationsTable).values({
+        id: randomUUID(),
+        userId: record.userId,
+        title: notifTitle,
+        body: notifBody,
+        type: "system",
+        icon: status === "approved" ? "checkmark-circle" : "alert-circle",
+      });
+
+      /* Push notification */
+      sendPushToUser(record.userId, { title: notifTitle, body: notifBody, tag: "kyc-update", data: { type: "kyc_status", status } }).catch(() => {});
+
+      logAdminAudit({
+        adminId,
+        ip: getClientIp(req),
+        action: `kyc_review_${status}`,
+        details: `KYC for user ${record.userId} reviewed as ${status}. Reason: ${rejectionReason || 'N/A'}`,
+        affectedUserId: record.userId,
+      });
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "KYC review error");
+    res.status(500).json({ error: "Failed to update KYC status" });
   }
-
-  /* ── Audit log entry ── */
-  logAdminAudit("kyc_reject", {
-    adminId,
-    ip: getClientIp(req),
-    userAgent: req.headers["user-agent"],
-    result: "success",
-    reason: trimmedReason,
-    metadata: { kycId: record.id, userId: record.userId, cnic: record.cnic },
-  }).catch(() => {});
-
-  res.json({ success: true, message: "KYC rejected" });
 });
 
 export default router;

@@ -34,7 +34,6 @@ import { UserService } from "../../../services/admin-user.service.js";
 import { FinanceService } from "../../../services/admin-finance.service.js";
 import { AuditService } from "../../../services/admin-audit.service.js";
 import { requirePermission } from "../../../middleware/require-permission.js";
-
 const router = Router();
 
 router.post("/users", requirePermission("users.create"), async (req, res) => {

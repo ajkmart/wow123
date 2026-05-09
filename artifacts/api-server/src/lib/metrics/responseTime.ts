@@ -5,7 +5,7 @@ import os from "os";
    responseTime.ts
    In-memory rolling window of the last MAX_SAMPLES request durations (ms).
    Exposes getP95Ms() for health checks and alerting.
-══════════════════════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════════════════ */
 
 const MAX_SAMPLES = 1000;
 const samples: number[] = [];
@@ -58,7 +58,7 @@ export function getP99Ms(): number | null {
 
 /* ══════════════════════════════════════════════════════════════════════════
    System metrics — memory & disk
-══════════════════════════════════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════════════════ */
 
 /**
  * Heap memory usage as a percentage of total heap.

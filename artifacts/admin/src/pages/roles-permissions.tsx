@@ -12,6 +12,7 @@ import {
   Shield, Plus, Save, Trash2, RefreshCw, Search, Lock, Users, KeyRound, Pencil,
   AlertTriangle, ShoppingCart, Package, BarChart2, CreditCard, Settings2,
   ClipboardCheck, Truck, Store, Tag, Globe, FileText, Database, Zap, LayoutGrid,
+  ClipboardCheck, Truck, Store, Tag, Globe, FileText, Database, Zap,
 } from "lucide-react";
 import { fetchAdmin } from "@/lib/adminFetcher";
 import { Button } from "@/components/ui/button";
@@ -460,6 +461,7 @@ export default function RolesPermissionsPage() {
   const [draftPerms, setDraftPerms] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
   const [tab, setTab] = useState<"roles" | "admins" | "matrix">("roles");
+  const [tab, setTab] = useState<"roles" | "admins">("roles");
   const [confirmRemoveRole, setConfirmRemoveRole] = useState(false);
   const [sensitiveDeleteRole, setSensitiveDeleteRole] = useState(false);
   const [sensitiveSavePerms, setSensitiveSavePerms] = useState(false);

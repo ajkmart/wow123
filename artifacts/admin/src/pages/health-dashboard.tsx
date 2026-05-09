@@ -188,7 +188,7 @@ export default function HealthDashboard() {
               {" "}detected — review below
             </span>
           </div>
-          {(d?.issues ?? []).map((issue, idx) => (
+          {(d?.issues ?? []).map((issue: any, idx: number) => (
             <IssueRow key={idx} level={issue.level} message={issue.message} />
           ))}
         </div>
@@ -324,7 +324,7 @@ export default function HealthDashboard() {
                 label="Custom regex patterns"
                 value={
                   <span className="flex items-center gap-2">
-                    {(d?.moderation?.customPatternsCount ?? 0) > 0 || !d?.moderation?.customPatternsValid === false ? (
+                    {(d?.moderation?.customPatternsCount ?? 0) > 0 || d?.moderation?.customPatternsValid === false ? (
                       <StatusDot ok={d?.moderation?.customPatternsValid !== false} />
                     ) : null}
                     {d?.moderation?.customPatternsCount ?? 0} loaded

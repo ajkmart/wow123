@@ -132,6 +132,7 @@ function AppRoutes() {
           await apiFetch(`/van/driver/bookings/${action.entityId}/board`, { method: "PATCH", body: JSON.stringify({ boarded: true, boardedAt }), headers: idemHdr });
           break;
         }
+
       }
     });
     syncQueue().catch(() => {});

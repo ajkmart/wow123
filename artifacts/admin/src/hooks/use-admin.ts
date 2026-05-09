@@ -184,6 +184,10 @@ export const useUpdateOrder = () => {
           };
         },
       );
+            ),
+          };
+        },
+      );
       return { previousQueries };
     },
     onError: (_err, _variables, context) => {
@@ -214,6 +218,7 @@ export const useRides = () => {
 export const useUpdateRide = () => {
   const queryClient = useQueryClient();
   const { onError: handleUpdateRideError } = useErrorHandler({ title: "Failed to update ride" });
+  const { toast } = useToast();
   return useMutation({
     mutationFn: ({ id, status, riderName, riderPhone }: { id: string; status: string; riderName?: string; riderPhone?: string }) =>
       fetcher(`/rides/${id}/status`, {
@@ -225,10 +230,12 @@ export const useUpdateRide = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-rides-enriched"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
     },
-    onError: (error: unknown) => {
+    onError: (error: any) => {
       queryClient.invalidateQueries({ queryKey: ["admin-rides-enriched"] });
       handleUpdateRideError(error);
-      if (import.meta.env.DEV) console.error("[admin] update ride status failed:", error);
+      toast({ title: "Failed to update ride", description: error.message, variant: "destructive" });
+      if (import.meta.env.DEV) console.error("[admin] update ride status failed:", error.message || error);
+    },
     },
   });
 };
@@ -353,9 +360,9 @@ export const useCategories = () => {
       const payload = json.data ?? json;
       const list = (Array.isArray(payload) ? payload : (payload.categories ?? [])) as Array<Record<string, unknown>>;
       return list.map(c => ({
-        id: String(c["id"]),
-        name: String(c["name"]),
-        icon: c["icon"] != null ? String(c["icon"]) : undefined,
+        id: String(c["id"] ?? c.id),
+        name: String(c["name"] ?? c.name),
+        icon: (c["icon"] ?? c.icon) != null ? String(c["icon"] ?? c.icon) : undefined,
       })) as { id: string; name: string; icon?: string }[];
     },
     staleTime: 5 * 60 * 1000,
@@ -473,14 +480,6 @@ export const useOrderRefund = () => {
   });
 };
 
-// Broadcast
-interface BroadcastInput {
-  title: string;
-  body: string;
-  target?: string;
-  targetRole?: string | string[];
-  data?: Record<string, unknown>;
-}
 export const useBroadcast = () => {
   return useMutation({
     mutationFn: (data: BroadcastInput) =>
@@ -612,6 +611,8 @@ export const useHealthDashboard = () => {
     queryFn: () => fetcher("/system/health-dashboard"),
     refetchInterval: 10_000,
     staleTime: 8_000,
+=======
+>>>>>>> e9794bd (Admin Panel: Settings remap, Health Dashboard metrics, RBAC endpoints, comms routing)
   });
 };
 

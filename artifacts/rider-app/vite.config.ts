@@ -19,6 +19,7 @@ if (rawPort && (Number.isNaN(port) || port <= 0)) {
 const basePath = process.env.BASE_PATH || "/rider/";
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || "http://127.0.0.1:5000";
 
+
 export default defineConfig(async ({ mode: _mode }) => {
   return {
   base: basePath,

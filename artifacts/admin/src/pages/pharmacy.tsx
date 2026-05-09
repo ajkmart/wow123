@@ -51,14 +51,16 @@ export default function Pharmacy() {
 
   const { onError: onUpdateStatusError } = useErrorHandler({ title: "Update failed" });
   const { onError: onCancelOrderError } = useErrorHandler({ title: "Cancel failed", onError: () => setCancelling(false) });
-
   const handleUpdateStatus = (id: string, status: string, currentStatus?: string) => {
     if (currentStatus && !ALLOWED_TRANSITIONS[currentStatus]?.includes(status)) {
       toast({ title: "Invalid transition", description: `Can't move ${STATUS_LABELS[currentStatus]} → ${STATUS_LABELS[status]}`, variant: "destructive" }); return;
     }
     updateMutation.mutate({ id, status }, {
       onSuccess: () => toast({ title: `Status → ${STATUS_LABELS[status]} ✅` }),
-      onError: onUpdateStatusError,
+      onError: (err: any) => {
+        onUpdateStatusError(err);
+        toast({ title: "Update failed", description: err.message, variant: "destructive" });
+      },
     });
   };
 
@@ -72,7 +74,11 @@ export default function Pharmacy() {
         setCancelling(false);
         toast({ title: "Order cancelled ✅" + (selectedOrder.paymentMethod === "wallet" ? " — Wallet refund issued" : "") });
       },
-      onError: onCancelOrderError,
+      onError: (err: any) => {
+        setCancelling(false);
+        onCancelOrderError(err);
+        toast({ title: "Cancel failed", description: err.message, variant: "destructive" });
+      },
     });
   };
 

@@ -7,11 +7,13 @@ import { usePlatformConfig } from "./lib/useConfig";
 import { useLanguage } from "./lib/useLanguage";
 import { registerPush, consumePendingNotificationTap, type PushErrorHandler } from "./lib/push";
 import { markOrderSeen, wasOrderSeenRecently } from "./lib/notificationSound";
+
 import { Capacitor } from "@capacitor/core";
 import { initSentry, setSentryUser } from "./lib/sentry";
 import { initAnalytics, trackEvent, identifyUser } from "./lib/analytics";
 import { initErrorReporter } from "./lib/error-reporter";
 import { setApiTimeoutMs, api } from "./lib/api";
+
 import { vendorEnv } from "./lib/envValidation";
 import { BottomNav } from "./components/BottomNav";
 import { PwaInstallBanner } from "./components/PwaInstallBanner";
@@ -115,6 +117,7 @@ function AppRoutes() {
         staleTime: 30_000,
       }).catch(() => {});
       navigate(`/orders/${orderId}`);
+
     } else if (pending) {
       navigate("/orders");
     }
@@ -122,6 +125,7 @@ function AppRoutes() {
 
   /* ── Push registration error state: shown as a dismissable banner ── */
   const [pushError, setPushError] = useState<"permission_denied" | "registration_failed" | "network_error" | null>(null);
+
 
   /* ── FCM foreground notification banner ── */
   const [fcmNotif, setFcmNotif] = useState<{ title: string; body: string; orderId?: string } | null>(null);
@@ -145,6 +149,7 @@ function AppRoutes() {
           }
           markOrderSeen(orderId);
         }
+
         try {
           type AudioCtxCtor = typeof AudioContext;
           const AudioCtxClass: AudioCtxCtor =
@@ -240,6 +245,7 @@ function AppRoutes() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       navigator.serviceWorker?.removeEventListener("message", onSwMessage);
     };
+
   }, [user?.id]);
 
   const MAINTENANCE_GRACE_MS = 5 * 60 * 1000; /* 5-minute grace period */
@@ -348,6 +354,7 @@ function AppRoutes() {
               <Switch>
                 <Route path="/"><ErrorBoundary><Dashboard /></ErrorBoundary></Route>
                 <Route path="/orders/:id">{(params) => <ErrorBoundary key={`order-${params.id}`}><Orders targetOrderId={params.id} /></ErrorBoundary>}</Route>
+
                 <Route path="/orders"><ErrorBoundary><Orders /></ErrorBoundary></Route>
                 <Route path="/products"><ErrorBoundary><Products /></ErrorBoundary></Route>
                 <Route path="/wallet"><ErrorBoundary><Wallet /></ErrorBoundary></Route>

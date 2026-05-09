@@ -755,6 +755,7 @@ export default function Active() {
   const [showAdminChat, setShowAdminChat]          = useState(false);
   const [chatReply, setChatReply]                  = useState("");
   const { socket: sharedSocket, setRiderPosition, setSlowGps } = useSocket();
+
   const socketRef = useRef(sharedSocket);
   socketRef.current = sharedSocket;
 
@@ -966,6 +967,7 @@ export default function Active() {
 
     let lastSentTime = 0;
 
+
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         /* Guard: stop all state updates if the component has already unmounted */
@@ -973,7 +975,6 @@ export default function Active() {
         setRiderPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         /* Feed the shared socket position cache — heartbeat uses this instead of its own GPS call */
         setRiderPosition(pos.coords.latitude, pos.coords.longitude);
-
         /* Battery-aware interval: slow down REST pings to 30 s when battery is
            below 20% OR the rider is more than 2 km from the next waypoint.
            Both conditions return to 5 s once they are no longer true. */
@@ -999,6 +1000,7 @@ export default function Active() {
 
         const now = Date.now();
         if (now - lastSentTime < minGpsIntervalMsRef.current) return;
+
         lastSentTime = now;
         /* Detect client-side mock GPS: accuracy === 0 is impossible with real hardware sensors.
            Suppress the ping entirely to prevent spoofed coordinates reaching the server. */

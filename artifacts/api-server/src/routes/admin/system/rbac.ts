@@ -8,8 +8,7 @@ import { z } from "zod";
 import {
   PERMISSIONS,
 } from "@workspace/auth-utils/permissions";
-import {
-  listRoles,
+import { listRoles,
   getRole,
   createRole,
   updateRole,

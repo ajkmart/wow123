@@ -490,10 +490,13 @@ export default function ReviewsPage() {
   const handleSearch = (v: string) => {
     setSearchQ(v);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => {
+    clearTimeout((window as any).__reviewSearchTimeout);
+    const timer = setTimeout(() => {
       setDebouncedQ(v);
       setPage(1);
     }, 400);
+    searchTimerRef.current = timer;
+    (window as any).__reviewSearchTimeout = timer;
   };
 
   const handleExport = async () => {

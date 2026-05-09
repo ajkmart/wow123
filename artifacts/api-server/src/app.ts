@@ -548,280 +548,68 @@ export function createServer() {
           if (res && "writeHead" in res && !(res as any).headersSent) {
             (res as any).writeHead(502, { "Content-Type": "text/plain" });
             (res as any).end(
-              `Dev proxy error → ${expoTarget}\n${(err as Error).message}\n` +
-              `Make sure the artifacts/ajkmart: expo workflow is running.`
+              `Dev proxy error for EXPO → ${expoTarget}\n${(err as Error).message}\n` +
+              `Make sure the ajkmart (expo) workflow is running.`
             );
           }
         },
       },
-    }) as unknown as express.RequestHandler;
-    app.use(expoProxy);
+    });
+    app.use(expoProxy as unknown as express.RequestHandler);
   }
 
-  /* ── Sentry error handler (official pattern, must be before global handler) ─
-     When @sentry/node is installed and initialised, mount the official
-     Sentry.Handlers.errorHandler() which automatically captures unhandled
-     Express errors and attaches request context. Falls back to the manual
-     captureException approach if Handlers API is unavailable. */
-  {
-    const sentryMod = (globalThis as Record<string, unknown>)["__sentryInstance"] as Record<string, unknown> | undefined;
-    if (sentryMod && typeof sentryMod["Handlers"] === "object" && sentryMod["Handlers"]) {
-      const handlers = sentryMod["Handlers"] as Record<string, unknown>;
-      if (typeof handlers["errorHandler"] === "function") {
-        app.use((handlers["errorHandler"] as () => express.ErrorRequestHandler)());
-      }
-    } else if (sentryMod && typeof sentryMod["captureException"] === "function") {
-      app.use((err: Error, req: express.Request, _res: express.Response, next: express.NextFunction) => {
-        const s = sentryMod as Record<string, (...args: unknown[]) => void>;
-        if (typeof s["withScope"] === "function") {
-          s["withScope"]((scope: unknown) => {
-            const sc = scope as Record<string, (...args: unknown[]) => void>;
-            if (typeof sc["setTag"] === "function") sc["setTag"]("requestId", (req as unknown as Record<string, unknown>)["id"] ?? "unknown");
-          });
-        }
-        s["captureException"](err);
-        next(err);
-      });
-    }
-  }
-
-  /* ── Global error handler ──────────────────────────────────────────────── */
-  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error("Unhandled error:", err);
-    res.status(500).json({ success: false, error: "Internal server error" });
-  });
-  
   return app;
 }
 
-/**
- * Dev-only landing page rendered at `GET /` on the API server.
- * Shows an iframe-based app switcher — click a tab to preview any app
- * without leaving the Replit preview window.
- */
-function renderHubPage(): string {
-  const apps = [
-    { id: "admin",    href: "/admin/",    label: "Admin",    icon: "🛠️", color: "#6366f1" },
-    { id: "vendor",   href: "/vendor/",   label: "Vendor",   icon: "🏪", color: "#10b981" },
-    { id: "rider",    href: "/rider/",    label: "Rider",    icon: "🛵", color: "#f59e0b" },
-    { id: "customer", href: "/customer/", label: "Customer", icon: "🛍️", color: "#ec4899" },
-  ];
+function renderHubPage() {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>AJKMart — Project Hub</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-6">
+      <div class="max-w-4xl w-full">
+        <header class="mb-12 text-center">
+          <h1 class="text-4xl font-extrabold tracking-tight mb-2">AJKMart</h1>
+          <p class="text-slate-400 text-lg">Pakistan's Premium Multi-Service Platform</p>
+        </header>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <a href="/admin/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-indigo-500 transition-all">
+            <h3 class="text-xl font-bold mb-2 group-hover:text-indigo-400">Admin Panel</h3>
+            <p class="text-slate-400 text-sm">Fleet management, financial reconciliation, and platform settings.</p>
+          </a>
+          <a href="/vendor/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-emerald-500 transition-all">
+            <h3 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Vendor App</h3>
+            <p class="text-slate-400 text-sm">Store management, order fulfillment, and inventory tracking.</p>
+          </a>
+          <a href="/rider/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-amber-500 transition-all">
+            <h3 class="text-xl font-bold mb-2 group-hover:text-amber-400">Rider App</h3>
+            <p class="text-slate-400 text-sm">Real-time ride dispatch, GPS tracking, and delivery logistics.</p>
+          </a>
+          <a href="/customer/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-rose-500 transition-all">
+            <h3 class="text-xl font-bold mb-2 group-hover:text-rose-400">Customer App</h3>
+            <p class="text-slate-400 text-sm">Marketplace, ride booking, and digital wallet (Expo/Web).</p>
+          </a>
+          <a href="/api/docs" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-sky-500 transition-all">
+            <h3 class="text-xl font-bold mb-2 group-hover:text-sky-400">API Documentation</h3>
+            <p class="text-slate-400 text-sm">Interactive Swagger UI for the backend REST endpoints.</p>
+          </a>
+          <a href="/__mockup/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-slate-500 transition-all">
+            <h3 class="text-xl font-bold mb-2">Component Preview</h3>
+            <p class="text-slate-400 text-sm">Sandbox for UI components and design system verification.</p>
+          </a>
+        </div>
 
-  const tabs = apps.map((a, i) => `
-    <button
-      class="tab${i === 0 ? " active" : ""}"
-      data-href="${a.href}"
-      data-id="${a.id}"
-      style="--accent:${a.color}"
-      onclick="switchApp(this)"
-    >
-      <span class="tab-icon">${a.icon}</span>
-      <span class="tab-label">${a.label}</span>
-    </button>
-  `).join("");
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AJKMart — Dev Hub</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #0d1117;
-      color: #e6edf3;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* ── Top bar ── */
-    .topbar {
-      display: flex;
-      align-items: center;
-      gap: 0;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
-      height: 44px;
-      flex-shrink: 0;
-      padding: 0 8px;
-    }
-    .logo {
-      font-size: 13px;
-      font-weight: 700;
-      color: #58a6ff;
-      padding: 0 12px 0 6px;
-      letter-spacing: -0.02em;
-      white-space: nowrap;
-      border-right: 1px solid #30363d;
-      margin-right: 8px;
-    }
-    .tabs {
-      display: flex;
-      align-items: center;
-      gap: 2px;
-      flex: 1;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-    .tabs::-webkit-scrollbar { display: none; }
-    .tab {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border: 1px solid transparent;
-      border-radius: 6px;
-      background: transparent;
-      color: #8b949e;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all .15s ease;
-      font-family: inherit;
-    }
-    .tab:hover {
-      background: #21262d;
-      color: #e6edf3;
-      border-color: #30363d;
-    }
-    .tab.active {
-      background: rgba(88,166,255,0.1);
-      border-color: var(--accent, #6366f1);
-      color: #e6edf3;
-    }
-    .tab.active .tab-icon { opacity: 1; }
-    .tab-icon { font-size: 15px; opacity: 0.75; }
-
-    /* ── Address bar ── */
-    .addressbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-left: auto;
-      padding-left: 12px;
-    }
-    .url-display {
-      font-size: 12px;
-      color: #8b949e;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      padding: 4px 10px;
-      min-width: 180px;
-      max-width: 260px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .btn-open {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 5px 12px;
-      background: #21262d;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      color: #8b949e;
-      font-size: 12px;
-      font-family: inherit;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all .15s ease;
-      text-decoration: none;
-    }
-    .btn-open:hover {
-      background: #30363d;
-      color: #e6edf3;
-    }
-    .dot { width:7px; height:7px; border-radius:50%; background:#3fb950; box-shadow:0 0 5px #3fb950; flex-shrink:0; }
-
-    /* ── iFrame area ── */
-    .preview-wrap {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-    }
-    iframe {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: #fff;
-    }
-
-    /* ── Loading overlay ── */
-    .loader {
-      position: absolute;
-      inset: 0;
-      background: #0d1117;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 14px;
-      z-index: 10;
-      transition: opacity .3s ease;
-    }
-    .loader.hidden { opacity: 0; pointer-events: none; }
-    .spinner {
-      width: 32px; height: 32px;
-      border: 3px solid #30363d;
-      border-top-color: #58a6ff;
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .loader-text { font-size: 13px; color: #8b949e; }
-  </style>
-</head>
-<body>
-  <div class="topbar">
-    <div class="logo">⬡ AJKMart</div>
-    <div class="tabs" id="tabs">${tabs}</div>
-    <div class="addressbar">
-      <span class="dot"></span>
-      <span class="url-display" id="urlDisplay">/admin/</span>
-      <a class="btn-open" id="openLink" href="/admin/" target="_blank">↗ Open</a>
-    </div>
-  </div>
-
-  <div class="preview-wrap">
-    <div class="loader hidden" id="loader">
-      <div class="spinner"></div>
-      <div class="loader-text" id="loaderText">Loading…</div>
-    </div>
-    <iframe id="preview" src="/admin/" allow="fullscreen"></iframe>
-  </div>
-
-  <script>
-    var loaderTimer = null;
-    function hideLoader() {
-      clearTimeout(loaderTimer);
-      document.getElementById('loader').classList.add('hidden');
-    }
-    function showLoader(label) {
-      clearTimeout(loaderTimer);
-      document.getElementById('loaderText').textContent = 'Loading ' + label + '…';
-      document.getElementById('loader').classList.remove('hidden');
-      loaderTimer = setTimeout(hideLoader, 4000);
-    }
-    function switchApp(btn) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      btn.classList.add('active');
-      const href = btn.dataset.href;
-      const label = btn.querySelector('.tab-label').textContent;
-      document.getElementById('urlDisplay').textContent = href;
-      document.getElementById('openLink').href = href;
-      showLoader(label);
-      document.getElementById('preview').src = href;
-    }
-    document.getElementById('preview').addEventListener('load', hideLoader);
-  </script>
-</body>
-</html>`;
+        <footer class="mt-16 pt-8 border-t border-slate-800 text-center text-slate-500 text-sm">
+          AJKMart Dev Hub &bull; ${new Date().getFullYear()}
+        </footer>
+      </div>
+    </body>
+    </html>
+  `;
 }
