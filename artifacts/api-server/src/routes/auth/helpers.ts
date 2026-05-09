@@ -1,3 +1,4 @@
+import { logger } from "../../lib/logger.js";
 import { Router, type IRouter, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import crypto, { createHash, randomBytes } from "crypto";
@@ -298,7 +299,7 @@ export async function issueTokensForUser(user: any, ip: string, method: string, 
 
   const refreshTokenId = generateId();
   await db.insert(refreshTokensTable).values({ id: refreshTokenId, userId: user.id, tokenHash: refreshHash, authMethod: method, expiresAt: refreshExpiresAt });
-  db.delete(refreshTokensTable).where(and(eq(refreshTokensTable.userId, user.id), lt(refreshTokensTable.expiresAt, new Date()))).catch((err) => { console.error("[auth] Expired token cleanup failed:", err); });
+  db.delete(refreshTokensTable).where(and(eq(refreshTokensTable.userId, user.id), lt(refreshTokensTable.expiresAt, new Date()))).catch((err) => { logger.error("[auth] Expired token cleanup failed:", err); });
   await db.update(usersTable).set({ lastLoginAt: new Date() }).where(eq(usersTable.id, user.id));
   writeAuthAuditLog("login_success", { userId: user.id, ip, userAgent, metadata: { method } });
 
@@ -320,7 +321,7 @@ export async function issueTokensForUser(user: any, ip: string, method: string, 
       os: parsed.os,
       ip,
     });
-  } catch (err) { console.error("[auth] Session record insert failed:", err); }
+  } catch (err) { logger.error("[auth] Session record insert failed:", err); }
 
   try {
     await db.insert(loginHistoryTable).values({
@@ -333,7 +334,7 @@ export async function issueTokensForUser(user: any, ip: string, method: string, 
       success: true,
       method,
     });
-  } catch (err) { console.error("[auth] Login history insert failed:", err); }
+  } catch (err) { logger.error("[auth] Login history insert failed:", err); }
 
   return {
     token: accessToken,

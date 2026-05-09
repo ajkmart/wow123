@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { logger } from "../lib/logger.js";
 import { db } from "@workspace/db";
 import { productsTable, ordersTable, userInteractionsTable } from "@workspace/db/schema";
 import { eq, and, desc, sql, ilike, inArray, gte } from "drizzle-orm";
@@ -183,7 +184,7 @@ router.get("/trending", async (req, res) => {
 
     sendSuccess(res, { products: result, total: result.length });
   } catch (e: unknown) {
-    console.error("[recommendations GET /trending] DB error:", e);
+    logger.error("[recommendations GET /trending] DB error:", e);
     sendInternalError(res);
   }
 });

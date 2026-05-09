@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { adminAuth } from "./admin-shared.js";
-import { csrfProtection } from "../middlewares/admin-auth.js";
+import { csrfProtection } from "../middleware/admin-auth.js";
 import authRoutes from "./admin/system/auth.js";
 import usersRoutes from "./admin/system/users.js";
 import rbacRoutes from "./admin/system/rbac.js";

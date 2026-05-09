@@ -351,7 +351,7 @@ router.post("/topup", adminAuth, async (req, res) => {
     broadcastWalletUpdate(userId, result);
     const io = getIO();
     if (io) io.to("admin-fleet").emit("wallet:admin-topup", { userId, amount: topupAmt, balance: result, method: method || "admin_topup" });
-    addAuditEntry({ action: "wallet_topup", adminId: (req as any).adminId, ip: getClientIp(req), details: `Admin topup Rs. ${topupAmt} via ${method || "admin_topup"} for user ${userId}`, result: "success", affectedUserId: userId });
+    addAuditEntry({ action: "wallet_topup", adminId: req.adminId, ip: getClientIp(req), details: `Admin topup Rs. ${topupAmt} via ${method || "admin_topup"} for user ${userId}`, result: "success", affectedUserId: userId });
     const transactions = await db.select().from(walletTransactionsTable).where(eq(walletTransactionsTable.userId, userId));
     sendSuccess(res, { balance: result, transactions: transactions.map(mapTx) });
   } catch (e: unknown) {
@@ -818,7 +818,7 @@ router.post("/send", customerAuth, requireWalletPin, async (req, res) => {
     sendSuccess(res, responseData);
   } catch (e: unknown) {
     await clearKey();
-    const err = e as any;
+    const err = e as Error & { walletFrozen?: string };
     if (err.walletFrozen === "sender") {
       sendForbidden(res, "wallet_frozen", err.message); return;
     }

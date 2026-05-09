@@ -40,7 +40,7 @@ export function authenticateAdmin(req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  const token = authHeader.slice(7); // Remove 'Bearer ' prefix
+  const token = authHeader.slice(7);
 
   try {
     const payload = verifyAccessToken(token);
@@ -61,7 +61,6 @@ export function authenticateAdmin(req: Request, res: Response, next: NextFunctio
  * GET, HEAD, OPTIONS requests skip CSRF check
  */
 export function csrfProtection(req: Request, res: Response, next: NextFunction) {
-  // Skip CSRF check for safe methods
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     return next();
   }
@@ -77,7 +76,6 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     return;
   }
 
-  // Header token should match cookie token (double-submit cookie pattern)
   if (headerToken !== cookieToken) {
     res.status(403).json({
       error: 'CSRF token mismatch',

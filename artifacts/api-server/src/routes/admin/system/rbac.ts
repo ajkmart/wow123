@@ -22,7 +22,7 @@ import {
   revokeSessionsForRole,
 } from "../../../services/permissions.service.js";
 import { adminAuth, addAuditEntry, type AdminRequest } from "../../admin-shared.js";
-import { requirePermission, requireAnyPermission } from "../../../middlewares/require-permission.js";
+import { requirePermission, requireAnyPermission } from "../../../middleware/require-permission.js";
 import {
   sendSuccess, sendError, sendNotFound, sendValidationError,
 } from "../../../lib/response.js";

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { logger } from "../lib/logger.js";
 import { createHmac, timingSafeEqual } from "crypto";
 import { Pool } from "pg";
 import { buildPgPoolConfig } from "@workspace/db/connection-url";
@@ -35,7 +36,7 @@ function getPool(): Pool | null {
   if (!_pool) {
     _pool = new Pool({ ...buildPgPoolConfig(databaseUrl), max: 5 });
     _pool.on("error", (err) => {
-      console.error("[webhooks pool] Unexpected error:", err.message);
+      logger.error("[webhooks pool] Unexpected error:", err.message);
     });
   }
   return _pool;
@@ -87,7 +88,7 @@ router.get("/whatsapp/delivery-log", adminAuth, async (req, res) => {
 
     sendSuccess(res, { logs: rows, total: parseInt(countRows[0]!.count, 10), limit, offset });
   } catch (err: any) {
-    console.error("[WhatsApp delivery log] Query error:", err.message);
+    logger.error("[WhatsApp delivery log] Query error:", err.message);
     sendError(res, "Failed to fetch delivery log", 500);
   }
 });
@@ -108,7 +109,7 @@ router.get("/whatsapp", async (req, res) => {
   const verifyToken = settings["wa_verify_token"]?.trim();
 
   if (!verifyToken) {
-    console.warn("[WhatsApp webhook] wa_verify_token not set in platform settings");
+    logger.warn("[WhatsApp webhook] wa_verify_token not set in platform settings");
     sendError(res, "Webhook verify token not configured. Set wa_verify_token in Integrations → WhatsApp.", 403);
     return;
   }
@@ -132,7 +133,7 @@ router.post("/whatsapp", async (req, res) => {
   const appSecret = process.env["WHATSAPP_APP_SECRET"]?.trim();
 
   if (!appSecret) {
-    console.error("[WhatsApp webhook] WHATSAPP_APP_SECRET not set — rejecting all unsigned requests");
+    logger.error("[WhatsApp webhook] WHATSAPP_APP_SECRET not set — rejecting all unsigned requests");
     res.status(401).json({ success: false, error: "Webhook signature verification not configured" });
     return;
   }
@@ -141,7 +142,7 @@ router.post("/whatsapp", async (req, res) => {
   const rawBody   = (req as express.Request & { rawBody?: Buffer }).rawBody;
 
   if (!sigHeader || !rawBody) {
-    console.warn("[WhatsApp webhook] Missing signature or raw body — rejecting");
+    logger.warn("[WhatsApp webhook] Missing signature or raw body — rejecting");
     res.status(401).json({ success: false, error: "Missing webhook signature" });
     return;
   }
@@ -158,7 +159,7 @@ router.post("/whatsapp", async (req, res) => {
   }
 
   if (!valid) {
-    console.warn("[WhatsApp webhook] Signature mismatch — rejecting request");
+    logger.warn("[WhatsApp webhook] Signature mismatch — rejecting request");
     res.status(401).json({ success: false, error: "Invalid webhook signature" });
     return;
   }
@@ -186,12 +187,12 @@ router.post("/whatsapp", async (req, res) => {
       for (const msg of messages) {
         const from = msg?.from;
         const type = msg?.type;
-        console.log(`[WhatsApp webhook] Incoming message from ${from} — type: ${type}`);
+        logger.info(`[WhatsApp webhook] Incoming message from ${from} — type: ${type}`);
       }
 
       for (const status of statuses) {
         await processDeliveryStatus(status, value).catch((err: any) =>
-          console.error("[WhatsApp webhook] Status processing error:", err?.message)
+          logger.error("[WhatsApp webhook] Status processing error:", err?.message)
         );
       }
     }
@@ -208,7 +209,7 @@ async function processDeliveryStatus(status: any, value: any): Promise<void> {
   const errorCode   = errorObj?.code ? String(errorObj.code) : null;
   const errorMsg    = errorObj?.message as string | null ?? null;
 
-  console.log(`[WhatsApp webhook] Message ${waMessageId} to ${recipient} — status: ${statusVal}`);
+  logger.info(`[WhatsApp webhook] Message ${waMessageId} to ${recipient} — status: ${statusVal}`);
 
   const pool = getPool();
   if (!pool || !waMessageId) return;
@@ -250,7 +251,7 @@ async function triggerFallback(phone: string, waMessageId: string, pool: Pool): 
   try {
     settings = await getCachedSettings();
   } catch {
-    console.warn("[WhatsApp fallback] Could not load platform settings");
+    logger.warn("[WhatsApp fallback] Could not load platform settings");
     return;
   }
 
@@ -258,7 +259,7 @@ async function triggerFallback(phone: string, waMessageId: string, pool: Pool): 
   const pushFallback = (settings["wa_fallback_push"] ?? "off") === "on";
 
   if (!smsFallback && !pushFallback) {
-    console.log(`[WhatsApp fallback] No fallback configured for failed message ${waMessageId}`);
+    logger.info(`[WhatsApp fallback] No fallback configured for failed message ${waMessageId}`);
     return;
   }
 
@@ -271,12 +272,12 @@ async function triggerFallback(phone: string, waMessageId: string, pool: Pool): 
       const result = await dispatchFallbackSms(phone, settings);
       if (result.sent) {
         channel = "sms";
-        console.log(`[WhatsApp fallback] SMS dispatched to ${phone} for message ${waMessageId}`);
+        logger.info(`[WhatsApp fallback] SMS dispatched to ${phone} for message ${waMessageId}`);
       } else {
-        console.warn(`[WhatsApp fallback] SMS dispatch failed: ${result.error ?? "unknown"}`);
+        logger.warn(`[WhatsApp fallback] SMS dispatch failed: ${result.error ?? "unknown"}`);
       }
     } catch (err: any) {
-      console.error(`[WhatsApp fallback] SMS dispatch threw:`, err?.message);
+      logger.error(`[WhatsApp fallback] SMS dispatch threw:`, err?.message);
     }
   }
 
@@ -306,12 +307,12 @@ async function triggerFallback(phone: string, waMessageId: string, pool: Pool): 
           data: { waMessageId },
         });
         channel = "push";
-        console.log(`[WhatsApp fallback] Push dispatched to user ${userId} (${phone}) for message ${waMessageId}`);
+        logger.info(`[WhatsApp fallback] Push dispatched to user ${userId} (${phone}) for message ${waMessageId}`);
       } else {
-        console.warn(`[WhatsApp fallback] No user found for phone ${phone} — push skipped`);
+        logger.warn(`[WhatsApp fallback] No user found for phone ${phone} — push skipped`);
       }
     } catch (err: any) {
-      console.error(`[WhatsApp fallback] Push dispatch threw:`, err?.message);
+      logger.error(`[WhatsApp fallback] Push dispatch threw:`, err?.message);
     }
   }
 

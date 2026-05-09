@@ -39,7 +39,7 @@ router.post("/admin/sentry-webhook", async (req, res) => {
     return;
   }
 
-  const rawBody = (req as any).rawBody as Buffer | undefined;
+  const rawBody = req.rawBody;
   const bodyStr = rawBody
     ? rawBody.toString("utf8")
     : JSON.stringify(req.body);

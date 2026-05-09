@@ -15,6 +15,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { resolveAdminPermissions } from "../services/permissions.service.js";
 import { assertPermissionId } from "@workspace/auth-utils/permissions";
+import { logger } from "../lib/logger.js";
 
 function isSuper(req: Request): boolean {
   return req.adminRole === "super";
@@ -24,14 +25,13 @@ async function effectivePerms(req: Request): Promise<string[]> {
   if (Array.isArray(req.adminPermissions) && req.adminPermissions.length) {
     return req.adminPermissions;
   }
-  // Legacy token without `perms` claim: resolve once, cache on req.
   const perms = await resolveAdminPermissions(req.adminId ?? null, req.adminRole);
   req.adminPermissions = perms;
   return perms;
 }
 
 export function requirePermission(permission: string) {
-  assertPermissionId(permission); // throws at startup if ID is unknown
+  assertPermissionId(permission);
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.adminId && !req.adminRole) {
       return res.status(401).json({ success: false, error: "Authentication required" });
@@ -42,7 +42,7 @@ export function requirePermission(permission: string) {
       const perms = await effectivePerms(req);
       if (perms.includes(permission)) return next();
     } catch (err) {
-      console.error("[requirePermission] resolve failed:", err);
+      logger.error({ err, permission }, "[requirePermission] resolve failed");
     }
     return res.status(403).json({
       success: false,
@@ -55,7 +55,7 @@ export function requirePermission(permission: string) {
 }
 
 export function requireAnyPermission(permissions: string[]) {
-  for (const p of permissions) assertPermissionId(p); // startup guard
+  for (const p of permissions) assertPermissionId(p);
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.adminId && !req.adminRole) {
       return res.status(401).json({ success: false, error: "Authentication required" });
@@ -65,7 +65,7 @@ export function requireAnyPermission(permissions: string[]) {
       const perms = await effectivePerms(req);
       if (permissions.some(p => perms.includes(p))) return next();
     } catch (err) {
-      console.error("[requireAnyPermission] resolve failed:", err);
+      logger.error({ err, permissions }, "[requireAnyPermission] resolve failed");
     }
     return res.status(403).json({
       success: false,
@@ -78,7 +78,7 @@ export function requireAnyPermission(permissions: string[]) {
 }
 
 export function requireAllPermissions(permissions: string[]) {
-  for (const p of permissions) assertPermissionId(p); // startup guard
+  for (const p of permissions) assertPermissionId(p);
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.adminId && !req.adminRole) {
       return res.status(401).json({ success: false, error: "Authentication required" });
@@ -88,7 +88,7 @@ export function requireAllPermissions(permissions: string[]) {
       const perms = await effectivePerms(req);
       if (permissions.every(p => perms.includes(p))) return next();
     } catch (err) {
-      console.error("[requireAllPermissions] resolve failed:", err);
+      logger.error({ err, permissions }, "[requireAllPermissions] resolve failed");
     }
     return res.status(403).json({
       success: false,

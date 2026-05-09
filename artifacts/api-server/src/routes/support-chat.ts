@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { logger } from "../lib/logger.js";
 import { z } from "zod";
 import { generateId } from "../lib/id.js";
 import { sendSuccess, sendCreated, sendError } from "../lib/response.js";
@@ -94,7 +95,7 @@ router.post("/messages", requireRole("customer"), validateBody(messageSchema), a
       return sendCreated(res, { message: msgPayload });
     }
   } catch (err) {
-    console.error("support-chat insert failed", err);
+    logger.error("support-chat insert failed", err);
     return sendError(res, "Failed to save message", 500);
   }
 });

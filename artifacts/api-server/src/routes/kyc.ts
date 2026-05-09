@@ -11,7 +11,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { logger } from "../lib/logger.js";
 import { sendSuccess, sendCreated, sendError, sendNotFound, sendForbidden, sendValidationError } from "../lib/response.js";
-import { logAdminAudit, getClientIp } from "../middlewares/admin-audit.js";
+import { logAdminAudit, getClientIp } from "../middleware/admin-audit.js";
 import { sendPushToUser } from "../lib/webpush.js";
 import { sendSms } from "../services/sms.js";
 

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { logger } from "../lib/logger.js";
 import { db } from "@workspace/db";
 import { productsTable, productVariantsTable, flashDealsTable, reviewsTable, stockSubscriptionsTable, searchLogsTable } from "@workspace/db/schema";
 import { eq, ilike, and, SQL, gte, lte, gt, desc, asc, sql, isNotNull, isNull, inArray } from "drizzle-orm";
@@ -96,7 +97,7 @@ router.get("/flash-deals", async (req, res) => {
       total: products.length,
     });
   } catch (e: unknown) {
-    console.error("[products GET /flash-deals] DB error:", e);
+    logger.error("[products GET /flash-deals] DB error:", e);
     sendInternalError(res);
   }
 });

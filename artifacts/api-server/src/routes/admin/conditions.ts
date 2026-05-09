@@ -1,3 +1,4 @@
+import { logger } from "../../lib/logger.js";
 import { Router } from "express";
 import { z } from "zod";
 import { db } from "@workspace/db";
@@ -134,7 +135,7 @@ async function notifyAdminConditionApplied(params: ConditionNotifyParams): Promi
       ...(params.triggeredByRule ? { rule: params.triggeredByRule } : {}),
     },
   }).catch(err => {
-    console.error("[admin/conditions] push notification failed:", err);
+    logger.error("[admin/conditions] push notification failed:", err);
   });
 
   const emailPromise = getCachedSettings().then(settings =>
@@ -153,10 +154,10 @@ async function notifyAdminConditionApplied(params: ConditionNotifyParams): Promi
     )
   ).then(result => {
     if (!result.sent) {
-      console.log(`[admin/conditions] email alert skipped: ${result.reason ?? result.error ?? "unknown"}`);
+      logger.info(`[admin/conditions] email alert skipped: ${result.reason ?? result.error ?? "unknown"}`);
     }
   }).catch(err => {
-    console.error("[admin/conditions] email alert failed:", err);
+    logger.error("[admin/conditions] email alert failed:", err);
   });
 
   await Promise.all([pushPromise, emailPromise]);
@@ -242,7 +243,7 @@ export async function reconcileUserFlags(userId: string): Promise<{ success: boo
       .where(and(eq(accountConditionsTable.userId, userId), eq(accountConditionsTable.isActive, true)));
     return { success: true, conditions: conditions.length };
   } catch (err) {
-    console.error("reconcileUserFlags error:", err);
+    logger.error("reconcileUserFlags error:", err);
     return { success: false, error: String(err) };
   }
 }
@@ -320,7 +321,7 @@ router.get("/conditions", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[admin/conditions] list error:", error);
+    logger.error("[admin/conditions] list error:", error);
     res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -335,7 +336,7 @@ router.get("/conditions/user/:userId", async (req, res) => {
       .orderBy(desc(accountConditionsTable.appliedAt));
     res.json({ success: true, data: { conditions } });
   } catch (error) {
-    console.error("[admin/conditions] user conditions error:", error);
+    logger.error("[admin/conditions] user conditions error:", error);
     res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -379,11 +380,11 @@ router.post("/conditions", async (req, res) => {
       severity,
       reason,
       appliedBy: appliedBy ?? "admin",
-    }).catch(err => console.error("[admin/conditions] notify error:", err));
+    }).catch(err => logger.error("[admin/conditions] notify error:", err));
 
     return;
   } catch (error) {
-    console.error("[admin/conditions] create error:", error);
+    logger.error("[admin/conditions] create error:", error);
     res.status(500).json({ success: false, error: "An internal error occurred" });
     return;
   }
@@ -465,7 +466,7 @@ router.patch("/conditions/:id", async (req, res) => {
       .returning();
     return res.json({ success: true, data: updated });
   } catch (error) {
-    console.error("[admin/conditions] update error:", error);
+    logger.error("[admin/conditions] update error:", error);
     return res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -475,7 +476,7 @@ router.delete("/conditions/:id", async (req, res) => {
     await db.delete(accountConditionsTable).where(eq(accountConditionsTable.id, req.params.id));
     res.json({ success: true });
   } catch (error) {
-    console.error("[admin/conditions] delete error:", error);
+    logger.error("[admin/conditions] delete error:", error);
     res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -509,7 +510,7 @@ router.post("/conditions/bulk", async (req, res) => {
     }
     return res.status(400).json({ success: false, error: "Unsupported action" });
   } catch (error) {
-    console.error("[admin/conditions] bulk action error:", error);
+    logger.error("[admin/conditions] bulk action error:", error);
     return res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -520,7 +521,7 @@ router.get("/condition-rules", async (_req, res) => {
     const rules = await db.select().from(conditionRulesTable).orderBy(desc(conditionRulesTable.createdAt));
     res.json({ success: true, data: { rules } });
   } catch (error) {
-    console.error("[admin/condition-rules] list error:", error);
+    logger.error("[admin/condition-rules] list error:", error);
     res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -553,7 +554,7 @@ router.post("/condition-rules", async (req, res) => {
       .returning();
     return res.json({ success: true, data: created });
   } catch (error) {
-    console.error("[admin/condition-rules] create error:", error);
+    logger.error("[admin/condition-rules] create error:", error);
     return res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -571,7 +572,7 @@ router.patch("/condition-rules/:id", async (req, res) => {
     if (!updated) return res.status(404).json({ success: false, error: "Rule not found" });
     return res.json({ success: true, data: updated });
   } catch (error) {
-    console.error("[admin/condition-rules] patch error:", error);
+    logger.error("[admin/condition-rules] patch error:", error);
     return res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -581,7 +582,7 @@ router.delete("/condition-rules/:id", async (req, res) => {
     await db.delete(conditionRulesTable).where(eq(conditionRulesTable.id, req.params.id));
     res.json({ success: true });
   } catch (error) {
-    console.error("[admin/condition-rules] delete error:", error);
+    logger.error("[admin/condition-rules] delete error:", error);
     res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -632,7 +633,7 @@ router.post("/condition-rules/seed-defaults", async (_req, res) => {
     await db.insert(conditionRulesTable).values(rows as any);
     return res.json({ success: true, message: `Seeded ${rows.length} default rules`, inserted: rows.length });
   } catch (error) {
-    console.error("[admin/condition-rules] seed error:", error);
+    logger.error("[admin/condition-rules] seed error:", error);
     return res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -792,7 +793,7 @@ export async function evaluateRulesForUser(userId: string) {
       reason:        `Auto: ${rule.name} (${rule.metric} ${rule.operator} ${rule.threshold}, observed ${value})`,
       appliedBy:     "rule_engine",
       triggeredByRule: rule.name,
-    }).catch(err => console.error("[admin/conditions] notify error (rule engine):", err));
+    }).catch(err => logger.error("[admin/conditions] notify error (rule engine):", err));
   }
 
   return {
@@ -811,7 +812,7 @@ router.post("/condition-rules/evaluate/:userId", async (req, res) => {
     const result = await evaluateRulesForUser(req.params.userId);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error("[admin/condition-rules] evaluate error:", error);
+    logger.error("[admin/condition-rules] evaluate error:", error);
     res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -829,7 +830,7 @@ router.get("/condition-settings", async (_req, res) => {
     }
     return res.json({ success: true, data: settings });
   } catch (error) {
-    console.error("[admin/condition-settings] get error:", error);
+    logger.error("[admin/condition-settings] get error:", error);
     return res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });
@@ -863,7 +864,7 @@ router.patch("/condition-settings", async (req, res) => {
       .returning();
     return res.json({ success: true, data: updated });
   } catch (error) {
-    console.error("[admin/condition-settings] patch error:", error);
+    logger.error("[admin/condition-settings] patch error:", error);
     return res.status(500).json({ success: false, error: "An internal error occurred" });
   }
 });

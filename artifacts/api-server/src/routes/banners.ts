@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { logger } from "../lib/logger.js";
 import { db } from "@workspace/db";
 import { bannersTable } from "@workspace/db/schema";
 import { eq, and, or, lte, gte, isNull, desc, asc } from "drizzle-orm";
@@ -50,7 +51,7 @@ router.get("/", async (req, res) => {
       total: filtered.length,
     });
   } catch (e: unknown) {
-    console.error("[banners GET /] DB error:", e);
+    logger.error("[banners GET /] DB error:", e);
     sendInternalError(res);
   }
 });

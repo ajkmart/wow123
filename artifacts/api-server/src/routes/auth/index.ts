@@ -892,7 +892,7 @@ router.post("/send-otp", otpLimiter, verifyCaptcha, sharedValidateBody(sendOtpSc
   }
 
   if (process.env.NODE_ENV === "development" && process.env["LOG_OTP"] === "1") {
-    console.log({ phone, otp }, "OTP sent");
+    logger.info({ phone, otp }, "OTP sent");
   }
 
   const otpUserId = existingUser[0]?.id;
@@ -948,7 +948,7 @@ router.post("/send-otp", otpLimiter, verifyCaptcha, sharedValidateBody(sendOtpSc
      * otp_require_when_no_provider = "off" (default) → auto-bypass               */
     const strictMode = settings["otp_require_when_no_provider"] === "on";
     if (strictMode) {
-      console.error({ phone }, "[OTP] No provider configured & strict mode ON — blocking login");
+      logger.error({ phone }, "[OTP] No provider configured & strict mode ON — blocking login");
       writeAuthAuditLog("otp_send_no_provider", {
         ip,
         userAgent: req.headers["user-agent"] ?? undefined,
@@ -960,7 +960,7 @@ router.post("/send-otp", otpLimiter, verifyCaptcha, sharedValidateBody(sendOtpSc
       });
       return;
     }
-    console.warn({ phone }, "[OTP] No delivery provider configured — auto-bypassing OTP (bypass mode)");
+    logger.warn({ phone }, "[OTP] No delivery provider configured — auto-bypassing OTP (bypass mode)");
     writeAuthAuditLog("otp_send_no_provider", {
       ip,
       userAgent: req.headers["user-agent"] ?? undefined,
@@ -980,16 +980,16 @@ router.post("/send-otp", otpLimiter, verifyCaptcha, sharedValidateBody(sendOtpSc
     if (channel === "whatsapp") {
       const waResult = await sendWhatsAppOTP(phone, otp, settings, otpLang);
       if (waResult.sent) { deliveryChannel = "whatsapp"; deliverySuccess = true; deliveryProvider = "whatsapp"; break; }
-      console.warn({ err: waResult.error }, "WhatsApp OTP failed, trying next channel");
+      logger.warn({ err: waResult.error }, "WhatsApp OTP failed, trying next channel");
     } else if (channel === "sms") {
       const smsResult = await sendOtpSMS(phone, otp, settings, otpLang);
       if (smsResult.sent) { deliveryChannel = "sms"; deliverySuccess = true; deliveryProvider = smsResult.provider ?? "sms"; break; }
-      console.warn({ err: smsResult.error }, "SMS OTP failed, trying next channel");
+      logger.warn({ err: smsResult.error }, "SMS OTP failed, trying next channel");
     } else if (channel === "email" && userEmail) {
       const emailLang = otpUserId ? await getUserLanguage(otpUserId) : await getPlatformDefaultLanguage();
       const emailResult = await sendPasswordResetEmail(userEmail, otp, existingUser[0]?.name ?? undefined, emailLang);
       if (emailResult.sent) { deliveryChannel = "email"; deliverySuccess = true; deliveryProvider = "email"; break; }
-      console.warn({ err: emailResult.reason }, "Email OTP failed");
+      logger.warn({ err: emailResult.reason }, "Email OTP failed");
     }
   }
 
@@ -999,9 +999,9 @@ router.post("/send-otp", otpLimiter, verifyCaptcha, sharedValidateBody(sendOtpSc
   if (!deliverySuccess) {
     if (isDev) {
       deliveryChannel = "dev";
-      console.warn({ phone }, "All OTP delivery channels failed — returning OTP in dev mode");
+      logger.warn({ phone }, "All OTP delivery channels failed — returning OTP in dev mode");
     } else {
-      console.error({ phone }, "All OTP delivery channels failed");
+      logger.error({ phone }, "All OTP delivery channels failed");
       res.status(502).json({ error: "Could not deliver OTP. Please try again or use an alternative login method.", fallbackChannels: availableChannels });
       return;
     }
@@ -1989,7 +1989,7 @@ router.post("/send-email-otp", verifyCaptcha, async (req, res) => {
     .where(eq(usersTable.id, user.id));
 
   const isDev = process.env.NODE_ENV !== "production";
-  console.log({ email: normalized, otp: isDev ? otp : "[hidden]" }, "Email OTP generated");
+  logger.info({ email: normalized, otp: isDev ? otp : "[hidden]" }, "Email OTP generated");
 
   /* Send OTP via email service. Falls back gracefully when SMTP is not configured.
      In development, the OTP is also exposed in the response for easy testing. */
@@ -1999,7 +1999,7 @@ router.post("/send-email-otp", verifyCaptcha, async (req, res) => {
   if (!emailResult.sent) {
     if (isDev) {
       /* In development, log OTP to console so developers can see it */
-      console.log(`[EMAIL-OTP DEV] Email OTP for ${normalized}: ${otp} (SMTP not configured: ${emailResult.reason ?? "unknown"})`);
+      logger.info(`[EMAIL-OTP DEV] Email OTP for ${normalized}: ${otp} (SMTP not configured: ${emailResult.reason ?? "unknown"})`);
     } else {
       /* In production, use structured logger so the warning is captured properly */
       logger.warn({ email: normalized, reason: emailResult.reason ?? "SMTP not configured" }, "[EMAIL-OTP] Failed to send OTP email");
@@ -2300,11 +2300,11 @@ async function handleUnifiedLogin(req: Request, res: any) {
       .set({ otpCode: hashOtp(loginOtp), otpExpiry: loginOtpExpiry, otpUsed: false, updatedAt: new Date() })
       .where(eq(usersTable.id, user.id));
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`\n[AUTH:OTP] ====== LOGIN OTP ======`);
-      console.log(`[AUTH:OTP] User: ${lookupKey}`);
-      console.log(`[AUTH:OTP] OTP Code: ${loginOtp}`);
-      console.log(`[AUTH:OTP] Expires: ${loginOtpExpiry.toISOString()}`);
-      console.log(`[AUTH:OTP] =======================\n`);
+      logger.info(`\n[AUTH:OTP] ====== LOGIN OTP ======`);
+      logger.info(`[AUTH:OTP] User: ${lookupKey}`);
+      logger.info(`[AUTH:OTP] OTP Code: ${loginOtp}`);
+      logger.info(`[AUTH:OTP] Expires: ${loginOtpExpiry.toISOString()}`);
+      logger.info(`[AUTH:OTP] =======================\n`);
     }
     writeAuthAuditLog("otp_sent", { userId: user.id, ip, userAgent: req.headers["user-agent"] ?? undefined, metadata: { method: "password_login", channel: "console" } });
     const tempToken = sign2faChallengeToken(user.id, user.phone ?? user.email ?? "", user.roles ?? "customer", user.roles ?? "customer", "password_otp");
@@ -2969,7 +2969,7 @@ router.post("/register", verifyCaptcha, sharedValidateBody(registerSchema), asyn
   const smsResult = await sendOtpSMS(normalizedPhone, otp, settings, registerLang);
   if (settings["integration_whatsapp"] === "on") {
     sendWhatsAppOTP(normalizedPhone, otp, settings, registerLang).catch(err =>
-      console.warn({ err: err.message }, "WhatsApp OTP send failed (non-fatal)")
+      logger.warn({ err: err.message }, "WhatsApp OTP send failed (non-fatal)")
     );
   }
 
@@ -3402,7 +3402,7 @@ router.post("/email-register", verifyCaptcha, async (req, res) => {
 
   const isDevTokenLog = process.env.NODE_ENV === "development" && process.env["LOG_OTP"] === "1";
   if (isDevTokenLog) {
-    console.log({ email: normalizedEmail, emailSent: emailResult.sent }, "Email verification token generated");
+    logger.info({ email: normalizedEmail, emailSent: emailResult.sent }, "Email verification token generated");
   }
 
   res.status(201).json({
@@ -3515,7 +3515,7 @@ async function issueTokensForUser(user: any, ip: string, method: string, userAge
 
   const refreshTokenId = generateId();
   await db.insert(refreshTokensTable).values({ id: refreshTokenId, userId: user.id, tokenHash: refreshHash, authMethod: method, expiresAt: refreshExpiresAt });
-  db.delete(refreshTokensTable).where(and(eq(refreshTokensTable.userId, user.id), lt(refreshTokensTable.expiresAt, new Date()))).catch((err) => { console.error("[auth] Expired token cleanup failed:", err); });
+  db.delete(refreshTokensTable).where(and(eq(refreshTokensTable.userId, user.id), lt(refreshTokensTable.expiresAt, new Date()))).catch((err) => { logger.error("[auth] Expired token cleanup failed:", err); });
   await db.update(usersTable).set({ lastLoginAt: new Date() }).where(eq(usersTable.id, user.id));
   writeAuthAuditLog("login_success", { userId: user.id, ip, userAgent, metadata: { method } });
 
@@ -3540,7 +3540,7 @@ async function issueTokensForUser(user: any, ip: string, method: string, userAge
       os: parsed.os,
       ip,
     });
-  } catch (err) { console.error("[auth] Session record insert failed:", err); }
+  } catch (err) { logger.error("[auth] Session record insert failed:", err); }
 
   try {
     await db.insert(loginHistoryTable).values({
@@ -3553,7 +3553,7 @@ async function issueTokensForUser(user: any, ip: string, method: string, userAge
       success: true,
       method,
     });
-  } catch (err) { console.error("[auth] Login history insert failed:", err); }
+  } catch (err) { logger.error("[auth] Login history insert failed:", err); }
 
   return {
     token: accessToken,
@@ -3818,7 +3818,7 @@ router.get("/2fa/setup", async (req, res) => {
   await db.update(usersTable).set({ totpSecret: encryptedSecret, updatedAt: new Date() }).where(eq(usersTable.id, auth.userId));
 
   let qrDataUrl: string | null = null;
-  try { qrDataUrl = await generateQRCodeDataURL(secret, label); } catch (err) { console.error("[2fa/setup] QR code generation failed:", err); }
+  try { qrDataUrl = await generateQRCodeDataURL(secret, label); } catch (err) { logger.error("[2fa/setup] QR code generation failed:", err); }
 
   res.json({ secret, uri, qrDataUrl });
 });

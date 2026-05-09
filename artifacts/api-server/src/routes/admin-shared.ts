@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
+import { logger as pinoLogger } from "../lib/logger.js";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { eq, and, isNull } from "drizzle-orm";
@@ -426,12 +427,7 @@ export const PARCEL_NOTIF_KEYS: Record<string, NotifKey> = {
   BOOKED: { titleKey: "notifParcelBooked", bodyKey: "notifParcelBookedBody", icon: "cube-outline" },
 };
 
-export const logger = {
-  info:  (...args: any[]) => console.log(...args),
-  error: (...args: any[]) => console.error(...args),
-  warn:  (...args: any[]) => console.warn(...args),
-  debug: (...args: any[]) => console.debug(...args),
-};
+export const logger = pinoLogger;
 
 /* ── ID + login lockout helpers ─────────────────────────────── */
 export function generateId(p?: string) {
@@ -457,7 +453,7 @@ export function signAdminJwt(adminId: string | null, role?: string, name?: strin
   return jwt.sign(
     { adminId, role, name },
     process.env["JWT_SECRET"] || "key",
-    { expiresIn: `${ttlHours ?? ADMIN_TOKEN_TTL_HRS}h` as any },
+    { expiresIn: `${ttlHours ?? ADMIN_TOKEN_TTL_HRS}h` },
   );
 }
 export function verifyAdminJwt(t: string) {
@@ -499,7 +495,7 @@ export async function verifyTotpToken(secret: string, token: string): Promise<bo
    Rejects with 401 on missing/invalid/expired token. */
 export const adminAuth = (req: AdminRequest, res: Response, next: NextFunction) => {
   try {
-    const header = req.headers["authorization"] || req.headers["Authorization" as any];
+    const header = req.headers["authorization"] || req.headers["authorization"];
     const raw = Array.isArray(header) ? header[0] : header;
     const token = raw?.startsWith("Bearer ") ? raw.slice(7).trim() : raw?.trim();
     if (!token) return res.status(401).json({ success: false, error: "Missing admin token" });

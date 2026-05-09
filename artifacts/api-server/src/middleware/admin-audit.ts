@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '@workspace/db';
 import { adminAuditLogTable, type InsertAdminAuditLog } from '@workspace/db/schema';
 import { generateId } from '../lib/id.js';
+import { logger } from '../lib/logger.js';
 
 /**
  * Extract client IP from request, considering proxy headers
@@ -25,7 +26,7 @@ export async function logAdminAudit(
     userAgent?: string;
     result: 'success' | 'failure';
     reason?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): Promise<void> {
   try {
@@ -40,8 +41,7 @@ export async function logAdminAudit(
       metadata: data.metadata ? JSON.stringify(data.metadata) : undefined,
     } as InsertAdminAuditLog);
   } catch (err) {
-    console.error('Failed to log admin audit event:', err);
-    // Don't throw - audit logging failures shouldn't break the app
+    logger.error({ err }, 'Failed to log admin audit event');
   }
 }
 
@@ -55,8 +55,7 @@ export function auditLoggingMiddleware(req: Request, res: Response, next: NextFu
   const userAgent = req.headers['user-agent'];
   const adminId = req.admin?.sub;
 
-  // Override send to log response status
-  res.send = function (data: any) {
+  res.send = function (data: unknown) {
     const statusCode = res.statusCode;
     const isError = statusCode >= 400;
 

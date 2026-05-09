@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { logger } from './lib/logger.js';
 import net from 'net';
 import { execSync } from 'child_process';
 import { createServer, runStartupTasks } from "./app.js";
@@ -20,19 +21,19 @@ if (process.env.SENTRY_DSN) {
         integrations: [],
       });
       (globalThis as Record<string, unknown>)["__sentryInstance"] = Sentry;
-      console.log("[sentry] Initialized successfully");
+      logger.info("[sentry] Initialized successfully");
     } catch {
-      console.warn("[sentry] @sentry/node not installed — skipping. Run: pnpm --filter @workspace/api-server add @sentry/node");
+      logger.warn("[sentry] @sentry/node not installed — skipping. Run: pnpm --filter @workspace/api-server add @sentry/node");
     }
   })().catch(() => {});
 }
 
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("[UnhandledRejection] at:", promise, "reason:", reason);
+  logger.error("[UnhandledRejection] at:", promise, "reason:", reason);
 });
 
 process.on("uncaughtException", (err) => {
-  console.error("[UncaughtException] Error:", err);
+  logger.error("[UncaughtException] Error:", err);
 });
 
 // ─── ENV FIRST-RUN CHECK ───────────────────────────────────────────────────
@@ -81,16 +82,16 @@ function checkEnv(): void {
   lines.push(pad("  Then restart:   pnpm replit-start"));
   lines.push(`╚${hr}╝`);
 
-  console.error("\n" + lines.join("\n") + "\n");
+  logger.error("\n" + lines.join("\n") + "\n");
 
   if (isProduction && missing.length > 0) {
-    console.error("[env:check] FATAL — critical vars missing in production. Exiting.");
+    logger.error("[env:check] FATAL — critical vars missing in production. Exiting.");
     process.exit(1);
   }
 
   if (!isProduction && missing.length > 0) {
-    console.warn("[env:check] Development mode — continuing despite missing critical vars.");
-    console.warn("[env:check] Add missing secrets in the Replit Secrets panel, then restart.\n");
+    logger.warn("[env:check] Development mode — continuing despite missing critical vars.");
+    logger.warn("[env:check] Add missing secrets in the Replit Secrets panel, then restart.\n");
   }
 }
 
@@ -111,16 +112,16 @@ function isPortInUse(p: number): Promise<boolean> {
     const probe = net.createServer();
     probe.once("error", (err: NodeJS.ErrnoException) => {
       if (err.code === "EADDRINUSE") {
-        console.debug(`[port:check] Port ${p} is in use (EADDRINUSE)`);
+        logger.debug(`[port:check] Port ${p} is in use (EADDRINUSE)`);
         resolve(true);
       } else {
-        console.warn(`[port:check] Unexpected error checking port ${p}:`, err.code, err.message);
+        logger.warn(`[port:check] Unexpected error checking port ${p}:`, err.code, err.message);
         resolve(false);
       }
     });
     probe.once("listening", () => {
       probe.close(() => {
-        console.debug(`[port:check] Port ${p} is available`);
+        logger.debug(`[port:check] Port ${p} is available`);
         resolve(false);
       });
     });
@@ -137,10 +138,10 @@ function tryKillPort(p: number): boolean {
   try {
     // fuser is available via psmisc (declared in nix packages in .replit)
     execSync(`fuser -k ${p}/tcp`, { stdio: "ignore" });
-    console.log(`[port:kill] Freed port ${p} using fuser`);
+    logger.info(`[port:kill] Freed port ${p} using fuser`);
     return true;
   } catch {
-    console.debug(`[port:kill] fuser: no process on port ${p}`);
+    logger.debug(`[port:kill] fuser: no process on port ${p}`);
     return false;
   }
 }
@@ -153,17 +154,17 @@ function tryKillPort(p: number): boolean {
  * @throws Error if no available port is found
  */
 async function findAvailablePort(start: number, maxAttempts: number): Promise<number> {
-  console.log(`[port:search] Searching for available port starting from ${start} (max ${maxAttempts} attempts)`);
+  logger.info(`[port:search] Searching for available port starting from ${start} (max ${maxAttempts} attempts)`);
   for (let i = 0; i < maxAttempts; i++) {
     const candidate = start + i;
     const inUse = await isPortInUse(candidate);
     if (!inUse) {
-      console.log(`[port:search] Found available port: ${candidate}`);
+      logger.info(`[port:search] Found available port: ${candidate}`);
       return candidate;
     }
   }
   const error = `No available port found in range ${start}–${start + maxAttempts - 1}`;
-  console.error(`[port:search] ${error}`);
+  logger.error(`[port:search] ${error}`);
   throw new Error(error);
 }
 
@@ -173,40 +174,40 @@ async function findAvailablePort(start: number, maxAttempts: number): Promise<nu
 async function main() {
   let listenPort = PORT;
 
-  console.log(`[port:init] Primary port: ${PORT}, fallback enabled: ${PORT_FALLBACK_ENABLE}, max retries: ${PORT_MAX_RETRIES}`);
+  logger.info(`[port:init] Primary port: ${PORT}, fallback enabled: ${PORT_FALLBACK_ENABLE}, max retries: ${PORT_MAX_RETRIES}`);
 
   // Check if primary port is available
   const occupied = await isPortInUse(PORT);
   if (occupied) {
-    console.warn(`[port:conflict] Port ${PORT} is already in use`);
+    logger.warn(`[port:conflict] Port ${PORT} is already in use`);
 
     if (!PORT_FALLBACK_ENABLE) {
-      console.error(`[port:conflict] Port fallback is disabled — refusing to continue`);
+      logger.error(`[port:conflict] Port fallback is disabled — refusing to continue`);
       process.exit(1);
     }
 
     // Try to free the port
-    console.log(`[port:conflict] Attempting to free port ${PORT}…`);
+    logger.info(`[port:conflict] Attempting to free port ${PORT}…`);
     const killed = tryKillPort(PORT);
     if (killed) {
       // Give the OS a moment to release the port
       await new Promise((r) => setTimeout(r, 500));
       const stillOccupied = await isPortInUse(PORT);
       if (stillOccupied) {
-        console.warn(`[port:conflict] Port ${PORT} still occupied after killing process — falling back`);
+        logger.warn(`[port:conflict] Port ${PORT} still occupied after killing process — falling back`);
         listenPort = await findAvailablePort(PORT + 1, PORT_MAX_RETRIES);
-        console.log(`[port:fallback] Using fallback port ${listenPort} instead of primary port ${PORT}`);
+        logger.info(`[port:fallback] Using fallback port ${listenPort} instead of primary port ${PORT}`);
       } else {
-        console.log(`[port:conflict] Port ${PORT} successfully freed — using primary port`);
+        logger.info(`[port:conflict] Port ${PORT} successfully freed — using primary port`);
         listenPort = PORT;
       }
     } else {
-      console.log(`[port:conflict] Could not free port ${PORT} (no process to kill) — falling back`);
+      logger.info(`[port:conflict] Could not free port ${PORT} (no process to kill) — falling back`);
       listenPort = await findAvailablePort(PORT + 1, PORT_MAX_RETRIES);
-      console.log(`[port:fallback] Using fallback port ${listenPort} instead of primary port ${PORT}`);
+      logger.info(`[port:fallback] Using fallback port ${listenPort} instead of primary port ${PORT}`);
     }
   } else {
-    console.log(`[port:check] Primary port ${PORT} is available`);
+    logger.info(`[port:check] Primary port ${PORT} is available`);
   }
 
   const server = createServer();
@@ -216,22 +217,22 @@ async function main() {
   // we exit non-zero so the platform restarts us.
   const httpServer = server.listen(listenPort, "0.0.0.0", () => {
     const addr = httpServer.address();
-    console.log(`[server:listen] Server listening on port ${listenPort} (addr=${JSON.stringify(addr)})`);
+    logger.info(`[server:listen] Server listening on port ${listenPort} (addr=${JSON.stringify(addr)})`);
 
     runStartupTasks()
       .then(() => {
-        console.log("[startup] migrations + RBAC ready — serving requests");
+        logger.info("[startup] migrations + RBAC ready — serving requests");
         startScheduler();
-        console.log("[startup] background scheduler started");
+        logger.info("[startup] background scheduler started");
       })
       .catch((err: Error) => {
-        console.error("[startup] fatal — refusing to continue:", err);
+        logger.error("[startup] fatal — refusing to continue:", err);
         process.exit(1);
       });
   });
 
   httpServer.on("error", (err: NodeJS.ErrnoException) => {
-    console.error(`[server:error] Failed to bind port ${listenPort}:`, {
+    logger.error(`[server:error] Failed to bind port ${listenPort}:`, {
       code: err.code,
       message: err.message,
       errno: err.errno
@@ -247,20 +248,20 @@ async function main() {
        3. Close existing HTTP connections, then exit cleanly.
   ───────────────────────────────────────────────────────────────────────── */
   const gracefulShutdown = (signal: string) => {
-    console.log(`[shutdown] ${signal} received — initiating graceful shutdown`);
+    logger.info(`[shutdown] ${signal} received — initiating graceful shutdown`);
     stopScheduler();
     httpServer.close((closeErr) => {
       if (closeErr) {
-        console.error("[shutdown] error closing HTTP server:", closeErr);
+        logger.error("[shutdown] error closing HTTP server:", closeErr);
         process.exit(1);
       } else {
-        console.log("[shutdown] HTTP server closed — exiting");
+        logger.info("[shutdown] HTTP server closed — exiting");
         process.exit(0);
       }
     });
     /* Safety net: force-exit after 10 s if connections don't drain */
     setTimeout(() => {
-      console.error("[shutdown] graceful shutdown timed out — force exiting");
+      logger.error("[shutdown] graceful shutdown timed out — force exiting");
       process.exit(1);
     }, 10_000).unref();
   };
@@ -270,6 +271,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[startup] Unrecoverable error:", err);
+  logger.error("[startup] Unrecoverable error:", err);
   process.exit(1);
 });

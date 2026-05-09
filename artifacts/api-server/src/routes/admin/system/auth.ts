@@ -77,8 +77,8 @@ import {
 } from "../../../lib/response.js";
 import { UserService } from "../../../services/admin-user.service.js";
 import { AuditService } from "../../../services/admin-audit.service.js";
-import { requirePermission } from "../../../middlewares/require-permission.js";
-import { logAdminAudit } from "../../../middlewares/admin-audit.js";
+import { requirePermission } from "../../../middleware/require-permission.js";
+import { logAdminAudit } from "../../../middleware/admin-audit.js";
 import { adminAuthLimiter } from "../../../middleware/rate-limit.js";
 import { resolveAdminPermissions } from "../../../services/permissions.service.js";
 

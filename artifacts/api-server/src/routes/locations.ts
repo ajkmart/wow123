@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { logger } from "../lib/logger.js";
 import { db } from "@workspace/db";
 import { liveLocationsTable, locationLogsTable, locationHistoryTable, ridesTable, ordersTable, usersTable, riderProfilesTable } from "@workspace/db/schema";
 import { eq, and, gte, lte, asc, or, desc } from "drizzle-orm";
@@ -344,7 +345,7 @@ async function processLocationUpdate(opts: {
           });
         }
       } catch (err) {
-        console.warn("[location-history] Failed to save location history point:", err instanceof Error ? err.message : String(err));
+        logger.warn("[location-history] Failed to save location history point:", err instanceof Error ? err.message : String(err));
       }
 
       /* Always update lastActive — regardless of whether a history point was saved */
@@ -353,7 +354,7 @@ async function processLocationUpdate(opts: {
           .set({ lastActive: now, updatedAt: now })
           .where(eq(usersTable.id, userId));
       } catch (err) {
-        console.warn("[location-history] Failed to update lastActive for user", userId, ":", err instanceof Error ? err.message : String(err));
+        logger.warn("[location-history] Failed to update lastActive for user", userId, ":", err instanceof Error ? err.message : String(err));
       }
     })();
   }

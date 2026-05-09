@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { logger } from "../lib/logger.js";
 import { db } from "@workspace/db";
 import {
   productsTable,
@@ -676,7 +677,7 @@ router.post("/full", devSeedAuth, async (req, res) => {
       ].join(" | "),
     });
   } catch (err) {
-    console.error("[seed:full]", err);
+    logger.error("[seed:full]", err);
     res.status(500).json({ success: false, error: String(err) });
   }
 });

@@ -9,6 +9,7 @@
  */
 
 import { Router } from "express";
+import { logger } from "../lib/logger.js";
 import swaggerUi from "swagger-ui-express";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
@@ -30,14 +31,14 @@ function loadSpec(): Record<string, unknown> {
     try {
       const raw = readFileSync(candidate, "utf-8");
       const parsed = yamlParse(raw) as Record<string, unknown>;
-      console.log(`[docs] Loaded OpenAPI spec from ${candidate}`);
+      logger.info(`[docs] Loaded OpenAPI spec from ${candidate}`);
       return parsed;
     } catch {
       // try next candidate
     }
   }
 
-  console.warn("[docs] Could not find openapi.yaml — Swagger UI will show a minimal spec");
+  logger.warn("[docs] Could not find openapi.yaml — Swagger UI will show a minimal spec");
   return {
     openapi: "3.1.0",
     info: { title: "AJKMart API", version: "0.1.0", description: "Spec file not found at startup" },

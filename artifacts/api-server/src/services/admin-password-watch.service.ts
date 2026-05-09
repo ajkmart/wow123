@@ -39,7 +39,7 @@ import {
   type AdminAccount,
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { logAdminAudit } from "../middlewares/admin-audit.js";
+import { logAdminAudit } from "../middleware/admin-audit.js";
 import { sendAdminPasswordOutOfBandResetEmail } from "./email.js";
 
 /** sha256 of the bcrypt secret — keeps the snapshot table cheap to scan

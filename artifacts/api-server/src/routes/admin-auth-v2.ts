@@ -15,6 +15,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
+import { logger } from '../lib/logger.js';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { db } from '@workspace/db';
@@ -39,11 +40,11 @@ import { sendAdminPasswordResetLinkEmail } from '../services/email.js';
 import {
   authenticateAdmin,
   csrfProtection,
-} from '../middlewares/admin-auth.js';
+} from '../middleware/admin-auth.js';
 import {
   getClientIp,
   logAdminAudit,
-} from '../middlewares/admin-audit.js';
+} from '../middleware/admin-audit.js';
 import { verify2faChallengeToken } from '../utils/admin-jwt.js';
 import { verifyRefreshToken } from '../utils/admin-jwt.js';
 import { adminAuthLimiter } from '../middleware/rate-limit.js';
@@ -248,7 +249,7 @@ router.post('/auth/login', adminAuthLimiter, loginLimiter, async (req: Request, 
       return;
     }
 
-    console.error('Login error:', err);
+    logger.error('Login error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -349,7 +350,7 @@ router.post('/auth/2fa', adminAuthLimiter, verifyTotpLimiter, async (req: Reques
       return;
     }
 
-    console.error('2FA verification error:', err);
+    logger.error('2FA verification error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -591,7 +592,7 @@ router.post(
         recipientName: admin.name,
         expiresAt: issued.expiresAt,
       }).catch((err) => {
-        console.error('[admin-auth-v2] sendAdminPasswordResetLinkEmail threw:', err);
+        logger.error('[admin-auth-v2] sendAdminPasswordResetLinkEmail threw:', err);
         return { sent: false, reason: (err as Error).message };
       });
 
@@ -610,7 +611,7 @@ router.post(
 
       res.json(genericResponse); return;
     } catch (err) {
-      console.error('[admin-auth-v2] forgot-password failed:', err);
+      logger.error('[admin-auth-v2] forgot-password failed:', err);
       // Still return the generic response — never expose internal failures.
       res.json(genericResponse); return;
     }

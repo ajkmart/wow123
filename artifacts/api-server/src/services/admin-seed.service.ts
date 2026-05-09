@@ -29,7 +29,7 @@ import {
 import { eq } from "drizzle-orm";
 import { hashAdminSecret } from "./password.js";
 import { generateId } from "../lib/id.js";
-import { logAdminAudit } from "../middlewares/admin-audit.js";
+import { logAdminAudit } from "../middleware/admin-audit.js";
 import { recordAdminPasswordSnapshot } from "./admin-password-watch.service.js";
 
 const SUPER_ADMIN_SLUG = "super_admin";

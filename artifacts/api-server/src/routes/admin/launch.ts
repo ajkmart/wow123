@@ -1,3 +1,4 @@
+import { logger } from "../../lib/logger.js";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { platformSettingsTable, vendorPlansTable, adminRolePresetsTable, demoBackupsTable, vendorProfilesTable, ordersTable, productsTable } from "@workspace/db/schema";
@@ -818,9 +819,9 @@ export async function ensureLaunchData(): Promise<void> {
         .onConflictDoNothing();
     }
 
-    console.log("[launch] Vendor plans, role presets, and AI defaults ensured");
+    logger.info("[launch] Vendor plans, role presets, and AI defaults ensured");
   } catch (err) {
-    console.error("[launch] ensureLaunchData failed:", err);
+    logger.error("[launch] ensureLaunchData failed:", err);
   }
 }
 

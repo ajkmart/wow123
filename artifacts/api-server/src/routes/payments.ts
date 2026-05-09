@@ -426,7 +426,7 @@ router.post("/initiate", customerAuth, async (req, res) => {
           headers: { "Content-Type": "application/json", "Authorization": authHeader, "Credentials": authHeader },
           body: JSON.stringify(payload),
         });
-        const epData = await epRes.json() as any;
+        const epData = await epRes.json() as { responseCode?: string; responseDesc?: string; token?: string };
         if (epData?.responseCode === "0000") {
           await trackPayment(txnRef, orderId);
           sendSuccess(res, { gateway: "easypaisa", mode: "live", type: "api", txnRef, token: epData.token, orderId,
