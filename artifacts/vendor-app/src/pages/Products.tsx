@@ -104,8 +104,7 @@ export default function Products() {
       isFirstConnect = false;
     });
     socket.on("product:stock_updated", (payload: { productId: string; vendorId: string; stock: number | null; inStock: boolean }) => {
-      /* Optimistically patch the React Query cache — no full refetch needed */
-      qc.setQueriesData<{ products: any[] }>({ queryKey: ["vendor-products"] }, (old) => {
+      const patchProducts = (old: { products: any[] } | undefined) => {
         if (!old?.products) return old;
         const updated = old.products.map(p =>
           p.id === payload.productId
@@ -113,7 +112,10 @@ export default function Products() {
             : p,
         );
         return { ...old, products: updated };
-      });
+      };
+      /* Patch the filtered list (current view) and the unfiltered "all" list */
+      qc.setQueriesData<{ products: any[] }>({ queryKey: ["vendor-products"] }, patchProducts);
+      qc.setQueriesData<{ products: any[] }>({ queryKey: ["vendor-products-all"] }, patchProducts);
       setLastStockSync(new Date());
     });
     return () => {

@@ -646,6 +646,82 @@ router.patch("/products/:id", async (req, res) => {
   sendSuccess(res, { ...product, price: safeNum(product.price) });
 });
 
+/* ── PATCH /vendor/products/:id/stock ── Dedicated stock-only update with optimistic concurrency ──
+   Accepts { stock, inStock, updatedAt } where updatedAt is the client's last-known timestamp.
+   Returns 409 if the server's updated_at is newer, so the client can re-fetch before retrying. */
+router.patch("/products/:id/stock", async (req, res) => {
+  const vendorId = req.vendorId!;
+  const productId = req.params["id"]!;
+  const { stock, inStock, updatedAt: clientUpdatedAt } = req.body;
+
+  if (stock === undefined && inStock === undefined) {
+    sendValidationError(res, "At least one of 'stock' or 'inStock' is required"); return;
+  }
+  if (stock !== undefined && stock !== null) {
+    const stockVal = Number(stock);
+    if (!Number.isFinite(stockVal) || stockVal < 0) {
+      sendValidationError(res, "Stock must be a non-negative number"); return;
+    }
+  }
+
+  const [current] = await db
+    .select({ id: productsTable.id, stock: productsTable.stock, inStock: productsTable.inStock, updatedAt: productsTable.updatedAt })
+    .from(productsTable)
+    .where(and(eq(productsTable.id, productId), eq(productsTable.vendorId, vendorId), isNull(productsTable.deletedAt)))
+    .limit(1);
+  if (!current) { sendNotFound(res, "Product not found"); return; }
+
+  /* Optimistic concurrency: if client sent updatedAt, reject if the server record is newer */
+  if (clientUpdatedAt) {
+    const clientTs = new Date(clientUpdatedAt).getTime();
+    const serverTs = new Date(current.updatedAt).getTime();
+    if (!Number.isNaN(clientTs) && serverTs > clientTs) {
+      res.status(409).json({
+        success: false,
+        error: "Product was updated by another request. Please re-fetch and retry.",
+        code: "CONFLICT",
+        serverUpdatedAt: current.updatedAt.toISOString(),
+      });
+      return;
+    }
+  }
+
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (stock !== undefined) patch.stock = stock !== null ? Number(stock) : null;
+  if (inStock !== undefined) patch.inStock = Boolean(inStock);
+  /* Auto-derive inStock from stock count when inStock is not explicitly provided */
+  if (stock !== undefined && inStock === undefined) {
+    patch.inStock = stock !== null ? Number(stock) > 0 : current.inStock;
+  }
+
+  const [product] = await db
+    .update(productsTable)
+    .set(patch)
+    .where(and(eq(productsTable.id, productId), eq(productsTable.vendorId, vendorId)))
+    .returning();
+  if (!product) { sendNotFound(res, "Product not found"); return; }
+
+  /* Stock history */
+  if (patch.stock !== undefined && current.stock !== product.stock) {
+    await db.insert(productStockHistoryTable).values({
+      id: generateId(), productId: product.id, vendorId,
+      previousStock: current.stock,
+      newStock: product.stock,
+      source: "manual_stock_patch",
+    }).catch((e: Error) => logger.warn({ productId, err: e.message }, "[vendor/stock] history insert failed"));
+  }
+
+  /* Real-time broadcast — always include authoritative DB value */
+  const io = getIO();
+  if (io) {
+    const payload = { productId: product.id, vendorId, stock: product.stock, inStock: product.inStock };
+    io.to(`vendor:${vendorId}`).emit("product:stock_updated", payload);
+    io.to("admin-fleet").emit("product:stock_updated", payload);
+  }
+
+  sendSuccess(res, { id: product.id, stock: product.stock, inStock: product.inStock, updatedAt: product.updatedAt.toISOString() });
+});
+
 /* ── GET /vendor/products/:id/stock-history ── */
 router.get("/products/:id/stock-history", async (req, res) => {
   const vendorId = req.vendorId!;

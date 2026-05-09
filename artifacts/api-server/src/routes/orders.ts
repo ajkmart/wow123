@@ -91,6 +91,39 @@ async function decrementStock(
 
 const MAX_ITEM_QUANTITY = 99;
 
+/**
+ * After a transaction that decrements stock commits, read the authoritative
+ * stock values from the DB and broadcast them to the affected vendor rooms.
+ * This is always called OUTSIDE the transaction so the data is committed before
+ * the emit fires — preventing phantom reads on the client side.
+ */
+async function broadcastStockUpdates(
+  items: Array<{ productId?: string; variantId?: string; quantity: number }>,
+): Promise<void> {
+  const io = getIO();
+  if (!io) return;
+  const productIds = items.map(i => i.productId).filter(Boolean) as string[];
+  if (productIds.length === 0) return;
+  try {
+    const rows = await db
+      .select({
+        id: productsTable.id,
+        vendorId: productsTable.vendorId,
+        stock: productsTable.stock,
+        inStock: productsTable.inStock,
+      })
+      .from(productsTable)
+      .where(inArray(productsTable.id, productIds));
+    for (const row of rows) {
+      const payload = { productId: row.id, vendorId: row.vendorId, stock: row.stock, inStock: row.inStock };
+      io.to(`vendor:${row.vendorId}`).emit("product:stock_updated", payload);
+      io.to("admin-fleet").emit("product:stock_updated", payload);
+    }
+  } catch (err) {
+    logger.warn({ productIds, err: (err as Error).message }, "[orders] post-commit stock broadcast failed — vendors will see update on next poll");
+  }
+}
+
 function broadcastNewOrder(order: ReturnType<typeof mapOrder>, vendorId?: string | null) {
   /* Socket broadcast — only when socket.io is initialised. */
   const io = getIO();
@@ -1369,6 +1402,10 @@ router.post("/", customerAuth, async (req, res) => {
       /* ── Emit new-order to admin/vendor IMMEDIATELY after DB commit ── */
       broadcastNewOrder(mapped, (order as any).vendorId);
 
+      /* ── Broadcast authoritative stock values to vendor room after TX commit ── */
+      broadcastStockUpdates(items as Array<{ productId?: string; variantId?: string; quantity: number }>)
+        .catch((e: Error) => logger.warn({ orderId: order.id, err: e.message }, "[orders] wallet stock broadcast failed"));
+
       /* ── Two-Way ACK: confirm order receipt back to the customer ── */
       const io = getIO();
       if (io) io.to(`user:${userId}`).emit("order:ack", { orderId: order.id, status: "pending", createdAt: order.createdAt.toISOString() });
@@ -1462,6 +1499,10 @@ router.post("/", customerAuth, async (req, res) => {
 
     /* ── Emit to admin IMMEDIATELY after DB commit (Task 7: <500ms latency) ── */
     broadcastNewOrder(mapped, (order as any)?.vendorId);
+
+    /* ── Broadcast authoritative stock values to vendor room after TX commit ── */
+    broadcastStockUpdates(items as Array<{ productId?: string; variantId?: string; quantity: number }>)
+      .catch((e: Error) => logger.warn({ orderId: order!.id, err: e.message }, "[orders] cash stock broadcast failed"));
 
     /* ── Two-Way ACK for non-wallet orders ── */
     const io = getIO();
