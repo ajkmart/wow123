@@ -53,10 +53,15 @@ function register(
 /* ── Job implementations ─────────────────────────────────────────────────── */
 
 async function purgeExpiredOtpAttempts(): Promise<void> {
-  await db
+  const deleted = await db
     .delete(otpAttemptsTable)
-    .where(sql`expires_at < now()`);
-  logger.debug("[scheduler] otp-attempt cleanup ran");
+    .where(sql`expires_at < now()`)
+    .returning({ key: otpAttemptsTable.key });
+  if (deleted.length > 0) {
+    logger.info({ count: deleted.length }, "[scheduler] purged expired OTP attempt rows");
+  } else {
+    logger.debug("[scheduler] otp-attempt cleanup ran, 0 rows removed");
+  }
 }
 
 async function purgeStaleRideBids(): Promise<void> {
@@ -130,10 +135,12 @@ async function purgeStaleLocations(): Promise<void> {
   const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000);
   const deleted = await db
     .delete(liveLocationsTable)
-    .where(lt(liveLocationsTable.updatedAt, cutoff))
+    .where(
+      sql`role = 'rider' AND updated_at < ${cutoff}`,
+    )
     .returning({ userId: liveLocationsTable.userId });
   if (deleted.length > 0) {
-    logger.info({ count: deleted.length }, "[scheduler] purged stale live location rows");
+    logger.info({ count: deleted.length }, "[scheduler] purged stale live location rows for inactive riders");
   } else {
     logger.debug("[scheduler] live-location cleanup ran, 0 rows removed");
   }
