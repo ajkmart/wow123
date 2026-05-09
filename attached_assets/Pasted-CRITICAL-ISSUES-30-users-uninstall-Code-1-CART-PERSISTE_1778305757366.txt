@@ -1,0 +1,77 @@
+CRITICAL ISSUES - 30% users uninstall کریں گے:
+Code
+1. ❌ CART PERSISTENCE AFTER APP RESTART - GONE!
+   ✗ AsyncStorage سے load ہوتا ہے لیکن:
+   ✗ App uninstall + reinstall کے بعد cart clear
+   ✗ Cross-device cart sync نہیں ہے
+   ✗ 30% users cart restart کے بعد دوبارہ add کریں = abandon
+   FIX: Cloud sync (user ID + backend) 1-2 days
+
+2. ❌ OFFLINE MODE - Internet OFF ہو تو app crash ہو سکتا ہے
+   ✗ Orders page load نہیں ہو سکتا
+   ✗ Wishlist load fail ہوتا ہے
+   ✗ Offline fallback UI نہیں ہے
+   FIX: Offline-first caching strategy (3-4 days)
+
+3. ❌ PAYMENT FLOW - اگر payment gateway timeout ہو
+   ✗ JazzCash / EasyPaisa timeout = order stuck pending
+   ✗ Payment state unclear ہوتی ہے (paid or not?)
+   ✗ Retry button نہیں ہے
+   FIX: Payment status polling add کریں
+
+4. ⚠️ BIOMETRIC LOGIN - Web پر crash ہوتا ہے
+   ✗ expo-local-authentication undefined on web
+   ✗ Fallback to OTP slow ہے
+   ✗ 5 seconds loading delay
+   FIX: Web fallback add کریں (detect platform)
+
+5. ⚠️ STOCK UPDATES - Product page سے outdated 
+   ✗ Qty mein 500 show ہوتا ہے لیکن actually 5 رہ گیا
+   ✗ Real-time subscription نہیں
+   ✗ Checkout پر error: "Out of stock" آتا ہے
+   FIX: WebSocket product subscription (already in design, but not wired)
+
+6. ⚠️ REVIEWS - Order complete ہونے کے بعد review submit نہیں ہو سکتے!
+   ✗ my-reviews.tsx show ہوتا ہے لیکن:
+   ✗ Order detail page سے review link نہیں ہے
+   ✗ "Leave a Review" CTA missing
+   ✗ POST /reviews endpoint missing proper error handling
+   FIX: Order detail page میں review button add کریں (1 day)
+
+7. ⚠️ SCHOOL SERVICE - Backend ہے لیکن APP میں نہیں!
+   ✗ /api/school routes fully implemented
+   ✗ Customer app میں school booking UI missing
+   ✗ serviceRegistry میں school add نہیں ہے
+   ✗ 15% AJK population school transport use کرتے ہیں
+   FIX: School booking screen add کریں (2-3 days)
+
+8. ⚠️ "NOTIFY ME" BUTTON - Product out-of-stock ہو تو
+   ✗ Button ہے لیکن backend route missing
+   ✗ Notification send نہیں ہوتی جب stock back آتا ہے
+   ✗ stock_subscriptions table ہے لیکن route /api/stock-subscriptions missing
+   FIX: Backend route implement کریں (1-2 days)
+
+9. ⚠️ RECENTLY VIEWED - Memory leak ہو سکتا ہے
+   ✗ No pagination cap → 1000+ items load ہو سکتے ہیں
+   ✗ AsyncStorage slow ہو جاتا ہے
+   ✗ Old items auto-delete نہیں ہوتے
+   FIX: Max 100 items, auto-purge old entries (1 day)
+
+10. ⚠️ DEEP LINKING - wrong-app.tsx redirect untested
+    ✗ Rider login کے بعد customer app open ہو تو:
+    ✗ wrong-app.tsx show ہوتا ہے (correct)
+    ✗ "Add customer role" button press → redirect stuck ہو سکتا ہے
+    ✗ Cross-platform (iOS/Android/Web) testing missing
+    FIX: E2E test add کریں (2-3 days)
+
+11. ❌ FILE UPLOAD (Payment Proof) - Malware possible!
+    ✗ .exe .apk .zip files upload ہو سکتے ہیں
+    ✗ No file type validation on upload
+    ✗ Server accepts کیونکہ validation weak ہے
+    FIX: URGENT - artifact validation add کریں (1 day)
+
+12. ⚠️ PERFORMANCE - Slow network پر
+    ✗ Home page load 5-8 seconds لگتے ہیں
+    ✗ No skeleton loaders on some screens
+    ✗ Vendor images 2 MB ہو سکتی ہیں
+    FIX: Image optimization + progressive loading
