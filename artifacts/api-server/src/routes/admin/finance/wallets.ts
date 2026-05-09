@@ -398,26 +398,35 @@ router.post("/riders/:id/bonus", async (req, res) => {
   const amt = Number(amount);
   const txId = generateId();
 
+  const bonusSettings = await getCachedSettings();
+  const maxBalance = parseFloat(bonusSettings["wallet_max_balance"] ?? "50000");
+
   let updated: typeof usersTable.$inferSelect | undefined;
   let newBal = 0;
   try {
     await db.transaction(async (tx) => {
-      const [rider] = await tx.select().from(usersTable).where(eq(usersTable.id, riderId)).limit(1);
+      const [rider] = await tx.select().from(usersTable).where(eq(usersTable.id, riderId)).limit(1).for("update");
       if (!rider) throw new Error("NOT_FOUND");
-      await tx.update(usersTable)
+      const currentBal = parseFloat(rider.walletBalance ?? "0");
+      if (currentBal + amt > maxBalance) throw new Error("BALANCE_CAP");
+      const [refreshed] = await tx.update(usersTable)
         .set({ walletBalance: sql`wallet_balance + ${amt}`, updatedAt: new Date() })
-        .where(eq(usersTable.id, riderId));
+        .where(and(eq(usersTable.id, riderId), sql`CAST(wallet_balance AS numeric) + ${amt} <= ${maxBalance}`))
+        .returning();
+      if (!refreshed) throw new Error("BALANCE_CAP");
       await tx.insert(walletTransactionsTable).values({
         id: txId, userId: riderId, type: "credit", amount: String(amt),
         description: description || `Admin bonus: Rs. ${amt}`, reference: "rider_bonus",
       });
-      const [refreshed] = await tx.select().from(usersTable).where(eq(usersTable.id, riderId)).limit(1);
       updated = refreshed;
-      newBal = parseFloat(refreshed?.walletBalance ?? "0");
+      newBal = parseFloat(refreshed.walletBalance ?? "0");
     });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "NOT_FOUND") {
       sendNotFound(res, "Rider not found"); return;
+    }
+    if (err instanceof Error && err.message === "BALANCE_CAP") {
+      sendValidationError(res, `Wallet balance limit is Rs. ${maxBalance}. Bonus would exceed the limit.`); return;
     }
     throw err;
   }
@@ -674,6 +683,9 @@ router.patch("/deposit-requests/:id/approve", async (req, res) => {
   }
   const approvedRef = refNo ? `approved:${refNo.trim()}${txidSuffix}` : `approved:manual${txidSuffix}`;
 
+  const depApprSettings = await getCachedSettings();
+  const maxBalance = parseFloat(depApprSettings["wallet_max_balance"] ?? "50000");
+
   /* Fully atomic: conditional state-transition + wallet credit in ONE transaction.
      If the conditional update hits 0 rows (already processed), transaction rolls back
      and we return 409. No double-credit or orphaned approval possible. */
@@ -685,9 +697,11 @@ router.patch("/deposit-requests/:id/approve", async (req, res) => {
         .where(and(eq(walletTransactionsTable.id, txId), sql`(${walletTransactionsTable.reference} = 'pending' OR ${walletTransactionsTable.reference} LIKE 'pending:%')`))
         .returning({ id: walletTransactionsTable.id });
       if (!marked) throw new Error("ALREADY_PROCESSED");
-      await trx.update(usersTable)
+      const [credited] = await trx.update(usersTable)
         .set({ walletBalance: sql`wallet_balance + ${amt}`, updatedAt: new Date() })
-        .where(eq(usersTable.id, tx.userId));
+        .where(and(eq(usersTable.id, tx.userId), sql`CAST(wallet_balance AS numeric) + ${amt} <= ${maxBalance}`))
+        .returning({ id: usersTable.id });
+      if (!credited) throw new Error("BALANCE_CAP_EXCEEDED");
     });
     approved = true;
   } catch (err: unknown) {
@@ -695,6 +709,9 @@ router.patch("/deposit-requests/:id/approve", async (req, res) => {
     if (msg === "ALREADY_PROCESSED") {
       const [current] = await db.select({ reference: walletTransactionsTable.reference }).from(walletTransactionsTable).where(eq(walletTransactionsTable.id, txId)).limit(1);
       sendError(res, `Deposit already processed (${current?.reference ?? "unknown state"})`, 409); return;
+    }
+    if (msg === "BALANCE_CAP_EXCEEDED") {
+      sendValidationError(res, `Wallet balance limit is Rs. ${maxBalance}. Deposit would exceed the limit.`); return;
     }
     throw err;
   }
@@ -771,6 +788,9 @@ router.post("/deposit-requests/bulk-approve", async (req, res) => {
     preChecked.push({ tx, amt, approvedRef });
   }
 
+  const bulkApprSettings = await getCachedSettings();
+  const maxBalance = parseFloat(bulkApprSettings["wallet_max_balance"] ?? "50000");
+
   try {
     await db.transaction(async (trx) => {
       for (const { tx, amt, approvedRef } of preChecked) {
@@ -781,9 +801,9 @@ router.post("/deposit-requests/bulk-approve", async (req, res) => {
         if (!marked) throw new Error(`Deposit ${tx.id} was already processed (race condition)`);
         const [credited] = await trx.update(usersTable)
           .set({ walletBalance: sql`wallet_balance + ${amt}`, updatedAt: new Date() })
-          .where(eq(usersTable.id, tx.userId))
+          .where(and(eq(usersTable.id, tx.userId), sql`CAST(wallet_balance AS numeric) + ${amt} <= ${maxBalance}`))
           .returning({ id: usersTable.id });
-        if (!credited) throw new Error(`User ${tx.userId} not found for deposit ${tx.id}`);
+        if (!credited) throw new Error(`Deposit ${tx.id}: wallet balance limit (Rs. ${maxBalance}) would be exceeded`);
       }
     });
   } catch (err: unknown) {
@@ -872,14 +892,35 @@ router.post("/riders/:id/credit", async (req, res) => {
   if (!roles.includes("rider")) { sendValidationError(res, "User is not a rider"); return; }
   const amt = Number(amount);
   const txType = type === "bonus" ? "bonus" : "credit";
-  const [updated] = await db.update(usersTable)
-    .set({ walletBalance: sql`wallet_balance + ${amt}`, updatedAt: new Date() })
-    .where(eq(usersTable.id, rider.id)).returning();
-  await db.insert(walletTransactionsTable).values({
-    id: generateId(), userId: rider.id, type: txType, amount: String(amt),
-    description: description || `Admin credit: Rs. ${amt}`,
-    reference: txType === "bonus" ? "rider_bonus" : "admin_credit",
-  });
+
+  const creditSettings = await getCachedSettings();
+  const maxBalance = parseFloat(creditSettings["wallet_max_balance"] ?? "50000");
+
+  let updated: typeof usersTable.$inferSelect | undefined;
+  try {
+    await db.transaction(async (tx) => {
+      const [locked] = await tx.select().from(usersTable).where(eq(usersTable.id, rider.id)).limit(1).for("update");
+      if (!locked) throw new Error("NOT_FOUND");
+      const currentBal = parseFloat(locked.walletBalance ?? "0");
+      if (currentBal + amt > maxBalance) throw new Error("BALANCE_CAP");
+      const [txUpdated] = await tx.update(usersTable)
+        .set({ walletBalance: sql`wallet_balance + ${amt}`, updatedAt: new Date() })
+        .where(and(eq(usersTable.id, rider.id), sql`CAST(wallet_balance AS numeric) + ${amt} <= ${maxBalance}`))
+        .returning();
+      if (!txUpdated) throw new Error("BALANCE_CAP");
+      await tx.insert(walletTransactionsTable).values({
+        id: generateId(), userId: rider.id, type: txType, amount: String(amt),
+        description: description || `Admin credit: Rs. ${amt}`,
+        reference: txType === "bonus" ? "rider_bonus" : "admin_credit",
+      });
+      updated = txUpdated;
+    });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === "BALANCE_CAP") {
+      sendValidationError(res, `Wallet balance limit is Rs. ${maxBalance}. Credit would exceed the limit.`); return;
+    }
+    throw err;
+  }
   await sendUserNotification(
     rider.id,
     txType === "bonus" ? "Bonus Received! 🎉" : "Wallet Credited 💰",
