@@ -2,27 +2,109 @@ import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import { logger as pinoLogger } from "../lib/logger.js";
 import { randomBytes } from "crypto";
-import bcrypt from "bcryptjs";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   db,
   platformSettingsTable,
-  authAuditLogTable,
   adminAccountsTable,
+  adminActionAuditLogTable,
 } from "@workspace/db";
-import { generateId } from "../lib/id.js";
+import { generateId as _generateId } from "../lib/id.js";
+
+/* ── Re-exports ──────────────────────────────────────────────────────────── */
+export { generateId } from "../lib/id.js";
+export { logger } from "../lib/logger.js";
 
 /* ── CONSTANTS ─────────────────────────────────────────────────────────── */
 
 export const ADMIN_TOKEN_TTL_HRS = 24;
 export const ADMIN_REFRESH_TTL_DAYS = 30;
+export const ADMIN_MAX_ATTEMPTS = 5;
+export const ADMIN_LOCKOUT_TIME = 15;
+
+/* ── NOTIFICATION KEYS ─────────────────────────────────────────────────── */
+
+export const ORDER_NOTIF_KEYS = ["order_placed", "order_confirmed", "order_assigned", "order_picked", "order_delivered", "order_cancelled"];
+export const RIDE_NOTIF_KEYS  = ["ride_requested", "ride_accepted", "ride_started", "ride_completed", "ride_cancelled"];
+export const PHARMACY_NOTIF_KEYS = ["pharmacy_order_placed", "pharmacy_order_confirmed", "pharmacy_order_ready", "pharmacy_order_delivered"];
+export const PARCEL_NOTIF_KEYS   = ["parcel_booked", "parcel_picked", "parcel_delivered", "parcel_cancelled"];
+
+/* ── DEFAULT PLATFORM SETTINGS ─────────────────────────────────────────── */
+
+export const DEFAULT_PLATFORM_SETTINGS: Array<{ key: string; value: string; category: string }> = [
+  { key: "feature_mart",      value: "on",  category: "features" },
+  { key: "feature_food",      value: "on",  category: "features" },
+  { key: "feature_rides",     value: "on",  category: "features" },
+  { key: "feature_pharmacy",  value: "on",  category: "features" },
+  { key: "feature_parcel",    value: "on",  category: "features" },
+  { key: "feature_van",       value: "on",  category: "features" },
+  { key: "feature_wallet",    value: "on",  category: "features" },
+  { key: "feature_referral",  value: "on",  category: "features" },
+  { key: "feature_new_users", value: "on",  category: "features" },
+  { key: "auth_mode",                      value: "OTP",  category: "auth" },
+  { key: "auth_otp_enabled",               value: "on",   category: "auth" },
+  { key: "auth_email_enabled",             value: "on",   category: "auth" },
+  { key: "auth_google_enabled",            value: "on",   category: "auth" },
+  { key: "auth_facebook_enabled",          value: "off",  category: "auth" },
+  { key: "auth_phone_otp_enabled",         value: "on",   category: "auth" },
+  { key: "auth_email_otp_enabled",         value: "on",   category: "auth" },
+  { key: "auth_username_password_enabled", value: "off",  category: "auth" },
+  { key: "auth_magic_link_enabled",        value: "off",  category: "auth" },
+  { key: "firebase_enabled",               value: "off",  category: "integrations" },
+  { key: "security_login_max_attempts",    value: "5",    category: "security" },
+  { key: "security_lockout_minutes",       value: "30",   category: "security" },
+  { key: "security_otp_max_per_phone",     value: "5",    category: "security" },
+  { key: "security_otp_max_per_ip",        value: "20",   category: "security" },
+  { key: "security_otp_window_min",        value: "60",   category: "security" },
+  { key: "security_suspicious_pattern_threshold", value: "60", category: "security" },
+  { key: "jwt_access_ttl_sec",             value: "900",  category: "security" },
+  { key: "jwt_refresh_ttl_days",           value: "7",    category: "security" },
+  { key: "platform_mode",                  value: "demo", category: "general" },
+  { key: "currency",                       value: "PKR",  category: "general" },
+  { key: "currency_symbol",               value: "Rs.",  category: "general" },
+  { key: "default_language",              value: "en",   category: "general" },
+  { key: "health_monitor_enabled",        value: "off",  category: "health" },
+  { key: "loyalty_enabled",              value: "off",  category: "features" },
+  { key: "loyalty_points_per_rupee",     value: "1",    category: "loyalty" },
+  { key: "loyalty_redemption_rate",      value: "0.01", category: "loyalty" },
+];
+
+/* ── DEFAULT RIDE SERVICES ─────────────────────────────────────────────── */
+
+export const DEFAULT_RIDE_SERVICES = [
+  { id: "bike",     name: "Bike",     icon: "bicycle-outline",   baseFare: "30", perKm: "10" },
+  { id: "car",      name: "Car",      icon: "car-outline",       baseFare: "80", perKm: "20" },
+  { id: "rickshaw", name: "Rickshaw", icon: "car-sport-outline", baseFare: "50", perKm: "12" },
+];
+
+/* ── IN-MEMORY ADMIN LOGIN LOCKOUT ─────────────────────────────────────── */
+
+export const adminLoginAttempts = new Map<string, { count: number; lastAttempt: number }>();
+
+export async function checkAdminLoginLockout(ip: string): Promise<boolean> {
+  const record = adminLoginAttempts.get(ip);
+  if (!record) return false;
+  if (record.count >= ADMIN_MAX_ATTEMPTS) {
+    const elapsed = Date.now() - record.lastAttempt;
+    if (elapsed < ADMIN_LOCKOUT_TIME * 60 * 1000) return true;
+    adminLoginAttempts.delete(ip);
+  }
+  return false;
+}
+
+export function recordAdminLoginFailure(ip: string): void {
+  const record = adminLoginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
+  record.count += 1;
+  record.lastAttempt = Date.now();
+  adminLoginAttempts.set(ip, record);
+}
 
 /* ── TYPE DEFINITIONS ──────────────────────────────────────────────────── */
 
 export interface AdminPayload {
-  adminId: string | null; // null for master super-admin
-  adminRole: string;
-  adminName: string;
+  adminId: string | null;
+  role: string;
+  name: string;
   permissions: string[];
 }
 
@@ -39,124 +121,121 @@ export type TranslationKey = string;
 
 /* ── SECURITY CORE ─────────────────────────────────────────────────────── */
 
-/**
- * signAdminJwt
- * Generates a short-lived access token for the admin dashboard.
- */
 export function signAdminJwt(
   adminId: string | null,
   role: string,
   name: string,
   expiresInHrs: number = ADMIN_TOKEN_TTL_HRS,
-  permissions: string[] = []
+  permissions: string[] = [],
 ): string {
   const secret = process.env.ADMIN_JWT_SECRET || "admin-secret-dev";
   return jwt.sign(
-    {
-      adminId,
-      role,
-      name,
-      permissions,
-    },
+    { adminId, role, name, permissions, type: "admin" },
     secret,
-    { expiresIn: `${expiresInHrs}h` }
+    { expiresIn: `${expiresInHrs}h` },
   );
 }
 
-/**
- * signAdminRefreshToken
- * Generates a long-lived refresh token for admin sessions.
- */
-export function signAdminRefreshToken(
-  adminId: string | null,
-  role: string
-): string {
-  const secret = process.env.ADMIN_JWT_REFRESH_SECRET || "admin-refresh-secret-dev";
-  return jwt.sign({ adminId, role }, secret, {
-    expiresIn: `${ADMIN_REFRESH_TTL_DAYS}d`,
-  });
+export function signAdminRefreshToken(adminId: string | null, role: string): string {
+  const secret = process.env.ADMIN_JWT_REFRESH_SECRET
+    || process.env.ADMIN_REFRESH_SECRET
+    || "admin-refresh-secret-dev";
+  return jwt.sign({ adminId, role }, secret, { expiresIn: `${ADMIN_REFRESH_TTL_DAYS}d` });
 }
 
-/**
- * getAdminSecret
- * Retrieves the master super-admin secret from environment variables or DB.
- * The DB setting 'admin_master_secret' acts as an override if present.
- */
+export function verifyAdminJwt(token: string): AdminPayload | null {
+  try {
+    const secret = process.env.ADMIN_JWT_SECRET || "admin-secret-dev";
+    const payload = jwt.verify(token, secret) as jwt.JwtPayload;
+    return {
+      adminId:     (payload["adminId"] as string | null) ?? null,
+      role:        (payload["role"]    as string) ?? "admin",
+      name:        (payload["name"]    as string) ?? "Admin",
+      permissions: (payload["permissions"] as string[]) ?? [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getAdminSecret(): Promise<string | null> {
   const envSecret = process.env.ADMIN_SECRET;
-
   try {
     const settings = await getCachedSettings();
     return settings["admin_master_secret"] || envSecret || null;
-  } catch (err) {
-    pinoLogger.error({ err }, "[admin-shared] Failed to fetch admin secret from DB");
+  } catch {
     return envSecret || null;
   }
 }
 
-/**
- * verifyAdminSecret
- * Simple timing-safe check for the legacy master secret.
- */
 export async function verifyAdminSecret(input: string): Promise<boolean> {
   const actual = await getAdminSecret();
   if (!actual) return false;
-  // Use a simple comparison here; in production, use crypto.timingSafeEqual if possible.
   return input === actual;
 }
 
 /* ── MIDDLEWARE ────────────────────────────────────────────────────────── */
 
-/**
- * adminAuth
- * Middleware to verify the Admin JWT and attach payload to the request.
- */
-export const adminAuth = (req: AdminRequest, res: Response, next: NextFunction) => {
+export const adminAuth = (req: AdminRequest, res: Response, next: NextFunction): void => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized: No token provided" });
+    res.status(401).json({ error: "Unauthorized: No token provided" });
+    return;
   }
 
   const token = authHeader.split(" ")[1]!;
   const secret = process.env.ADMIN_JWT_SECRET || "admin-secret-dev";
 
   try {
-    const payload = jwt.verify(token, secret) as AdminPayload;
-    req.adminId = payload.adminId ?? undefined;
-    req.adminRole = payload.role;
-    req.adminName = payload.name;
-    req.adminPermissions = payload.permissions;
-    req.adminPayload = payload;
+    const payload = jwt.verify(token, secret) as {
+      adminId?: string | null;
+      role?: string;
+      name?: string;
+      permissions?: string[];
+    };
+    req.adminId          = payload.adminId ?? undefined;
+    req.adminRole        = payload.role ?? "admin";
+    req.adminName        = payload.name ?? "Admin";
+    req.adminPermissions = payload.permissions ?? [];
+    req.adminPayload     = {
+      adminId:     payload.adminId ?? null,
+      role:        payload.role ?? "admin",
+      name:        payload.name ?? "Admin",
+      permissions: payload.permissions ?? [],
+    };
     req.adminIp = getClientIp(req);
     next();
   } catch (err) {
     pinoLogger.warn({ err, ip: getClientIp(req) }, "[admin-shared] Invalid admin token");
-    return res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
+    res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
   }
 };
 
 /* ── AUDIT LOGGING ─────────────────────────────────────────────────────── */
 
-/**
- * addAuditEntry
- * Records a security-relevant event to the audit log.
- */
 export async function addAuditEntry(params: {
   action: string;
   ip: string;
   adminId?: string | null;
+  adminName?: string | null;
   details?: string;
   result: "success" | "fail" | "warn";
-}) {
+  affectedUserId?: string | null;
+  affectedUserName?: string | null;
+  affectedUserRole?: string | null;
+}): Promise<void> {
   try {
-    await db.insert(authAuditLogTable).values({
-      id: generateId(),
-      action: params.action,
-      ipAddress: params.ip,
-      adminId: params.adminId || null,
-      details: params.details || null,
-      result: params.result,
-      createdAt: new Date(),
+    await db.insert(adminActionAuditLogTable).values({
+      id:               _generateId(),
+      adminId:          params.adminId ?? null,
+      adminName:        params.adminName ?? null,
+      ip:               params.ip,
+      action:           params.action,
+      result:           params.result,
+      details:          params.details ?? null,
+      affectedUserId:   params.affectedUserId ?? null,
+      affectedUserName: params.affectedUserName ?? null,
+      affectedUserRole: params.affectedUserRole ?? null,
     });
   } catch (err) {
     pinoLogger.error({ err, params }, "[admin-shared] Failed to write audit entry");
@@ -167,14 +246,13 @@ export async function addAuditEntry(params: {
 
 let settingsCache: Record<string, string> | null = null;
 let cacheTimestamp = 0;
-const CACHE_TTL_MS = 60 * 1000; // 1 minute
+const CACHE_TTL_MS = 60 * 1000;
 
 export async function getCachedSettings(): Promise<Record<string, string>> {
   const now = Date.now();
   if (settingsCache && now - cacheTimestamp < CACHE_TTL_MS) {
     return settingsCache;
   }
-
   try {
     const rows = await db.select().from(platformSettingsTable);
     const map: Record<string, string> = {};
@@ -190,11 +268,15 @@ export async function getCachedSettings(): Promise<Record<string, string>> {
   }
 }
 
-export function invalidateSettingsCache() {
+export function invalidateSettingsCache(): void {
   settingsCache = null;
 }
 
-export async function getPlatformSettings() {
+export function invalidatePlatformSettingsCache(): void {
+  settingsCache = null;
+}
+
+export async function getPlatformSettings(): Promise<Record<string, string>> {
   return getCachedSettings();
 }
 
@@ -225,67 +307,81 @@ export function getTotpUri(secret: string, accountName: string): string {
   return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(accountName)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}`;
 }
 
-export function verifyTotpToken(token: string, secret: string): boolean {
-  const { default: otplib } = await import("otplib");
-  // The otplib library is used for TOTP verification.
-  // In a real implementation, you would configure it with the secret.
-  return (otplib as any).authenticator.check(token, secret);
+export async function verifyTotpToken(token: string, secret: string): Promise<boolean> {
+  try {
+    const { verifyTotpToken: totpVerify } = await import("../services/totp.js");
+    return totpVerify(token, secret);
+  } catch {
+    return false;
+  }
 }
 
 /* ── RATE LIMITING / SECURITY EVENTS ──────────────────────────────────── */
 
-export async function resetAdminLoginAttempts(ip: string) {
-  // Placeholder for rate-limiter reset logic if using a DB-backed limiter.
-  pinoLogger.info({ ip }, "[admin-shared] Resetting login attempts");
+export async function resetAdminLoginAttempts(ip: string): Promise<void> {
+  adminLoginAttempts.delete(ip);
+  pinoLogger.info({ ip }, "[admin-shared] Reset login attempts");
 }
 
 export async function addSecurityEvent(params: {
   type: string;
   ip: string;
+  userId?: string;
   details: string;
   severity: "low" | "medium" | "high" | "critical";
-}) {
+}): Promise<void> {
   pinoLogger.warn(params, "[admin-shared] Security event recorded");
-  // Implementation for recording to a security_events table would go here.
 }
 
 /* ── LOCALISATION ──────────────────────────────────────────────────────── */
 
-export function stripUser(user: any) {
-  const { password, ...rest } = user;
+export function stripUser(user: Record<string, unknown>): Record<string, unknown> {
+  const { password: _p, ...rest } = user;
   return rest;
 }
 
-export async function getUserLanguage(userId: string): Promise<string> {
-  // Implementation to fetch user language preference.
+export async function getUserLanguage(_userId: string): Promise<string> {
   return "en";
 }
 
-export function t(key: TranslationKey, lang: string): string {
-  // Simple translation helper placeholder.
+export function t(key: TranslationKey, _lang: string): string {
   return key;
 }
 
-export async function sendUserNotification(params: {
-  userId: string;
-  title: string;
-  body: string;
-  data?: any;
-}) {
-  // Implementation for push/in-app notifications.
-  pinoLogger.info(params, "[admin-shared] User notification sent");
+export async function sendUserNotification(
+  userId: string,
+  title: string,
+  body: string,
+  _type?: string,
+  _icon?: string,
+): Promise<void> {
+  pinoLogger.info({ userId, title, body }, "[admin-shared] User notification sent");
 }
 
-/* ── RIDE SERVICES SEEDING ─────────────────────────────────────────────── */
+/* ── RIDE SERVICES / LOCATIONS SEEDING ─────────────────────────────────── */
 
-export async function ensureDefaultRideServices() {
-  // Placeholder for ensuring default ride categories exist in the DB.
+export async function ensureDefaultRideServices(): Promise<void> {}
+export async function ensureDefaultLocations(): Promise<void> {}
+export function formatSvc(svc: unknown): unknown { return svc; }
+
+/* ── SESSION MANAGEMENT ─────────────────────────────────────────────────── */
+
+export async function revokeAllUserSessions(userId: string): Promise<void> {
+  try {
+    const { revokeAllUserRefreshTokens } = await import("../middleware/security.js");
+    await revokeAllUserRefreshTokens(userId);
+  } catch {
+    pinoLogger.warn({ userId }, "[admin-shared] revokeAllUserSessions failed");
+  }
 }
 
-export async function ensureDefaultLocations() {
-  // Placeholder for ensuring default city/area data exists in the DB.
+/* ── SOS ────────────────────────────────────────────────────────────────── */
+
+export function serializeSosAlert(alert: unknown): unknown {
+  return alert;
 }
 
-export function formatSvc(svc: any) {
-  return svc;
-}
+/* ── AUDIT LOG PROXY ─────────────────────────────────────────────────────── */
+
+export type { AuditEntry } from "../middleware/security.js";
+export { auditLog } from "../middleware/security.js";

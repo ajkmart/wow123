@@ -501,3 +501,16 @@ router.post("/reconcile", adminAuth, async (req, res) => {
   if (newPaymentStatus === "success" && order.status === "pending") {
     updates["status"] = "confirmed";
   }
+
+  await db.update(ordersTable).set(updates as Parameters<typeof db.update>[0]).where(eq(ordersTable.id, order.id));
+
+  sendSuccess(res, {
+    orderId: order.id,
+    paymentStatus: newPaymentStatus,
+    status: updates["status"] ?? order.status,
+    txnRef: order.txnRef,
+    notes: notes ?? null,
+  }, "Payment reconciled successfully");
+});
+
+export default router;

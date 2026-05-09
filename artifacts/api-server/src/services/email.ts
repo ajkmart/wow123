@@ -44,7 +44,6 @@ function buildTransporterFromSettings(settings: Record<string, string>): Transpo
     auth: { user, pass },
     tls: { rejectUnauthorized },
   });
-  });
 }
 
 function resolveFrom(settings?: Record<string, string>): string {
