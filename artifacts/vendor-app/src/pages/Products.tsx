@@ -95,27 +95,42 @@ export default function Products() {
       transports: ["polling", "websocket"],
     });
     socketRef.current = socket;
-    let isFirstConnect = true;
     socket.on("connect", () => {
+      /* Re-join the vendor room explicitly on every connect (including reconnects).
+         The room is also joined at handshake time via query.rooms, but emitting
+         join again on reconnect is harmless and ensures the room is held. */
       socket.emit("join", `vendor:${user.id}`);
-      if (!isFirstConnect) {
-        qc.invalidateQueries({ queryKey: ["vendor-products"] });
-      }
-      isFirstConnect = false;
+      /* Always invalidate on connect — including the first connect — to flush
+         any stock updates that were broadcast during the socket setup window
+         (between component mount and the socket completing its handshake). */
+      qc.invalidateQueries({ queryKey: ["vendor-products"] });
+      qc.invalidateQueries({ queryKey: ["vendor-products-all"] });
     });
     socket.on("product:stock_updated", (payload: { productId: string; vendorId: string; stock: number | null; inStock: boolean }) => {
-      const patchProducts = (old: { products: any[] } | undefined) => {
-        if (!old?.products) return old;
-        const updated = old.products.map(p =>
-          p.id === payload.productId
-            ? { ...p, stock: payload.stock, inStock: payload.inStock }
-            : p,
-        );
-        return { ...old, products: updated };
-      };
-      /* Patch the filtered list (current view) and the unfiltered "all" list */
-      qc.setQueriesData<{ products: any[] }>({ queryKey: ["vendor-products"] }, patchProducts);
-      qc.setQueriesData<{ products: any[] }>({ queryKey: ["vendor-products-all"] }, patchProducts);
+      /* Check if the product is present in the unfiltered cache before patching.
+         If it's not there (e.g. initial load not yet complete, or race on first connect),
+         fall back to a full invalidation so the UI self-heals immediately. */
+      const allCached = qc.getQueryData<{ products: any[] }>(["vendor-products-all"]);
+      const inCache = allCached?.products?.some((p: any) => p.id === payload.productId) ?? false;
+
+      if (inCache) {
+        const patchProducts = (old: { products: any[] } | undefined) => {
+          if (!old?.products) return old;
+          const updated = old.products.map(p =>
+            p.id === payload.productId
+              ? { ...p, stock: payload.stock, inStock: payload.inStock }
+              : p,
+          );
+          return { ...old, products: updated };
+        };
+        /* Patch the filtered list (current view) and the unfiltered "all" list */
+        qc.setQueriesData<{ products: any[] }>({ queryKey: ["vendor-products"] }, patchProducts);
+        qc.setQueriesData<{ products: any[] }>({ queryKey: ["vendor-products-all"] }, patchProducts);
+      } else {
+        /* Product not in cache (e.g. arrived before initial fetch completed) — re-fetch */
+        qc.invalidateQueries({ queryKey: ["vendor-products"] });
+        qc.invalidateQueries({ queryKey: ["vendor-products-all"] });
+      }
       setLastStockSync(new Date());
     });
     return () => {

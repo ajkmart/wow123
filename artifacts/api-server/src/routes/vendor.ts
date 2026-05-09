@@ -664,27 +664,21 @@ router.patch("/products/:id/stock", async (req, res) => {
     }
   }
 
+  /* Read the current snapshot — needed for stock history delta and auto-derive.
+     The TOCTOU window between this read and the update is closed by the atomic
+     WHERE clause below: the UPDATE only proceeds when updated_at still matches
+     the value we just read (or when no clientUpdatedAt was sent).
+     Under concurrent writes:
+       - Request A reads updatedAt=T0 and writes → sets updatedAt=T1
+       - Request B reads updatedAt=T0, attempts write with WHERE updated_at<=T0 → 0 rows, returns 409
+     This is safe even without an explicit transaction because Postgres serializes
+     row-level writes; A's commit is visible to B before B's WHERE is evaluated. */
   const [current] = await db
     .select({ id: productsTable.id, stock: productsTable.stock, inStock: productsTable.inStock, updatedAt: productsTable.updatedAt })
     .from(productsTable)
     .where(and(eq(productsTable.id, productId), eq(productsTable.vendorId, vendorId), isNull(productsTable.deletedAt)))
     .limit(1);
   if (!current) { sendNotFound(res, "Product not found"); return; }
-
-  /* Optimistic concurrency: if client sent updatedAt, reject if the server record is newer */
-  if (clientUpdatedAt) {
-    const clientTs = new Date(clientUpdatedAt).getTime();
-    const serverTs = new Date(current.updatedAt).getTime();
-    if (!Number.isNaN(clientTs) && serverTs > clientTs) {
-      res.status(409).json({
-        success: false,
-        error: "Product was updated by another request. Please re-fetch and retry.",
-        code: "CONFLICT",
-        serverUpdatedAt: current.updatedAt.toISOString(),
-      });
-      return;
-    }
-  }
 
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   if (stock !== undefined) patch.stock = stock !== null ? Number(stock) : null;
@@ -694,12 +688,43 @@ router.patch("/products/:id/stock", async (req, res) => {
     patch.inStock = stock !== null ? Number(stock) > 0 : current.inStock;
   }
 
+  /* Build WHERE for the atomic conditional update.
+     When clientUpdatedAt is provided, include updated_at <= clientTs in the WHERE
+     so two concurrent requests with the same clientUpdatedAt can never both commit:
+     whichever writes first advances updated_at, making the second request find 0 rows. */
+  const updateWhere: any[] = [
+    eq(productsTable.id, productId),
+    eq(productsTable.vendorId, vendorId),
+  ];
+  if (clientUpdatedAt) {
+    const clientTs = new Date(clientUpdatedAt);
+    if (!isNaN(clientTs.getTime())) {
+      updateWhere.push(lte(productsTable.updatedAt, clientTs));
+    }
+  }
+
   const [product] = await db
     .update(productsTable)
     .set(patch)
-    .where(and(eq(productsTable.id, productId), eq(productsTable.vendorId, vendorId)))
+    .where(and(...updateWhere))
     .returning();
-  if (!product) { sendNotFound(res, "Product not found"); return; }
+
+  if (!product) {
+    /* 0 rows updated: either product was deleted (404) or concurrency conflict (409) */
+    const [exists] = await db
+      .select({ updatedAt: productsTable.updatedAt })
+      .from(productsTable)
+      .where(and(eq(productsTable.id, productId), eq(productsTable.vendorId, vendorId)))
+      .limit(1);
+    if (!exists) { sendNotFound(res, "Product not found"); return; }
+    res.status(409).json({
+      success: false,
+      error: "Product was updated by another request. Please re-fetch and retry.",
+      code: "CONFLICT",
+      serverUpdatedAt: exists.updatedAt.toISOString(),
+    });
+    return;
+  }
 
   /* Stock history */
   if (patch.stock !== undefined && current.stock !== product.stock) {
