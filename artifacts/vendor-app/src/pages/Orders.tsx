@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { unlockAudio, playOrderSound } from "../lib/notificationSound";
+import { unlockAudio, playOrderSound, markOrderSeen, wasOrderSeenRecently } from "../lib/notificationSound";
 import { usePlatformConfig, useCurrency } from "../lib/useConfig";
 import { useLanguage } from "../lib/useLanguage";
 import { useAuth } from "../lib/auth";
@@ -98,6 +98,7 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState<"accept"|"reject"|null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [socketConnected, setSocketConnected] = useState(true);
   const socketRef = useRef<Socket | null>(null);
   const [riderPositions, setRiderPositions] = useState<Record<string, { lat: number; lng: number; updatedAt: string }>>({});
 
@@ -237,11 +238,20 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
     };
   }, [user?.id]);
 
-  /* Unlock audio on first user interaction */
+  /* Harden audio unlock — resume AudioContext on click, pointerdown, and
+     visibilitychange (when vendor switches back to the tab) so the context is
+     unlocked as early as possible without requiring a specific button press. */
   useEffect(() => {
-    const handler = () => unlockAudio();
-    document.addEventListener("click", handler, { once: true });
-    return () => document.removeEventListener("click", handler);
+    const unlock = () => unlockAudio();
+    document.addEventListener("click", unlock, { once: true });
+    document.addEventListener("pointerdown", unlock, { once: true });
+    const onVisibility = () => { if (document.visibilityState === "visible") unlockAudio(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("click", unlock);
+      document.removeEventListener("pointerdown", unlock);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   /* Update browser tab title with unread order badge */
@@ -293,12 +303,16 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
     let isFirstConnect = true;
     socket.on("connect", () => {
       joinVendorRoom();
+      setSocketConnected(true);
       if (!isFirstConnect) {
         /* Catch-up: fetch any orders that arrived while disconnected. */
         qc.invalidateQueries({ queryKey: ["vendor-orders"] });
-        showToast("🔄 Reconnected — orders synced");
       }
       isFirstConnect = false;
+    });
+
+    socket.on("disconnect", () => {
+      setSocketConnected(false);
     });
 
     /* Belt-and-suspenders: socket.io-client `reconnect` fires after the
@@ -306,6 +320,7 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
        `connect` event was missed for any reason. */
     socket.io.on("reconnect", () => {
       joinVendorRoom();
+      setSocketConnected(true);
     });
 
     socket.on("rider:location", (payload: { userId: string; latitude: number; longitude: number; updatedAt: string }) => {
@@ -314,9 +329,15 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
         [payload.userId]: { lat: payload.latitude, lng: payload.longitude, updatedAt: payload.updatedAt },
       }));
     });
-    socket.on("order:new", (payload?: { _isTest?: boolean }) => {
+    socket.on("order:new", (payload?: { _isTest?: boolean; id?: string }) => {
+      /* Deduplicate: if the FCM foreground handler already alerted for this
+         order within the last 5 seconds, skip the sound/badge to avoid a
+         double-alert. Cache invalidation is always safe to run. */
+      const orderId = payload?.id;
+      const alreadySeen = orderId ? wasOrderSeenRecently(orderId) : false;
+      if (orderId && !alreadySeen) markOrderSeen(orderId);
       qc.invalidateQueries({ queryKey: ["vendor-orders"] });
-      if (!payload?._isTest) {
+      if (!payload?._isTest && !alreadySeen) {
         playOrderSound();
         setUnreadCount(c => c + 1);
       }
@@ -328,6 +349,7 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
       socket.io.off("reconnect");
       socket.disconnect();
       socketRef.current = null;
+      setSocketConnected(true);
     };
   }, [user?.id]);
 
@@ -440,6 +462,13 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
       {!isOnline && (
         <div className="bg-red-500 text-white text-center text-xs font-bold py-2 px-4">
           📴 You're offline — order updates will be queued and sent when reconnected
+        </div>
+      )}
+      {/* ── Socket.IO reconnect indicator — shown only when real-time link drops ── */}
+      {isOnline && !socketConnected && (
+        <div className="bg-amber-500 text-white text-center text-xs font-bold py-2 px-4 flex items-center justify-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-white/70 animate-pulse inline-block" />
+          Real-time updates disconnected — reconnecting…
         </div>
       )}
       {syncToast && (

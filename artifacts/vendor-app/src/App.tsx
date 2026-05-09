@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import { usePlatformConfig } from "./lib/useConfig";
 import { useLanguage } from "./lib/useLanguage";
 import { registerPush, consumePendingNotificationTap, type PushErrorHandler } from "./lib/push";
+import { markOrderSeen, wasOrderSeenRecently } from "./lib/notificationSound";
 import { Capacitor } from "@capacitor/core";
 import { initSentry, setSentryUser } from "./lib/sentry";
 import { initAnalytics, trackEvent, identifyUser } from "./lib/analytics";
@@ -130,9 +131,20 @@ function AppRoutes() {
   useEffect(() => {
     if (!user) return undefined;
     const onForeground = (title: string, body: string, data?: Record<string, string>) => {
-      /* Play a short notification sound for new-order events */
+      /* Play a short notification sound for new-order events.
+         Deduplicate against the Socket.IO handler: if both FCM and Socket.IO
+         deliver the same order within 5 seconds, only the first arrival plays
+         sound / shows a banner. */
       const notifType = data?.type ?? "";
       if (notifType === "new_order" || notifType === "order_status") {
+        const orderId = data?.orderId;
+        if (orderId) {
+          if (wasOrderSeenRecently(orderId)) {
+            /* Already handled by the Socket.IO path — skip duplicate alert */
+            return;
+          }
+          markOrderSeen(orderId);
+        }
         try {
           type AudioCtxCtor = typeof AudioContext;
           const AudioCtxClass: AudioCtxCtor =

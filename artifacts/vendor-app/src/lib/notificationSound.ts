@@ -2,6 +2,36 @@ let audioCtx: AudioContext | null = null;
 let unlocked = false;
 const activeNodes: Array<{ osc: OscillatorNode; gain: GainNode }> = [];
 
+/* ─── Order-alert deduplication ──────────────────────────────────────────────
+ * Tracks recently-seen order IDs so both the Socket.IO handler and the
+ * foreground FCM handler don't double-alert for the same order.
+ * TTL: 5 seconds — short enough to re-alert if the same orderId genuinely
+ * arrives twice after the window, long enough to cover FCM→Socket.IO lag.
+ * ────────────────────────────────────────────────────────────────────────── */
+const _recentOrderTs = new Map<string, number>();
+const DEDUP_TTL_MS = 5_000;
+
+export function markOrderSeen(orderId: string): void {
+  _recentOrderTs.set(orderId, Date.now());
+  /* Lazy cleanup of expired entries so the map never grows unbounded */
+  if (_recentOrderTs.size > 200) {
+    const cutoff = Date.now() - DEDUP_TTL_MS;
+    for (const [id, ts] of _recentOrderTs) {
+      if (ts < cutoff) _recentOrderTs.delete(id);
+    }
+  }
+}
+
+export function wasOrderSeenRecently(orderId: string): boolean {
+  const ts = _recentOrderTs.get(orderId);
+  if (ts === undefined) return false;
+  if (Date.now() - ts > DEDUP_TTL_MS) {
+    _recentOrderTs.delete(orderId);
+    return false;
+  }
+  return true;
+}
+
 interface WindowWithWebkit extends Window {
   AudioContext?: typeof AudioContext;
   webkitAudioContext?: typeof AudioContext;

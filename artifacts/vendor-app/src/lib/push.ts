@@ -102,24 +102,47 @@ async function registerFcmPush(
 
     /* Helper: send (or refresh) the FCM token with the server.  Called both on
        initial registration and whenever FCM rotates the token (reinstall, OS
-       update, app data clear, etc.).  The server-side handler deletes all old
-       FCM rows for this user+role before inserting the new token. */
+       update, app data clear, etc.).
+       Retries up to MAX_ATTEMPTS times with exponential backoff so transient
+       network errors don't silently drop the token registration. */
+    const MAX_ATTEMPTS = 3;
     const registerTokenWithServer = async (token: string) => {
       const authToken = getAuthToken();
-      if (!authToken) return;
-      const res = await fetch(`${API_ORIGIN}/api/push/subscribe`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ type: "fcm", token, role: "vendor" }),
-      });
-      if (!res.ok && res.status !== 409) {
-        if (vendorIsDev) console.warn("[push] FCM token registration failed:", res.status, res.statusText);
-        /* Surface failure so App.tsx can show a re-enable banner to the vendor */
-        if (res.status >= 500) {
-          onError?.("network_error");
-        } else if (res.status >= 400) {
-          onError?.("registration_failed");
+      if (!authToken) {
+        if (vendorIsDev) console.warn("[push] FCM token registration skipped — no auth token yet");
+        return;
+      }
+      let lastStatus = 0;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const res = await fetch(`${API_ORIGIN}/api/push/subscribe`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+            body: JSON.stringify({ type: "fcm", token, role: "vendor" }),
+          });
+          lastStatus = res.status;
+          if (res.ok || res.status === 409) return; /* 409 = already registered, both are success */
+          if (vendorIsDev) console.warn(`[push] FCM token registration attempt ${attempt}/${MAX_ATTEMPTS} failed:`, res.status, res.statusText);
+          /* 4xx errors are client-side failures — no point retrying */
+          if (res.status >= 400 && res.status < 500) {
+            onError?.("registration_failed");
+            return;
+          }
+        } catch (fetchErr) {
+          if (vendorIsDev) console.warn(`[push] FCM token registration attempt ${attempt}/${MAX_ATTEMPTS} network error:`, fetchErr);
+          lastStatus = 0;
         }
+        if (attempt < MAX_ATTEMPTS) {
+          /* Exponential backoff: 500ms, 1000ms */
+          await new Promise(r => setTimeout(r, 500 * attempt));
+        }
+      }
+      /* All retries exhausted */
+      if (vendorIsDev) console.error(`[push] FCM token registration failed after ${MAX_ATTEMPTS} attempts. Last status: ${lastStatus}`, { token: token.slice(0, 20) + "…", apiOrigin: API_ORIGIN || "(relative)" });
+      if (lastStatus === 0) {
+        onError?.("network_error");
+      } else {
+        onError?.("registration_failed");
       }
     };
 
