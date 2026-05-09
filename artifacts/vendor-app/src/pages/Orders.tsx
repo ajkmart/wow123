@@ -57,7 +57,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export default function Orders() {
+export default function Orders({ targetOrderId }: { targetOrderId?: string } = {}) {
   const qc = useQueryClient();
   const { config } = usePlatformConfig();
   const { symbol: currencySymbol } = useCurrency();
@@ -77,7 +77,16 @@ export default function Orders() {
   const { isOnline, syncToast, enqueueStatusUpdate } = useOfflineQueue();
 
   const [tab, setTab]           = useState("new");
-  const [expanded, setExpanded] = useState<string|null>(null);
+  const [expanded, setExpanded] = useState<string|null>(targetOrderId ?? null);
+
+  /* When arriving via a notification tap, use the prefetched per-order cache
+     as an immediate seed while the list query loads in the background. */
+  const { data: prefetchedOrder } = useQuery({
+    queryKey: ["vendor-order", targetOrderId],
+    queryFn: () => api.getVendorOrder(targetOrderId!),
+    enabled: !!targetOrderId,
+    staleTime: 30_000,
+  });
   const [toast, setToast]       = useState("");
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
   const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(new Set());
@@ -261,7 +270,16 @@ export default function Orders() {
       transports: ["polling", "websocket"],
     });
     socketRef.current = socket;
-    socket.on("connect", () => socket.emit("join", `vendor:${user.id}`));
+    let isFirstConnect = true;
+    socket.on("connect", () => {
+      socket.emit("join", `vendor:${user.id}`);
+      if (!isFirstConnect) {
+        /* Catch-up: fetch any orders that arrived while disconnected. */
+        qc.invalidateQueries({ queryKey: ["vendor-orders"] });
+        showToast("🔄 Reconnected — orders synced");
+      }
+      isFirstConnect = false;
+    });
     socket.on("rider:location", (payload: { userId: string; latitude: number; longitude: number; updatedAt: string }) => {
       setRiderPositions(prev => ({
         ...prev,
@@ -283,7 +301,15 @@ export default function Orders() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["vendor-orders", tab], queryFn: () => api.getOrders(apiStatus), refetchInterval: 15000, retry: 2 });
   const rawOrders = data?.orders || [];
 
-  const orders = rawOrders
+  /* Merge the prefetched single-order into the list so it's visible
+     immediately from cache while the full list query is still loading. */
+  const mergedOrders: any[] = (() => {
+    const seed = prefetchedOrder?.order;
+    if (!seed || rawOrders.some((o: any) => o.id === seed.id)) return rawOrders;
+    return [seed, ...rawOrders];
+  })();
+
+  const orders = mergedOrders
     .filter((o: any) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();

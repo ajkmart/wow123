@@ -1263,6 +1263,21 @@ router.get("/orders/available-riders", requireRole("vendor"), async (req, res) =
   sendSuccess(res, { riders: withDist });
 });
 
+/* ── GET /vendor/orders/:id ── */
+router.get("/orders/:id", async (req, res) => {
+  const vendorId = req.vendorId!;
+  const [row] = await db.select({
+    order: ordersTable,
+    riderName: usersTable.name,
+    riderPhone: usersTable.phone,
+  }).from(ordersTable)
+    .leftJoin(usersTable, eq(ordersTable.riderId, usersTable.id))
+    .where(and(eq(ordersTable.id, req.params["id"]!), eq(ordersTable.vendorId, vendorId)))
+    .limit(1);
+  if (!row) { sendNotFound(res, "Order not found"); return; }
+  sendSuccess(res, { order: { ...row.order, total: safeNum(row.order.total), riderName: row.riderName ?? undefined, riderPhone: row.riderPhone ?? undefined } });
+});
+
 /* ── GET /vendor/orders/:id/available-riders ─────────────────────────────
    Returns online riders within 5 km of the order's delivery address,
    with rating > 4.5 (unrated riders default to 5.0 and qualify).

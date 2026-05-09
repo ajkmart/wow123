@@ -102,7 +102,7 @@ async function registerFcmPush(
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ type: "fcm", token, role: "vendor" }),
       });
-      if (!res.ok) {
+      if (!res.ok && res.status !== 409) {
         if (vendorIsDev) console.warn("[push] FCM token registration failed:", res.status, res.statusText);
       }
     };
@@ -182,7 +182,27 @@ async function registerVapidPush(): Promise<void> {
     const base = (vendorEnv.baseUrl || "/").replace(/\/$/, "");
     const reg = await navigator.serviceWorker.register(`${base}/sw.js`);
     const existing = await reg.pushManager.getSubscription();
-    if (existing) return;
+    if (existing) {
+      /* Re-send the existing subscription to keep the server token fresh. */
+      const authToken = getAuthToken();
+      if (authToken) {
+        const res = await fetch(`${base}/api/push/subscribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+          body: JSON.stringify({
+            type: "vapid",
+            endpoint: existing.endpoint,
+            p256dh: existing.toJSON().keys?.p256dh,
+            auth: existing.toJSON().keys?.auth,
+            role: "vendor",
+          }),
+        });
+        if (!res.ok && res.status !== 409 && vendorIsDev) {
+          console.warn("[push] VAPID re-registration failed:", res.status);
+        }
+      }
+      return;
+    }
 
     const vapidRes = await fetch(`${base}/api/push/vapid-key`);
     if (!vapidRes.ok) return;
@@ -196,7 +216,7 @@ async function registerVapidPush(): Promise<void> {
     });
 
     const authToken = getAuthToken();
-    await fetch(`${base}/api/push/subscribe`, {
+    const res = await fetch(`${base}/api/push/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
       body: JSON.stringify({
@@ -207,6 +227,9 @@ async function registerVapidPush(): Promise<void> {
         role: "vendor",
       }),
     });
+    if (!res.ok && res.status !== 409 && vendorIsDev) {
+      console.warn("[push] VAPID subscription registration failed:", res.status);
+    }
   } catch (e) {
     if (vendorIsDev) console.warn("[push] VAPID registration failed:", e);
   }

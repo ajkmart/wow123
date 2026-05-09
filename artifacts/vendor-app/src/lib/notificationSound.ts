@@ -47,7 +47,13 @@ export function playOrderSound() {
   try {
     const ctx = getCtx();
     if (!ctx) { vibrateFallback(); return; }
-    if (ctx.state === "suspended") { vibrateFallback(); return; }
+    if (ctx.state === "suspended") {
+      if (import.meta.env.DEV) {
+        console.warn("[audio] Playback blocked — AudioContext still suspended. The vendor must interact with the page first to unlock audio.");
+      }
+      vibrateFallback();
+      return;
+    }
 
     const now = ctx.currentTime;
 

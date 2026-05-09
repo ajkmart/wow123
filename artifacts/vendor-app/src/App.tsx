@@ -10,7 +10,7 @@ import { Capacitor } from "@capacitor/core";
 import { initSentry, setSentryUser } from "./lib/sentry";
 import { initAnalytics, trackEvent, identifyUser } from "./lib/analytics";
 import { initErrorReporter } from "./lib/error-reporter";
-import { setApiTimeoutMs } from "./lib/api";
+import { setApiTimeoutMs, api } from "./lib/api";
 import { vendorEnv } from "./lib/envValidation";
 import { BottomNav } from "./components/BottomNav";
 import { PwaInstallBanner } from "./components/PwaInstallBanner";
@@ -104,7 +104,16 @@ function AppRoutes() {
     if (!user) return;
     const pending = consumePendingNotificationTap();
     if (pending?.orderId) {
-      navigate(`/orders/${pending.orderId}`);
+      /* Fire-and-forget prefetch: seed the per-order cache so Orders.tsx
+         renders the tapped order detail instantly from cache.
+         Navigation is immediate — never blocked by network or prefetch outcome. */
+      const orderId = pending.orderId;
+      queryClient.prefetchQuery({
+        queryKey: ["vendor-order", orderId],
+        queryFn: () => api.getVendorOrder(orderId),
+        staleTime: 30_000,
+      }).catch(() => {});
+      navigate(`/orders/${orderId}`);
     } else if (pending) {
       navigate("/orders");
     }
@@ -178,7 +187,19 @@ function AppRoutes() {
         if (perm === "granted") registerPush().catch(() => {});
       }).catch(() => {});
     }
-    return undefined;
+
+    /* Re-register whenever the vendor tab regains focus so tokens stay fresh
+       and any rotation that happened while backgrounded is picked up. */
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        registerPush().catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [user?.id]);
 
   const MAINTENANCE_GRACE_MS = 5 * 60 * 1000; /* 5-minute grace period */
@@ -272,7 +293,7 @@ function AppRoutes() {
             <div className="md:max-w-5xl md:mx-auto md:px-6 md:pb-8">
               <Switch>
                 <Route path="/"><ErrorBoundary><Dashboard /></ErrorBoundary></Route>
-                <Route path="/orders/:id">{(params) => <ErrorBoundary key={`order-${params.id}`}><Orders /></ErrorBoundary>}</Route>
+                <Route path="/orders/:id">{(params) => <ErrorBoundary key={`order-${params.id}`}><Orders targetOrderId={params.id} /></ErrorBoundary>}</Route>
                 <Route path="/orders"><ErrorBoundary><Orders /></ErrorBoundary></Route>
                 <Route path="/products"><ErrorBoundary><Products /></ErrorBoundary></Route>
                 <Route path="/wallet"><ErrorBoundary><Wallet /></ErrorBoundary></Route>
