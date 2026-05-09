@@ -18,7 +18,7 @@ import { eq, desc, and, sql } from "drizzle-orm";
 import { generateId } from "../lib/id.js";
 import { logger } from "../lib/logger.js";
 import { sendSms } from "./sms.js";
-import { sendEmail } from "./email.js";
+import { sendEmail, sendAdminAlert } from "./email.js";
 import { sendPushToUser } from "../lib/webpush.js";
 import { sendWhatsappMessage } from "./whatsapp.js";
 
@@ -360,6 +360,52 @@ export class NotificationService {
         "[NotificationService] Broadcast failed"
       );
       throw new Error(`Broadcast failed: ${error}`);
+    }
+  }
+
+  /**
+   * Send an internal admin security alert (e.g. global OTP suspension).
+   * Uses sendAdminAlert so the message reaches configured admin email addresses.
+   * HTML-escapes any user-supplied strings before embedding them in the email body.
+   */
+  static async sendSecurityAlert(opts: {
+    subject: string;
+    headline: string;
+    paragraphs: string[];
+    settings: Record<string, string>;
+  }): Promise<void> {
+    const escape = (s: string) =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    const htmlBody = `
+      <h3 style="color:#dc2626;margin:0 0 12px;">${escape(opts.headline)}</h3>
+      ${opts.paragraphs
+        .map(
+          (p) =>
+            `<p style="color:#374151;margin:0 0 12px;">${escape(p)}</p>`,
+        )
+        .join("")}
+      <p style="color:#6b7280;font-size:12px;margin:0;">
+        This is an automated security alert from the AJKMart OTP Control Center.
+      </p>
+    `;
+
+    const result = await sendAdminAlert(
+      "health_critical",
+      opts.subject,
+      htmlBody,
+      { ...opts.settings, email_alert_health_critical: "on" },
+    );
+
+    if (result.sent) {
+      logger.info({ subject: opts.subject }, "[NotificationService] security alert email sent");
+    } else if (result.reason && !result.reason.includes("disabled")) {
+      logger.warn({ reason: result.reason }, "[NotificationService] security alert email skipped");
     }
   }
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable, platformSettingsTable, authAuditLogTable, otpBypassAuditTable, whitelistUsersTable } from "@workspace/db/schema";
+import { usersTable, platformSettingsTable, authAuditLogTable, otpBypassAuditTable, whitelistUsersTable, ridesTable } from "@workspace/db/schema";
 import { eq, desc, and, sql, inArray, type SQL } from "drizzle-orm";
 import {
   addAuditEntry, getClientIp, getPlatformSettings, invalidateSettingsCache,
@@ -14,6 +14,7 @@ import { writeAuthAuditLog } from "../../middleware/security.js";
 import { AuditService } from "../../services/admin-audit.service.js";
 import { UserService } from "../../services/admin-user.service.js";
 import { logger } from "../../lib/logger.js";
+import { NotificationService } from "../../services/admin-notification.service.js";
 
 const router = Router();
 
@@ -86,6 +87,9 @@ router.get("/otp/status", async (_req, res) => {
 /* ─── POST /admin/otp/disable ─────────────────────────────────────────────── */
 router.post("/otp/disable", async (req, res) => {
   const minutes = Number(req.body?.minutes);
+  const reason: string | undefined = typeof req.body?.reason === "string" && req.body.reason.trim()
+    ? req.body.reason.trim()
+    : undefined;
   const adminReq = req as AdminRequest;
 
   try {
@@ -97,7 +101,7 @@ router.post("/otp/disable", async (req, res) => {
         action: "admin_otp_global_disable",
         resourceType: "otp_config",
         resource: "global_disable",
-        details: `Disabled OTP for ${minutes} minutes`,
+        details: `Disabled OTP for ${minutes} minutes${reason ? ` — reason: ${reason}` : ""}`,
       },
       () => UserService.disableOtpGlobally(minutes)
     );
@@ -105,8 +109,28 @@ router.post("/otp/disable", async (req, res) => {
     writeAuthAuditLog("admin_otp_global_disable", {
       ip: getClientIp(req),
       userAgent: req.headers["user-agent"] ?? undefined,
-      metadata: { adminId: adminReq.adminId, minutes, disabledUntil: result.disabledUntil, result: "success" },
+      metadata: { adminId: adminReq.adminId, minutes, disabledUntil: result.disabledUntil, reason: reason ?? null, result: "success" },
     });
+
+    /* Fire internal admin notification via NotificationService so all admins are aware */
+    try {
+      const s = await getPlatformSettings();
+      const appName = s["app_name"] ?? "AJKMart";
+      const adminName = adminReq.adminName ?? adminReq.adminId ?? "Unknown admin";
+      const paragraphs: string[] = [
+        `Admin ${adminName} (ID: ${adminReq.adminId}) has suspended OTP verification for all users for ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+        ...(reason ? [`Reason: ${reason}`] : []),
+        `OTPs will auto-resume at ${new Date(result.disabledUntil).toUTCString()}. Users can log in without OTP during this window.`,
+      ];
+      await NotificationService.sendSecurityAlert({
+        subject: `[${appName}] Global OTP Suspension Activated`,
+        headline: "⚠️ Global OTP Suspension Activated",
+        paragraphs,
+        settings: s,
+      });
+    } catch (alertErr) {
+      logger.warn({ err: alertErr }, "[admin/otp] admin notification send failed (non-fatal)");
+    }
 
     sendSuccess(res, result);
   } catch (error: any) {
@@ -582,6 +606,54 @@ router.delete("/whitelist/:id", async (req, res) => {
   } catch (error: any) {
     const errMsg = error.message || String(error);
     sendValidationError(res, errMsg);
+  }
+});
+
+/* ─── GET /admin/otp/delivery-otp/:rideId ─────────────────────────────────── */
+router.get("/otp/delivery-otp/:rideId", async (req, res) => {
+  const rideId = req.params["rideId"]!;
+
+  try {
+    const ride = await db.query.ridesTable.findFirst({
+      where: eq(ridesTable.id, rideId),
+      columns: {
+        id: true,
+        tripOtp: true,
+        otpVerified: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    if (!ride) {
+      return sendNotFound(res, "Ride not found");
+    }
+
+    /* Derive display status */
+    const TERMINAL_CANCELLED_STATUSES = ["cancelled", "refunded"];
+    const OTP_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
+
+    let otpStatus: "Used" | "Expired" | "Pending";
+    if (ride.otpVerified) {
+      otpStatus = "Used";
+    } else if (
+      TERMINAL_CANCELLED_STATUSES.includes(ride.status) ||
+      (Date.now() - new Date(ride.createdAt).getTime() > OTP_EXPIRY_MS)
+    ) {
+      otpStatus = "Expired";
+    } else {
+      otpStatus = "Pending";
+    }
+
+    sendSuccess(res, {
+      rideId: ride.id,
+      otp: ride.tripOtp ?? null,
+      otpStatus,
+      createdAt: ride.createdAt.toISOString(),
+      rideStatus: ride.status,
+    });
+  } catch (error) {
+    sendServerError(res, error, "fetch delivery OTP");
   }
 });
 

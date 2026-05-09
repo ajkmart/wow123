@@ -222,6 +222,16 @@ function CardFrame({
   );
 }
 
+/**
+ * Keys that are now managed in OTP Control Center and must be excluded from
+ * the generic Security / Rate-Limit settings render loop to avoid duplication.
+ */
+const OTP_RATELIMIT_MANAGED_KEYS = new Set([
+  "security_otp_max_per_phone",
+  "security_otp_max_per_ip",
+  "security_otp_window_min",
+]);
+
 /* ─── Other section renderers ────────────────────────────────────────────── */
 export function renderSection(
   cat: CatKey, catSettings: Setting[], settings: Setting[],
@@ -232,8 +242,11 @@ export function renderSection(
   getInputSuffix: (k: string) => string,
   getPlaceholder: (k: string) => string,
 ) {
-  const toggles = catSettings.filter(s => TOGGLE_KEYS.has(s.key));
-  const inputs  = catSettings.filter(s => !TOGGLE_KEYS.has(s.key));
+  const filteredSettings = (cat === "security" || cat === "ratelimit")
+    ? catSettings.filter(s => !OTP_RATELIMIT_MANAGED_KEYS.has(s.key))
+    : catSettings;
+  const toggles = filteredSettings.filter(s => TOGGLE_KEYS.has(s.key));
+  const inputs  = filteredSettings.filter(s => !TOGGLE_KEYS.has(s.key));
 
   const NumField = ({ s }: { s: Setting }) => {
     const isDirty = dirtyKeys.has(s.key);

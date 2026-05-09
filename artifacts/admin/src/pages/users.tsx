@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
   Search, CheckCircle2, XCircle, Wallet, RefreshCw, Trash2,
   Activity, ShoppingBag, Car, Pill, Package, Shield, UserCog,
@@ -15,7 +15,7 @@ import { tDual, type TranslationKey } from "@workspace/i18n";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useUsers, useUpdateUser, useUpdateUserSecurity, useDeleteUser, useUserActivity, usePendingUsers, useApproveUser, useRejectUser, useRequestUserCorrection, useBulkBanUsers, useCreateUser, useAdminUserSessions, useRevokeUserSession, useRevokeAllUserSessions, useAdminViewOtp, useAdminVerifyContact, useAdminForcePasswordReset, useAdminKycByUserId, useAdminKycApprove, useAdminKycReject, useWaiveDebt, useAdminResetOtp, type CreateUserInput } from "@/hooks/use-admin";
+import { useUsers, useUpdateUser, useUpdateUserSecurity, useDeleteUser, useUserActivity, usePendingUsers, useApproveUser, useRejectUser, useRequestUserCorrection, useBulkBanUsers, useCreateUser, useAdminUserSessions, useRevokeUserSession, useRevokeAllUserSessions, useAdminVerifyContact, useAdminForcePasswordReset, useAdminKycByUserId, useAdminKycApprove, useAdminKycReject, useWaiveDebt, type CreateUserInput } from "@/hooks/use-admin";
 import { WalletAdjustModal } from "@/components/WalletAdjustModal";
 import { fetcher } from "@/lib/api";
 import { useAdminAuth } from "@/lib/adminAuthContext";
@@ -561,15 +561,9 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
   const [showMpinResetConfirm, setShowMpinResetConfirm] = useState(false);
 
   /* ── OTP Tools state ── */
-  const [showOtpData, setShowOtpData] = useState(false);
-  const otpQuery = useAdminViewOtp(user.id);
   const verifyContact = useAdminVerifyContact();
   const forcePasswordReset = useAdminForcePasswordReset();
   const [requirePasswordChange, setRequirePasswordChange] = useState<boolean>(user.requirePasswordChange || false);
-
-  const handleViewOtp = () => {
-    otpQuery.refetch().then(() => setShowOtpData(true));
-  };
 
   const handleVerifyContact = (type: "phone" | "email") => {
     verifyContact.mutate({ userId: user.id, type }, {
@@ -587,14 +581,6 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
       onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
     });
   };
-
-  const [bypassMinutes, setBypassMinutes] = useState<15 | 30 | 60>(15);
-  const [bypassActive, setBypassActive] = useState<boolean>(
-    !!(user.otpBypassUntil && new Date(user.otpBypassUntil) > new Date())
-  );
-  const [bypassUntil, setBypassUntil] = useState<string | null>(
-    user.otpBypassUntil && new Date(user.otpBypassUntil) > new Date() ? user.otpBypassUntil : null
-  );
 
   const securityMutation = useMutation({
     mutationFn: (body: any) => fetcher(`/users/${user.id}/security`, { method: "PATCH", body: JSON.stringify(body) }),
@@ -620,30 +606,6 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
       onClose();
     },
     onError: (e: any) => toast({ title: "Save failed", description: e.message, variant: "destructive" }),
-  });
-
-  const resetOtpMutation = useAdminResetOtp();
-
-  const setBypassMutation = useMutation({
-    mutationFn: (minutes: number) => fetcher(`/users/${user.id}/otp/bypass`, { method: "POST", body: JSON.stringify({ minutes }) }),
-    onSuccess: (d: any) => {
-      setBypassActive(true);
-      setBypassUntil(d.bypassUntil);
-      qc.invalidateQueries({ queryKey: ["admin-users"] });
-      toast({ title: "OTP bypass enabled", description: `User can log in without OTP until ${new Date(d.bypassUntil).toLocaleTimeString()}` });
-    },
-    onError: (e: any) => toast({ title: "Failed to set bypass", description: e.message, variant: "destructive" }),
-  });
-
-  const cancelBypassMutation = useMutation({
-    mutationFn: () => fetcher(`/users/${user.id}/otp/bypass`, { method: "DELETE", body: "{}" }),
-    onSuccess: () => {
-      setBypassActive(false);
-      setBypassUntil(null);
-      qc.invalidateQueries({ queryKey: ["admin-users"] });
-      toast({ title: "OTP bypass cancelled" });
-    },
-    onError: (e: any) => toast({ title: "Failed to cancel bypass", description: e.message, variant: "destructive" }),
   });
 
   const disable2faMutation = useMutation({
@@ -902,54 +864,39 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
           <div className="border border-violet-200 rounded-xl overflow-hidden">
             <div className="bg-violet-50 px-4 py-2.5 flex items-center gap-2 border-b border-violet-200">
               <KeyRound className="w-4 h-4 text-violet-600 flex-shrink-0" />
-              <span className="text-sm font-bold text-violet-800">OTP Tools</span>
-              <span className="text-xs text-violet-500 ml-1">Admin support — no notifications sent to user</span>
+              <span className="text-sm font-bold text-violet-800">OTP Status</span>
+              <span className="text-xs text-violet-500 ml-1">Read-only — manage bypasses in OTP Control Center</span>
             </div>
             <div className="p-3 space-y-3">
-              {/* View Current OTP */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-foreground">View Current OTP</p>
-                    <p className="text-xs text-muted-foreground">Show live OTP code for troubleshooting</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-violet-400 text-violet-700 hover:bg-violet-50 rounded-lg text-xs shrink-0"
-                    onClick={handleViewOtp}
-                    disabled={otpQuery.isFetching}
-                  >
-                    {otpQuery.isFetching ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />Loading...</> : <><Eye className="w-3 h-3 mr-1" />View OTP</>}
-                  </Button>
+              {/* Bypass Status Badge */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">OTP Bypass</p>
+                  {user.otpBypassUntil && new Date(user.otpBypassUntil) > new Date() ? (
+                    <p className="text-xs text-amber-700 mt-0.5 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Active — expires {new Date(user.otpBypassUntil).toLocaleTimeString()}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-0.5">No active bypass — user must verify OTP on login</p>
+                  )}
                 </div>
-                {showOtpData && otpQuery.data && (
-                  <div className="bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-violet-700">Phone OTP:</span>
-                      {otpQuery.data.phone?.active ? (
-                        <div className="flex items-center gap-2">
-                          <code className="font-mono font-bold text-violet-900 bg-violet-100 px-2 py-0.5 rounded text-sm tracking-widest">{otpQuery.data.phone.code}</code>
-                          <span className="text-[10px] text-violet-500">exp {new Date(otpQuery.data.phone.expiry).toLocaleTimeString()}</span>
-                        </div>
-                      ) : <span className="text-xs text-muted-foreground italic">No active OTP</span>}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-violet-700">Email OTP:</span>
-                      {otpQuery.data.email?.active ? (
-                        <div className="flex items-center gap-2">
-                          <code className="font-mono font-bold text-violet-900 bg-violet-100 px-2 py-0.5 rounded text-sm tracking-widest">{otpQuery.data.email.code}</code>
-                          <span className="text-[10px] text-violet-500">exp {new Date(otpQuery.data.email.expiry).toLocaleTimeString()}</span>
-                        </div>
-                      ) : <span className="text-xs text-muted-foreground italic">No active OTP</span>}
-                    </div>
-                    <button onClick={() => setShowOtpData(false)} className="text-[10px] text-violet-500 hover:underline">Hide</button>
-                  </div>
+                {user.otpBypassUntil && new Date(user.otpBypassUntil) > new Date() ? (
+                  <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 font-bold shrink-0">BYPASS ACTIVE</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-border shrink-0">Normal OTP</Badge>
                 )}
               </div>
+              <Link
+                to="/otp-control"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                Manage in OTP Control Center →
+              </Link>
 
               {/* Verify Contact */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pt-1 border-t border-border/50">
                 <p className="text-sm font-semibold text-foreground">Manual Verification</p>
                 <p className="text-xs text-muted-foreground">Force-mark phone or email as verified</p>
                 <div className="flex gap-2">
@@ -977,59 +924,6 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
                   )}
                 </div>
               </div>
-
-              {/* Bypass OTP */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-foreground">Bypass OTP</p>
-                    <p className="text-xs text-muted-foreground">Allow login without OTP for a limited window</p>
-                  </div>
-                  <Select
-                    value={String(bypassMinutes)}
-                    onValueChange={(v) => setBypassMinutes(Number(v) as 15 | 30 | 60)}
-                  >
-                    <SelectTrigger className="w-24 h-8 text-xs rounded-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">15 min</SelectItem>
-                      <SelectItem value="30">30 min</SelectItem>
-                      <SelectItem value="60">1 hour</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {!bypassActive ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-amber-400 text-amber-700 hover:bg-amber-50 rounded-lg text-xs shrink-0"
-                      onClick={() => setBypassMutation.mutate(bypassMinutes)}
-                      disabled={setBypassMutation.isPending}
-                    >
-                      {setBypassMutation.isPending ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />Enabling...</> : "Enable"}
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-300 text-red-700 hover:bg-red-50 rounded-lg text-xs shrink-0"
-                      onClick={() => cancelBypassMutation.mutate()}
-                      disabled={cancelBypassMutation.isPending}
-                    >
-                      {cancelBypassMutation.isPending ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />Cancelling...</> : "Cancel"}
-                    </Button>
-                  )}
-                </div>
-                {bypassActive && bypassUntil && (
-                  <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <p className="text-xs font-semibold text-amber-800">
-                      Bypass active — expires {new Date(bypassUntil).toLocaleTimeString()}
-                    </p>
-                    <Badge variant="outline" className="ml-auto text-[10px] bg-amber-100 text-amber-700 border-amber-300">ACTIVE</Badge>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -1056,25 +950,6 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
             )}
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3">
-            <KeyRound className="w-5 h-5 text-amber-600 flex-shrink-0"/>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800">Force Re-Authentication</p>
-              <p className="text-xs text-amber-700">Clears saved OTP — user must verify phone again</p>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-amber-300 text-amber-700 hover:bg-amber-100 rounded-lg text-xs"
-              onClick={() => resetOtpMutation.mutate(user.id, {
-                onSuccess: () => toast({ title: "OTP cleared", description: "User must re-authenticate on next login." }),
-                onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
-              })}
-              disabled={resetOtpMutation.isPending}
-            >
-              {resetOtpMutation.isPending ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />Clearing...</> : "Reset OTP"}
-            </Button>
-          </div>
 
           {totpEnabled && (
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 flex items-center gap-3">

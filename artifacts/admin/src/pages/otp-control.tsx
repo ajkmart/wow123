@@ -4,14 +4,15 @@ import {
   Shield, RefreshCw, CheckCircle2, XCircle, Loader2,
   Search, Clock, AlertTriangle, Users, ChevronRight,
   UserCheck, UserX, Info, ListChecks, Plus, Trash2, CalendarDays,
-  ShieldOff, Activity, Zap,
+  ShieldOff, Activity, Zap, Gauge, KeyRound, Eye, EyeOff,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetcher } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useOtpWhitelist, useAddOtpWhitelist, useUpdateOtpWhitelist, useDeleteOtpWhitelist } from "@/hooks/use-admin";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useOtpWhitelist, useAddOtpWhitelist, useUpdateOtpWhitelist, useDeleteOtpWhitelist, usePlatformSettings, useUpdatePlatformSettings } from "@/hooks/use-admin";
 
 const BYPASS_CODE_REGEX = /^[0-9]{6}$/;
 
@@ -190,6 +191,40 @@ export default function OtpControl() {
   const [auditRows, setAuditRows]     = useState<AuditRow[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
 
+  /* ── Global-suspension confirmation modal ── */
+  const [suspendModal, setSuspendModal] = useState<{ open: boolean; mins: number }>({ open: false, mins: 0 });
+  const [suspendReason, setSuspendReason] = useState("");
+  const [suspendPending, setSuspendPending] = useState(false);
+
+  /* ── OTP Rate Limiting card ── */
+  const { data: settingsData } = usePlatformSettings();
+  const updateSettings = useUpdatePlatformSettings();
+  const rawSettings: Array<{ key: string; value: string }> = settingsData?.settings ?? [];
+  const getSetting = (key: string, fallback: string) =>
+    rawSettings.find((s: { key: string; value: string }) => s.key === key)?.value ?? fallback;
+  const [rlPhone, setRlPhone] = useState("");
+  const [rlIp, setRlIp]       = useState("");
+  const [rlWindow, setRlWindow] = useState("");
+  const [rlSaving, setRlSaving] = useState(false);
+  useEffect(() => {
+    if (rawSettings.length > 0) {
+      setRlPhone(getSetting("security_otp_max_per_phone", "5"));
+      setRlIp(getSetting("security_otp_max_per_ip", "20"));
+      setRlWindow(getSetting("security_otp_window_min", "60"));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsData]);
+
+  /* ── Delivery OTP Viewer ── */
+  const [rideIdInput, setRideIdInput]     = useState("");
+  const [otpLookupResult, setOtpLookupResult] = useState<{
+    rideId: string; otp: string | null; otpStatus: "Pending" | "Used" | "Expired";
+    createdAt: string; rideStatus: string;
+  } | null>(null);
+  const [otpLookupError, setOtpLookupError] = useState<string | null>(null);
+  const [otpLookupLoading, setOtpLookupLoading] = useState(false);
+  const [otpVisible, setOtpVisible] = useState(false);
+
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
     try {
@@ -227,14 +262,77 @@ export default function OtpControl() {
     return undefined;
   }, [remaining, status?.isGloballyDisabled, status?.disabledUntil, loadStatus]);
 
-  const suspend = async (mins: number) => {
+  const openSuspendModal = (mins: number) => {
     if (!mins || mins <= 0) return;
-    const d = await api("POST", "/otp/disable", { minutes: mins });
-    if (d?.data) {
-      toast({ title: "OTP Suspended", description: `All OTPs suspended for ${mins} minute(s).` });
-      loadStatus(); loadAudit();
-    } else {
-      toast({ title: "Error", description: d?.error ?? "Failed", variant: "destructive" });
+    setSuspendReason("");
+    setSuspendModal({ open: true, mins });
+  };
+
+  const confirmSuspend = async () => {
+    if (!suspendReason.trim()) return;
+    setSuspendPending(true);
+    try {
+      const d = await api("POST", "/otp/disable", { minutes: suspendModal.mins, reason: suspendReason.trim() });
+      if (d?.data) {
+        toast({ title: "OTP Suspended", description: `All OTPs suspended for ${suspendModal.mins} minute(s).` });
+        loadStatus(); loadAudit();
+        setSuspendModal({ open: false, mins: 0 });
+        setSuspendReason("");
+      } else {
+        toast({ title: "Error", description: d?.error ?? "Failed", variant: "destructive" });
+      }
+    } catch (e: unknown) {
+      toast({ title: "Error", description: errorMessage(e, "Failed to suspend OTPs."), variant: "destructive" });
+    } finally {
+      setSuspendPending(false);
+    }
+  };
+
+  const saveRateLimits = async () => {
+    const phone = parseInt(rlPhone, 10);
+    const ip    = parseInt(rlIp, 10);
+    const win   = parseInt(rlWindow, 10);
+    if (isNaN(phone) || phone < 1 || isNaN(ip) || ip < 1 || isNaN(win) || win < 1) {
+      toast({ title: "Invalid values", description: "All rate limit fields must be positive integers.", variant: "destructive" });
+      return;
+    }
+    setRlSaving(true);
+    try {
+      await updateSettings.mutateAsync([
+        { key: "security_otp_max_per_phone", value: String(phone) },
+        { key: "security_otp_max_per_ip",    value: String(ip) },
+        { key: "security_otp_window_min",     value: String(win) },
+      ]);
+      toast({ title: "Rate limits saved", description: "OTP rate limiting settings updated." });
+    } catch (e: unknown) {
+      toast({ title: "Failed to save", description: errorMessage(e, "Could not update rate limit settings."), variant: "destructive" });
+    } finally {
+      setRlSaving(false);
+    }
+  };
+
+  const lookupDeliveryOtp = async () => {
+    const id = rideIdInput.trim();
+    if (!id) return;
+    setOtpLookupLoading(true);
+    setOtpLookupError(null);
+    setOtpLookupResult(null);
+    setOtpVisible(false);
+    try {
+      const d = await api("GET", `/otp/delivery-otp/${encodeURIComponent(id)}`);
+      if (d?.data) {
+        setOtpLookupResult(d.data);
+      } else {
+        setOtpLookupError(d?.error ?? "Ride not found.");
+      }
+    } catch (e: unknown) {
+      if (isApiError(e) && e.status === 404) {
+        setOtpLookupError("Ride not found. Check the Ride ID and try again.");
+      } else {
+        setOtpLookupError(errorMessage(e, "Failed to look up delivery OTP."));
+      }
+    } finally {
+      setOtpLookupLoading(false);
     }
   };
 
@@ -436,7 +534,7 @@ export default function OtpControl() {
               ].map(opt => (
                 <button
                   key={opt.mins}
-                  onClick={() => suspend(opt.mins)}
+                  onClick={() => openSuspendModal(opt.mins)}
                   disabled={statusLoading}
                   className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-red-200 text-red-700 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 shadow-sm"
                 >
@@ -460,7 +558,7 @@ export default function OtpControl() {
                       toast({ title: "Invalid duration", description: "Enter a whole number of minutes greater than 0.", variant: "destructive" });
                       return;
                     }
-                    suspend(m);
+                    openSuspendModal(m);
                   }}
                   disabled={!customMinutes || statusLoading}
                   className="px-3.5 py-2 h-8 rounded-xl text-xs font-semibold border border-red-200 text-red-700 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 shadow-sm"
@@ -472,6 +570,58 @@ export default function OtpControl() {
           </div>
         </div>
       </ProCard>
+
+      {/* ── Suspension Confirmation Modal ── */}
+      <Dialog open={suspendModal.open} onOpenChange={open => { if (!open && !suspendPending) setSuspendModal({ open: false, mins: 0 }); }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <ShieldOff className="w-5 h-5" /> Confirm Global OTP Suspension
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-1">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+              <p className="text-sm text-red-800">
+                You are about to suspend OTP verification for <strong>all users</strong> for{" "}
+                <strong>{suspendModal.mins >= 60
+                  ? `${suspendModal.mins / 60 === Math.floor(suspendModal.mins / 60) ? suspendModal.mins / 60 + " hour(s)" : suspendModal.mins + " minutes"}`
+                  : `${suspendModal.mins} minute(s)`}</strong>.
+                Users will be able to log in without receiving an OTP code.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Reason for suspension <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={suspendReason}
+                onChange={e => setSuspendReason(e.target.value)}
+                placeholder="e.g. SMS gateway outage — Twilio down, users cannot receive OTP codes"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300 h-24"
+              />
+              <p className="text-[11px] text-muted-foreground">This reason is written to the audit log and included in the admin notification.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setSuspendModal({ open: false, mins: 0 })}
+                disabled={suspendPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1 rounded-xl gap-1.5"
+                onClick={confirmSuspend}
+                disabled={!suspendReason.trim() || suspendPending}
+              >
+                {suspendPending ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Suspending…</> : <><ShieldOff className="w-3.5 h-3.5" /> Confirm Suspension</>}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── 2. PER-USER BYPASS ── */}
       <ProCard>
@@ -648,7 +798,174 @@ export default function OtpControl() {
         </div>
       </ProCard>
 
-      {/* ── 4. WHITELIST ── */}
+      {/* ── 4. OTP RATE LIMITING ── */}
+      <ProCard>
+        <CardHeader
+          icon={Gauge}
+          label="OTP Rate Limiting"
+          sub="Max OTP requests per phone/IP before the user is throttled"
+          color="text-orange-600"
+          gradient="bg-gradient-to-r from-orange-50/80 to-slate-50"
+        />
+        <div className="p-5 space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-orange-400" />
+                Max per phone
+              </label>
+              <Input
+                type="number"
+                value={rlPhone}
+                onChange={e => setRlPhone(e.target.value)}
+                className="rounded-xl text-sm h-9"
+                min={1}
+                max={100}
+                placeholder="5"
+              />
+              <p className="text-[10px] text-muted-foreground">OTPs per phone per window</p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-400" />
+                Max per IP
+              </label>
+              <Input
+                type="number"
+                value={rlIp}
+                onChange={e => setRlIp(e.target.value)}
+                className="rounded-xl text-sm h-9"
+                min={1}
+                max={500}
+                placeholder="20"
+              />
+              <p className="text-[10px] text-muted-foreground">OTPs per IP per window</p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                Window (minutes)
+              </label>
+              <Input
+                type="number"
+                value={rlWindow}
+                onChange={e => setRlWindow(e.target.value)}
+                className="rounded-xl text-sm h-9"
+                min={1}
+                max={1440}
+                placeholder="60"
+              />
+              <p className="text-[10px] text-muted-foreground">Rolling window duration</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 pt-1">
+            <Button
+              size="sm"
+              className="rounded-xl gap-1.5 bg-orange-600 hover:bg-orange-700 text-white"
+              onClick={saveRateLimits}
+              disabled={rlSaving || updateSettings.isPending}
+            >
+              {rlSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</> : "Save Rate Limits"}
+            </Button>
+            <p className="text-xs text-muted-foreground">Changes apply to new OTP requests immediately.</p>
+          </div>
+        </div>
+      </ProCard>
+
+      {/* ── 5. DELIVERY OTP VIEWER ── */}
+      <ProCard>
+        <CardHeader
+          icon={KeyRound}
+          label="Delivery OTP Viewer"
+          sub="Look up the current handover OTP for a ride or parcel delivery"
+          color="text-teal-600"
+          gradient="bg-gradient-to-r from-teal-50/80 to-slate-50"
+        />
+        <div className="p-5 space-y-4">
+          <div className="flex gap-2">
+            <Input
+              className="flex-1 rounded-xl h-10 text-sm font-mono"
+              placeholder="Enter Ride ID or Delivery ID…"
+              value={rideIdInput}
+              onChange={e => { setRideIdInput(e.target.value); setOtpLookupResult(null); setOtpLookupError(null); }}
+              onKeyDown={e => { if (e.key === "Enter") lookupDeliveryOtp(); }}
+            />
+            <Button
+              size="sm"
+              className="rounded-xl px-4 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white h-10"
+              onClick={lookupDeliveryOtp}
+              disabled={!rideIdInput.trim() || otpLookupLoading}
+            >
+              {otpLookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Look Up"}
+            </Button>
+          </div>
+
+          {otpLookupError && (
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-3.5 py-3">
+              <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-800">{otpLookupError}</p>
+            </div>
+          )}
+
+          {otpLookupResult && (
+            <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-teal-700 uppercase tracking-wider">Ride {otpLookupResult.rideId}</p>
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] font-bold ${
+                    otpLookupResult.otpStatus === "Used"    ? "bg-green-100 text-green-700 border-green-300" :
+                    otpLookupResult.otpStatus === "Expired" ? "bg-red-100 text-red-700 border-red-300" :
+                    "bg-amber-100 text-amber-700 border-amber-300"
+                  }`}
+                >
+                  {otpLookupResult.otpStatus}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <p className="text-[10px] text-muted-foreground mb-1">OTP Code</p>
+                  {otpLookupResult.otp ? (
+                    <div className="flex items-center gap-2">
+                      <code className={`font-mono font-bold text-xl tracking-[0.3em] text-teal-900 bg-white border border-teal-300 px-3 py-1.5 rounded-lg ${!otpVisible ? "blur-sm select-none" : ""}`}>
+                        {otpLookupResult.otp}
+                      </code>
+                      <button
+                        onClick={() => setOtpVisible(v => !v)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                        title={otpVisible ? "Hide OTP" : "Reveal OTP"}
+                      >
+                        {otpVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground italic">No OTP generated</span>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Ride Status</p>
+                  <p className="text-xs font-semibold text-foreground capitalize">{otpLookupResult.rideStatus}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(otpLookupResult.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+              {!otpVisible && otpLookupResult.otp && (
+                <p className="text-[11px] text-teal-600 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Click the eye icon to reveal the OTP — only do this when assisting a customer.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!otpLookupResult && !otpLookupError && !otpLookupLoading && (
+            <div className="text-center py-6 text-sm text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border">
+              <KeyRound className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
+              Enter a Ride ID above to look up its delivery OTP
+            </div>
+          )}
+        </div>
+      </ProCard>
+
+      {/* ── 6. WHITELIST ── */}
       <WhitelistSection />
     </div>
   );
