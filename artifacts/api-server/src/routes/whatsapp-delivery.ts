@@ -42,7 +42,7 @@ router.get("/messages", async (req, res) => {
   const pool = getPool();
   if (!pool) { sendError(res, "Database not configured", 503); return; }
 
-  const page = Math.max(1, parseInt(String(req.query["page"] ?? "1")));
+  const page  = Math.max(1, parseInt(String(req.query["page"]  ?? "1")));
   const limit = Math.min(100, parseInt(String(req.query["limit"] ?? "50")));
   const offset = (page - 1) * limit;
 
@@ -73,6 +73,118 @@ router.get("/health", async (_req, res) => {
     sendSuccess(res, { healthy: true });
   } catch {
     sendSuccess(res, { healthy: false, reason: "db_error" });
+  }
+});
+
+router.get("/delivery-log", async (req, res) => {
+  const pool = getPool();
+  if (!pool) { sendError(res, "Database not configured", 503); return; }
+
+  const page   = Math.max(1, parseInt(String(req.query["page"]   ?? "1")));
+  const limit  = Math.min(100, parseInt(String(req.query["limit"]  ?? "50")));
+  const offset = (page - 1) * limit;
+  const status = req.query["status"] as string | undefined;
+  const phone  = req.query["phone"]  as string | undefined;
+
+  try {
+    const conditions: string[] = [];
+    const values: unknown[] = [limit, offset];
+    let idx = 3;
+
+    if (status) {
+      conditions.push(`status = $${idx++}`);
+      values.push(status);
+    }
+    if (phone) {
+      conditions.push(`recipient_phone ILIKE $${idx++}`);
+      values.push(`%${phone}%`);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const result = await pool.query(
+      `SELECT * FROM whatsapp_message_log ${where} ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+      values,
+    );
+
+    const countValues = values.slice(2);
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as count FROM whatsapp_message_log ${where}`,
+      countValues,
+    );
+
+    sendSuccess(res, {
+      messages: result.rows,
+      total: parseInt(String(countResult.rows[0]?.count ?? "0")),
+      page,
+      limit,
+    });
+  } catch (err) {
+    logger.error({ err }, "[whatsapp-delivery] delivery-log error");
+    sendSuccess(res, { messages: [], total: 0, page, limit });
+  }
+});
+
+router.get("/delivery-log/stats", async (_req, res) => {
+  const pool = getPool();
+  if (!pool) { sendError(res, "Database not configured", 503); return; }
+
+  try {
+    const result = await pool.query(`
+      SELECT
+        status,
+        COUNT(*)::int                                        AS count,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS last24h,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int  AS last7d
+      FROM whatsapp_message_log
+      GROUP BY status
+      ORDER BY count DESC
+    `);
+
+    const total = result.rows.reduce((s: number, r: { count: number }) => s + r.count, 0);
+    sendSuccess(res, { stats: result.rows, total });
+  } catch (err) {
+    logger.error({ err }, "[whatsapp-delivery] delivery-log stats error");
+    sendSuccess(res, { stats: [], total: 0 });
+  }
+});
+
+router.post("/delivery-log/retry", async (req, res) => {
+  const pool = getPool();
+  if (!pool) { sendError(res, "Database not configured", 503); return; }
+
+  const { messageId } = req.body ?? {};
+  if (!messageId) {
+    sendError(res, "messageId is required", 400);
+    return;
+  }
+
+  try {
+    const existing = await pool.query(
+      `SELECT * FROM whatsapp_message_log WHERE id = $1 LIMIT 1`,
+      [messageId],
+    );
+
+    if (existing.rows.length === 0) {
+      sendError(res, "Message not found", 404);
+      return;
+    }
+
+    const msg = existing.rows[0];
+    if (msg.status !== "failed") {
+      sendError(res, `Cannot retry message with status '${msg.status}'. Only failed messages can be retried.`, 400);
+      return;
+    }
+
+    await pool.query(
+      `UPDATE whatsapp_message_log SET status = 'pending', retry_count = COALESCE(retry_count, 0) + 1, updated_at = NOW() WHERE id = $1`,
+      [messageId],
+    );
+
+    sendSuccess(res, { success: true, messageId, status: "pending" });
+  } catch (err) {
+    logger.error({ err }, "[whatsapp-delivery] retry error");
+    sendError(res, "Failed to retry message", 500);
   }
 });
 

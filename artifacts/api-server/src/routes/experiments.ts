@@ -1,23 +1,59 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { abExperimentsTable, abAssignmentsTable } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { generateId } from "../lib/id.js";
 import { sendSuccess, sendNotFound, sendValidationError } from "../lib/response.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const experiments = await db
+    const page  = Math.max(1, parseInt(String(req.query["page"]  ?? "1")));
+    const limit = Math.min(100, parseInt(String(req.query["limit"] ?? "50")));
+    const offset = (page - 1) * limit;
+    const status = req.query["status"] as string | undefined;
+
+    let query = db
       .select()
       .from(abExperimentsTable)
-      .where(eq(abExperimentsTable.status, "active"));
-    sendSuccess(res, { experiments });
+      .orderBy(desc(abExperimentsTable.createdAt))
+      .$dynamic();
+
+    if (status) {
+      query = query.where(eq(abExperimentsTable.status, status));
+    }
+
+    const all = await query;
+    const total = all.length;
+    const experiments = all.slice(offset, offset + limit);
+
+    sendSuccess(res, { experiments, total, page, limit });
   } catch (err) {
     logger.error({ err }, "[experiments] list error");
-    sendSuccess(res, { experiments: [] });
+    sendSuccess(res, { experiments: [], total: 0, page: 1, limit: 50 });
+  }
+});
+
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [experiment] = await db
+      .select()
+      .from(abExperimentsTable)
+      .where(eq(abExperimentsTable.id, id))
+      .limit(1);
+
+    if (!experiment) {
+      sendNotFound(res, "Experiment not found");
+      return;
+    }
+
+    sendSuccess(res, { experiment });
+  } catch (err) {
+    logger.error({ err }, "[experiments] get error");
+    sendNotFound(res, "Experiment not found");
   }
 });
 

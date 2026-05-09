@@ -94,3 +94,5 @@ export * from "./cart_snapshots";
 export * from "./totp_recovery_codes";
 export * from "./referral_codes";
 export * from "./pharmacy_prescription_refs";
+export * from "./loyalty_campaigns";
+export * from "./loyalty_rewards";
