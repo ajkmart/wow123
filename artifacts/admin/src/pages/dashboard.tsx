@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { fetcher } from "@/lib/api";
+import { adminGet } from "@/lib/adminFetcher";
 import { useLanguage } from "@/lib/useLanguage";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { PullToRefresh } from "@/components/PullToRefresh";
@@ -22,7 +23,7 @@ function exportDashboard(
   setExporting: (v: boolean) => void,
 ) {
   setExporting(true);
-  fetcher("/fleet/dashboard-export").then((data: any) => {
+  adminGet("/fleet/dashboard-export").then((data: any) => {
     const enriched = { ...data, trend: data.trend ?? trend };
     const blob = new Blob([JSON.stringify(enriched, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -108,10 +109,12 @@ function LiveMetricsStrip() {
   const pendThreshold = parseInt(getSetting("dashboard_pending_threshold") || "30", 10);
 
   // Use real DB-backed live stats for threshold comparison (not activity-feed event counts)
+  interface AdminStats { pendingOrders?: number; activeSos?: number; failedPayments?: number; [key: string]: unknown; }
   const { data: liveStats } = useStats();
-  const pendingOrders  = (liveStats as any)?.pendingOrders  ?? 0;
-  const activeSos      = (liveStats as any)?.activeSos      ?? 0;
-  const failedPayments = (liveStats as any)?.failedPayments ?? 0;
+  const stats = liveStats as AdminStats | undefined;
+  const pendingOrders  = stats?.pendingOrders  ?? 0;
+  const activeSos      = stats?.activeSos      ?? 0;
+  const failedPayments = stats?.failedPayments ?? 0;
 
   const failThreshold = parseInt(getSetting("dashboard_failed_payments_threshold") || "5", 10);
 

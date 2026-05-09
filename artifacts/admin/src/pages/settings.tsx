@@ -28,6 +28,9 @@ import { tDual } from "@workspace/i18n";
 import { PaymentSection } from "./settings-payment";
 import { IntegrationsSection } from "./settings-integrations";
 import { SecuritySection } from "./settings-security";
+import { GeneralSection } from "./settings-general";
+import { NotificationsSection } from "./settings-notifications";
+import { MonitoringSection } from "./settings-monitoring";
 import { NavigationGuard } from "@/components/NavigationGuard";
 import { SystemSection } from "./settings-system";
 import { WeatherSection } from "./settings-weather";
@@ -1059,9 +1062,25 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground mt-0.5">{activeCfg.description}</p>
               </div>
             </div>
-            {/* Section body — renders every legacy child sub-section in order */}
+            {/* Section body — dedicated section components for general/notifications/monitoring;
+                per-category loop for all other top-10 groups */}
             <div className="p-4 sm:p-6 space-y-8">
-              {activeChildrenWithContent.length === 0 ? (
+              {activeTop10 === "general" ? (
+                <GeneralSection
+                  settings={settings} grouped={grouped} localValues={localValues}
+                  dirtyKeys={dirtyKeys} handleChange={handleChange} handleToggle={handleToggle}
+                />
+              ) : activeTop10 === "notifications" ? (
+                <NotificationsSection
+                  settings={settings} grouped={grouped} localValues={localValues}
+                  dirtyKeys={dirtyKeys} handleChange={handleChange} handleToggle={handleToggle}
+                />
+              ) : activeTop10 === "monitoring" ? (
+                <MonitoringSection
+                  settings={settings} grouped={grouped} localValues={localValues}
+                  dirtyKeys={dirtyKeys} handleChange={handleChange} handleToggle={handleToggle}
+                />
+              ) : activeChildrenWithContent.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Settings2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
                   <p className="text-sm">No settings in this section</p>

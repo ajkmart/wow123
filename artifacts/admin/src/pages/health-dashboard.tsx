@@ -138,10 +138,20 @@ export default function HealthDashboard() {
     qc.invalidateQueries({ queryKey: ["admin-health-dashboard"] });
   }, [qc]);
 
-  const d = raw as any;
-  const hasIssues = d?.issues?.length > 0;
-  const errorCount = (d?.issues ?? []).filter((i: any) => i.level === "error").length;
-  const warnCount = (d?.issues ?? []).filter((i: any) => i.level === "warning").length;
+  interface HealthIssue { level: "error" | "warning" | string; message?: string; code?: string; }
+  interface HealthData {
+    issues?: HealthIssue[];
+    maintenanceMode?: boolean;
+    features?: Record<string, boolean>;
+    server?: { db?: string; uptimeFormatted?: string; memoryMb?: number; nodeVersion?: string };
+    gps?: { liveTrackingEnabled?: boolean; ridersInLiveTable?: number; ridersWithRecentPing?: number; staleRiders?: number; spoofDetectionEnabled?: boolean; maxSpeedKmh?: number };
+    moderation?: { customPatternsCount?: number; customPatternsValid?: boolean; flagKeywordsCount?: number; hidePhone?: boolean; hideEmail?: boolean; hideCnic?: boolean; hideBank?: boolean; hideAddress?: boolean };
+    alertConfig?: { monitorEnabled?: boolean; intervalMin?: number; snoozeMin?: number; emailConfigured?: boolean; alertEmail?: string; slackConfigured?: boolean };
+  }
+  const d = raw as HealthData | undefined;
+  const hasIssues = (d?.issues?.length ?? 0) > 0;
+  const errorCount = (d?.issues ?? []).filter(i => i.level === "error").length;
+  const warnCount = (d?.issues ?? []).filter(i => i.level === "warning").length;
   const alertCfg = d?.alertConfig;
 
   return (
@@ -178,7 +188,7 @@ export default function HealthDashboard() {
               {" "}detected — review below
             </span>
           </div>
-          {d.issues.map((issue: any, idx: number) => (
+          {(d?.issues ?? []).map((issue, idx) => (
             <IssueRow key={idx} level={issue.level} message={issue.message} />
           ))}
         </div>
@@ -275,7 +285,7 @@ export default function HealthDashboard() {
                     />
                     {d?.gps?.ridersWithRecentPing ?? 0}
                     {(d?.gps?.staleRiders ?? 0) > 0 && (
-                      <span className="text-xs text-amber-400">({d.gps.staleRiders} stale)</span>
+                      <span className="text-xs text-amber-400">({d?.gps?.staleRiders} stale)</span>
                     )}
                   </span>
                 }
@@ -314,7 +324,7 @@ export default function HealthDashboard() {
                 label="Custom regex patterns"
                 value={
                   <span className="flex items-center gap-2">
-                    {d?.moderation?.customPatternsCount > 0 || !d?.moderation?.customPatternsValid === false ? (
+                    {(d?.moderation?.customPatternsCount ?? 0) > 0 || !d?.moderation?.customPatternsValid === false ? (
                       <StatusDot ok={d?.moderation?.customPatternsValid !== false} />
                     ) : null}
                     {d?.moderation?.customPatternsCount ?? 0} loaded

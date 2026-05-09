@@ -100,7 +100,8 @@ import NotFound from "@/pages/not-found";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: false,
+      retry: 1,
+      retryDelay: 1000,
       refetchOnWindowFocus: false,
     },
   },

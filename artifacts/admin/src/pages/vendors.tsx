@@ -56,12 +56,12 @@ function SuspendModal({ vendor, onClose }: { vendor: any; onClose: () => void })
           <DialogTitle>Vendor Status — {vendor.storeName || vendor.name}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 mt-2">
-          {[
+          {([ 
             { key: "active",  label: "Active",                desc: "Vendor can accept orders", color: "green" },
             { key: "blocked", label: "Temporarily Blocked",   desc: "Suspend without ban",       color: "amber" },
             { key: "banned",  label: "Permanently Banned",    desc: "Ban with reason",           color: "red" },
-          ].map(opt => (
-            <div key={opt.key} onClick={() => setAction(opt.key as any)}
+          ] as Array<{ key: "active"|"blocked"|"banned"; label: string; desc: string; color: string }>).map(opt => (
+            <div key={opt.key} onClick={() => setAction(opt.key)}
               className={`p-3 rounded-xl border cursor-pointer transition-all ${action === opt.key
                 ? opt.color === "green" ? "bg-green-50 border-green-400"
                 : opt.color === "amber" ? "bg-amber-50 border-amber-400"

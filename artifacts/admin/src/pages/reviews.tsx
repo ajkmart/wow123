@@ -375,6 +375,7 @@ export default function ReviewsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [searchQ, setSearchQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showModQueue, setShowModQueue] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const limit = 25;
@@ -488,8 +489,8 @@ export default function ReviewsPage() {
 
   const handleSearch = (v: string) => {
     setSearchQ(v);
-    clearTimeout((window as any).__reviewSearchTimeout);
-    (window as any).__reviewSearchTimeout = setTimeout(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
       setDebouncedQ(v);
       setPage(1);
     }, 400);
