@@ -147,7 +147,15 @@ router.use("/admin/legal", adminAuth, legalRouter);
 router.use("/docs", docsRouter);
 
 router.use("/referrals", userApiLimiter, referralsRouter);
-/* loyalty/redeem lives at POST /api/loyalty/redeem — separate from /users */
+/*
+ * Two routers are intentionally mounted under /loyalty — there is NO route overlap.
+ * loyaltyRouter (below) owns POST /loyalty/redeem and GET /loyalty/balance.
+ *   It is auth-gated by userApiLimiter and handles customer-facing loyalty actions.
+ * loyaltyFullRouter (further below) owns GET /loyalty/settings, /loyalty/leaderboard,
+ *   and /loyalty/stats plus all admin CRUD for campaigns and rewards.
+ * Express resolves requests sequentially; the first router to match a path wins,
+ * so the split works correctly without any handler collisions.
+ */
 router.use("/loyalty", userApiLimiter, loyaltyRouter);
 /* admin/school/subscriptions — paginated list + cancel */
 router.use("/admin/school", adminSchoolRouter);

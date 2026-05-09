@@ -28,7 +28,8 @@ router.post("/experiments", async (req, res) => {
     }
   }
 
-  const names = variants.map((v: any) => v.name.trim());
+  interface Variant { name: string; weight: number }
+  const names = variants.map((v: Variant) => v.name.trim());
   if (new Set(names).size !== names.length) {
     sendValidationError(res, "Variant names must be unique"); return;
   }

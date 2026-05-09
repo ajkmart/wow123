@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { db } from "@workspace/db";
 import { usersTable, walletTransactionsTable, loyaltyCampaignsTable, loyaltyRewardsTable } from "@workspace/db/schema";
-import { eq, or, sql, desc } from "drizzle-orm";
+import { eq, or, sql, desc, inArray } from "drizzle-orm";
 import { generateId } from "../lib/id.js";
 import { sendSuccess, sendError, sendNotFound, sendValidationError } from "../lib/response.js";
 import { adminAuth, getCachedSettings } from "./admin-shared.js";
@@ -97,10 +97,11 @@ router.get("/leaderboard", async (_req, res) => {
       return;
     }
 
+    const top20Ids = topEntries.map(e => e.userId);
     const users = await db
       .select({ id: usersTable.id, name: usersTable.name, phone: usersTable.phone, avatar: usersTable.avatar })
       .from(usersTable)
-      .orderBy(desc(usersTable.createdAt));
+      .where(inArray(usersTable.id, top20Ids));
 
     const userMap = new Map(users.map(u => [u.id, u]));
 

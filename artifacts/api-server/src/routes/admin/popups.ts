@@ -5,6 +5,7 @@ import { popupCampaignsTable, popupTemplatesTable, popupImpressionsTable } from 
 import { eq, sql, desc } from "drizzle-orm";
 import { generateId } from "../../lib/id.js";
 import { sendSuccess, sendError, sendNotFound, sendValidationError } from "../../lib/response.js";
+import { type AdminRequest } from "../admin-shared.js";
 import { generateAIContent } from "../../services/communicationAI.js";
 import { logger } from "../../lib/logger.js";
 
@@ -128,7 +129,7 @@ Respond ONLY with a valid JSON object (no markdown, no extra text):
 
     const validHex = (v: unknown) => /^#[0-9A-Fa-f]{6}$/.test(String(v ?? ""));
 
-    res.json({
+    sendSuccess(res, {
       title: String(popupData.title ?? ""),
       body: String(popupData.body ?? ""),
       ctaText: String(popupData.ctaText ?? ""),
@@ -147,7 +148,7 @@ Respond ONLY with a valid JSON object (no markdown, no extra text):
   } catch (err) {
     logger.error({ err }, "[admin/popups/ai-generate] error");
     const fallback = generateFallbackPopup(goal, tone);
-    res.json({ ...fallback, source: "template_fallback" });
+    sendSuccess(res, { ...fallback, source: "template_fallback" });
   }
 });
 
@@ -194,7 +195,7 @@ function generateFallbackPopup(goal: string, tone: string): Record<string, unkno
   };
 }
 
-router.post("/popups", async (req: any, res) => {
+router.post("/popups", async (req: AdminRequest, res) => {
   try {
     const { title, ...rest } = req.body ?? {};
     if (!title?.trim()) { sendValidationError(res, "Title is required"); return; }
