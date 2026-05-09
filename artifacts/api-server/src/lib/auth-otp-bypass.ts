@@ -8,7 +8,7 @@
 import { db } from "@workspace/db";
 import { usersTable, platformSettingsTable, otpBypassAuditTable, whitelistUsersTable } from "@workspace/db/schema";
 import { eq, and, gt, or, isNull } from "drizzle-orm";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { generateId } from "../lib/id.js";
 import { logger } from "../lib/logger.js";
 

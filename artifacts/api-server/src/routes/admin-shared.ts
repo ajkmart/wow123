@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import { randomBytes } from "crypto";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { eq, and, isNull } from "drizzle-orm";
 import {
   db,

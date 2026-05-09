@@ -12,8 +12,6 @@ import { startScheduler, stopScheduler } from "./scheduler.js";
 if (process.env.SENTRY_DSN) {
   (async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      // @ts-expect-error — @sentry/node is optional; install with: pnpm --filter @workspace/api-server add @sentry/node
       const Sentry = await import("@sentry/node");
       Sentry.init({
         dsn: process.env.SENTRY_DSN,

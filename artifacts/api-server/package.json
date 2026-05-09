@@ -13,8 +13,6 @@
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
-    "@types/multer": "^2.1.0",
-    "@types/swagger-ui-express": "^4.1.8",
     "@workspace/api-zod": "workspace:*",
     "@workspace/auth-utils": "workspace:*",
     "@workspace/db": "workspace:*",
@@ -22,7 +20,6 @@
     "@workspace/integrations-gemini-ai": "workspace:*",
     "@workspace/phone-utils": "workspace:*",
     "@workspace/service-constants": "workspace:*",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -52,19 +49,23 @@
     "yaml": "^2.8.4",
     "zod": "catalog:"
   },
+  "optionalDependencies": {
+    "@sentry/node": "^8"
+  },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.1.0",
     "@types/node": "catalog:",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.11",
     "@types/pg": "^8.18.0",
     "@types/qrcode": "^1.5.6",
     "@types/supertest": "^7.2.0",
+    "@types/swagger-ui-express": "^4.1.8",
     "@types/web-push": "^3.6.4",
     "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.9",
