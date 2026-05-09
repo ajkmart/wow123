@@ -224,6 +224,55 @@ export async function runStartupTasks(): Promise<void> {
   }
 }
 
+/**
+ * Validate and return the CORS allowed-origins whitelist.
+ *
+ * Production: fatal exit if no origins are configured — a misconfigured
+ *   production server must never silently allow all origins.
+ * Development: warns and falls back to a safe localhost-only list so
+ *   developers can work without setting every env var upfront.
+ */
+function validateCORS(): string[] {
+  const fromEnv = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+    : [
+        ...(process.env.FRONTEND_URL || '').split(','),
+        ...(process.env.CLIENT_URL || '').split(','),
+        ...(process.env.ADMIN_BASE_URL || '').split(','),
+      ].filter(Boolean);
+
+  if (fromEnv.length > 0) {
+    return fromEnv;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    logger.fatal(
+      '\n' +
+      '╔══════════════════════════════════════════════════════════════════╗\n' +
+      '║  FATAL: ALLOWED_ORIGINS is not set in production.               ║\n' +
+      '║  Without it the CORS middleware would allow ALL origins,         ║\n' +
+      '║  exposing credentialed API endpoints to any website.             ║\n' +
+      '║  Set ALLOWED_ORIGINS to a comma-separated list of allowed URLs   ║\n' +
+      '║  and restart the server.                                         ║\n' +
+      '╚══════════════════════════════════════════════════════════════════╝'
+    );
+    process.exit(1);
+  }
+
+  // Development fallback — safe localhost-only list
+  const devFallback = [
+    'http://localhost:5173',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://127.0.0.1:5000',
+  ];
+  logger.warn(
+    { allowedOrigins: devFallback },
+    '[SECURITY:CORS] ALLOWED_ORIGINS not set — falling back to localhost-only whitelist for development. Set ALLOWED_ORIGINS before deploying to production.'
+  );
+  return devFallback;
+}
+
 export function createServer() {
   const app = express();
   
@@ -412,33 +461,26 @@ export function createServer() {
     next();
   });
   
-  // CORS with credentials support
-  // Primary source: ALLOWED_ORIGINS (comma-separated list).
-  // Fallback: individual URL vars so no existing deploy is broken.
+  // CORS with strict origin whitelist.
+  // validateCORS() enforces production-fatal / dev-fallback logic and returns
+  // the final allowed-origins list. The callback never falls through to allow-all.
+  const allowedOrigins = validateCORS();
+  logger.info({ allowedOrigins }, '[SECURITY:CORS] Active allowed origins');
+
   app.use(cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-      // In development or on Replit, allow all origins
-      if (process.env.NODE_ENV !== 'production') {
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      // In production, read ALLOWED_ORIGINS first, then fall back to individual vars
-      const allowedOrigins = process.env.ALLOWED_ORIGINS
-        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
-        : [
-            ...(process.env.FRONTEND_URL || '').split(','),
-            ...(process.env.CLIENT_URL || '').split(','),
-            ...(process.env.ADMIN_BASE_URL || '').split(','),
-          ].filter(Boolean);
-      if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      callback(new Error('Not allowed by CORS'));
+      logger.warn({ blockedOrigin: origin }, '[SECURITY:CORS] Request blocked — origin not in whitelist');
+      callback(new Error('CORS policy violation'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Report-Signature', 'X-Request-ID'],
+    maxAge: 3600,
   }));
   
   app.use(cookieParser());
