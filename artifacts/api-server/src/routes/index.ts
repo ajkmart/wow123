@@ -51,6 +51,10 @@ import sentryWebhookRouter from "./sentry-webhook.js";
 import cartRouter from "./cart.js";
 import referralsRouter from "./referrals.js";
 import loyaltyRouter from "./loyalty.js";
+import experimentsRouter from "./experiments.js";
+import whatsappDeliveryRouter from "./whatsapp-delivery.js";
+import businessRulesRouter from "./business-rules.js";
+import loyaltyFullRouter from "./loyalty-full.js";
 import { adminAuth } from "./admin-shared.js";
 import { userApiLimiter } from "../middleware/rate-limit.js";
 
@@ -147,5 +151,10 @@ router.use("/referrals", userApiLimiter, referralsRouter);
 router.use("/loyalty", userApiLimiter, loyaltyRouter);
 /* admin/school/subscriptions — paginated list + cancel */
 router.use("/admin/school", adminSchoolRouter);
+
+router.use("/experiments", experimentsRouter);
+router.use("/whatsapp", whatsappDeliveryRouter);
+router.use("/business-rules", businessRulesRouter);
+router.use("/loyalty", loyaltyFullRouter);
 
 export default router;
