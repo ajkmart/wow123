@@ -38,7 +38,7 @@ process.on("uncaughtException", (err) => {
 });
 
 // ─── ENV FIRST-RUN CHECK ───────────────────────────────────────────────────
-const CRITICAL_VARS = ["DATABASE_URL", "JWT_SECRET"] as const;
+const CRITICAL_VARS = ["DATABASE_URL", "JWT_SECRET", "ENCRYPTION_MASTER_KEY"] as const;
 const IMPORTANT_VARS = [
   "ADMIN_ACCESS_TOKEN_SECRET",
   "ADMIN_REFRESH_TOKEN_SECRET",

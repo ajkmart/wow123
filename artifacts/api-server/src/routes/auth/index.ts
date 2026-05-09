@@ -42,6 +42,7 @@ import { randomBytes, createHash, randomInt } from "crypto";
 import { hashPassword, verifyPassword, validatePasswordStrength, generateSecureOtp } from "../../services/password.js";
 import { generateTotpSecret, verifyTotpToken, generateQRCodeDataURL, getTotpUri, encryptTotpSecret, decryptTotpSecret } from "../../services/totp.js";
 import { sendVerificationEmail, sendPasswordResetEmail, sendMagicLinkEmail, alertNewVendor, isEmailProviderConfigured } from "../../services/email.js";
+import { encrypt, decrypt, isEncryptionAvailable } from "../../lib/crypto/encryption.js";
 import { getUserLanguage, getPlatformDefaultLanguage } from "../../lib/getUserLanguage.js";
 import { t, type TranslationKey } from "@workspace/i18n";
 import { logger } from "../../lib/logger.js";
@@ -83,16 +84,10 @@ const sendOtpSchema = SendOtpSchema;
 const verifyOtpSchema = VerifyOtpSchema;
 const loginSchema = UserLoginSchema;
 
-/* refreshToken is optional in the body because rider clients now carry the
-   refresh credential as an HttpOnly cookie (`ajkmart_rider_refresh`); the
-   handler validates that AT LEAST ONE source is present. The body field is
-   still accepted for one release as a documented fallback for legacy clients
-   and for non-rider apps (customer/vendor) that have not migrated to cookies.
-   TODO(remove-after-v1): once every active rider build is on the cookie
-   client, drop the body field from this schema and require the cookie. */
-const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(10, "refreshToken must be at least 10 chars").optional(),
-}).strip();
+/* Refresh tokens are carried exclusively as HttpOnly cookies (rider or vendor).
+   Body-submitted refresh tokens are rejected unconditionally by the handler.
+   This schema is kept minimal — the body field is not accepted. */
+const refreshTokenSchema = z.object({}).strip();
 
 /* ── Rider refresh-token cookie ──────────────────────────────────────────────
    HttpOnly + SameSite=Strict cookie that carries the refresh token for the
@@ -217,6 +212,29 @@ const registerSchema = z.object({
 
 function hashOtp(otp: string): string {
   return createHash("sha256").update(otp).digest("hex");
+}
+
+/** Encrypt a PII string when ENCRYPTION_MASTER_KEY is available; returns null silently if not. */
+function tryEncrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    if (!isEncryptionAvailable()) return null;
+    return encrypt(value);
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve a PII field: read from encrypted column first, fall back to plaintext for legacy rows. */
+function decryptPii(encrypted: string | null | undefined, plaintext: string | null | undefined): string | null {
+  if (encrypted) {
+    try {
+      if (isEncryptionAvailable()) return decrypt(encrypted);
+    } catch {
+      /* fall through to plaintext on decryption failure */
+    }
+  }
+  return plaintext ?? null;
 }
 
 function normalizeVehicleTypeForStorage(raw: string): string {
@@ -668,7 +686,7 @@ router.post("/merge-account", async (req, res) => {
     const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
     if (existing) { res.status(409).json({ error: "This phone number is already linked to another account" }); return; }
 
-    await db.update(usersTable).set({ phone, mergeOtpCode: null, mergeOtpExpiry: null, phoneVerified: true, pendingMergeIdentifier: null, updatedAt: new Date() }).where(eq(usersTable.id, auth.userId));
+    await db.update(usersTable).set({ phone, encryptedPhone: tryEncrypt(phone), mergeOtpCode: null, mergeOtpExpiry: null, phoneVerified: true, pendingMergeIdentifier: null, updatedAt: new Date() }).where(eq(usersTable.id, auth.userId));
 
     writeAuthAuditLog("account_merge_phone", { ip, userId: auth.userId, userAgent: req.headers["user-agent"] ?? undefined, metadata: { phone } });
     res.json({ success: true, message: "Phone number linked successfully", linked: "phone" });
@@ -679,7 +697,7 @@ router.post("/merge-account", async (req, res) => {
     const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email)).limit(1);
     if (existing) { res.status(409).json({ error: "This email is already linked to another account" }); return; }
 
-    await db.update(usersTable).set({ email, mergeOtpCode: null, mergeOtpExpiry: null, emailVerified: true, pendingMergeIdentifier: null, updatedAt: new Date() }).where(eq(usersTable.id, auth.userId));
+    await db.update(usersTable).set({ email, encryptedEmail: tryEncrypt(email), mergeOtpCode: null, mergeOtpExpiry: null, emailVerified: true, pendingMergeIdentifier: null, updatedAt: new Date() }).where(eq(usersTable.id, auth.userId));
 
     writeAuthAuditLog("account_merge_email", { ip, userId: auth.userId, userAgent: req.headers["user-agent"] ?? undefined, metadata: { email } });
     res.json({ success: true, message: "Email linked successfully", linked: "email" });
@@ -1121,6 +1139,7 @@ router.post("/verify-otp", otpLimiter, verifyCaptcha, sharedValidateBody(verifyO
     await db.insert(usersTable).values({
       id:             newUserId,
       phone,
+      encryptedPhone: tryEncrypt(phone),
 
       roles:          "customer",
       walletBalance:  "0",
@@ -2113,7 +2132,7 @@ router.post("/verify-email-otp", verifyCaptcha, async (req, res) => {
     res.json({
       token: accessToken, expiresAt, pendingApproval: true,
       message: "Aapka account admin approval ke liye bheja gaya hai.",
-      user: { id: user.id, phone: user.phone, name: user.name, role: user.roles, roles: user.roles, approvalStatus: "pending" },
+      user: { id: user.id, phone: decryptPii(user.encryptedPhone, user.phone), name: user.name, role: user.roles, roles: user.roles, approvalStatus: "pending" },
     });
     return;
   }
@@ -2136,7 +2155,7 @@ router.post("/verify-email-otp", verifyCaptcha, async (req, res) => {
     res.json({
       token: accessToken, refreshToken: refreshRaw, expiresAt, sessionDays: getRefreshTokenTtlDays(),
       canAddCustomerRole: true, code: "cross_app_account", wrongApp: true,
-      user: { id: user.id, phone: user.phone, name: user.name, email: user.email, username: user.username, role: user.roles, roles: user.roles ?? "customer", avatar: user.avatar, walletBalance: parseFloat(user.walletBalance ?? "0"), emailVerified: true, phoneVerified: user.phoneVerified ?? false },
+      user: { id: user.id, phone: decryptPii(user.encryptedPhone, user.phone), name: user.name, email: decryptPii(user.encryptedEmail, user.email), username: user.username, role: user.roles, roles: user.roles ?? "customer", avatar: user.avatar, walletBalance: parseFloat(user.walletBalance ?? "0"), emailVerified: true, phoneVerified: user.phoneVerified ?? false },
     });
     return;
   }
@@ -2147,7 +2166,7 @@ router.post("/verify-email-otp", verifyCaptcha, async (req, res) => {
     expiresAt,
     sessionDays:  getRefreshTokenTtlDays(),
     pendingApproval: false,
-    user: { id: user.id, phone: user.phone, name: user.name, email: user.email, username: user.username, role: user.roles, roles: user.roles ?? "customer", avatar: user.avatar, walletBalance: parseFloat(user.walletBalance ?? "0"), emailVerified: true, phoneVerified: user.phoneVerified ?? false },
+    user: { id: user.id, phone: decryptPii(user.encryptedPhone, user.phone), name: user.name, email: decryptPii(user.encryptedEmail, user.email), username: user.username, role: user.roles, roles: user.roles ?? "customer", avatar: user.avatar, walletBalance: parseFloat(user.walletBalance ?? "0"), emailVerified: true, phoneVerified: user.phoneVerified ?? false },
   });
 });
 
@@ -2317,7 +2336,7 @@ async function handleUnifiedLogin(req: Request, res: any) {
     res.json({
       token: accessToken, expiresAt, pendingApproval: true,
       message: "Aapka account admin approval ke liye bheja gaya hai.",
-      user: { id: user.id, phone: user.phone, name: user.name, role: user.roles, roles: user.roles, approvalStatus: "pending" },
+      user: { id: user.id, phone: decryptPii(user.encryptedPhone, user.phone), name: user.name, role: user.roles, roles: user.roles, approvalStatus: "pending" },
     });
     return;
   }
@@ -2340,7 +2359,7 @@ async function handleUnifiedLogin(req: Request, res: any) {
     pendingApproval: false,
     identifierType: idType,
     requirePasswordChange: user.requirePasswordChange ?? false,
-    user: { id: user.id, phone: user.phone, name: user.name, email: user.email, username: user.username, role: user.roles, roles: user.roles, avatar: user.avatar, walletBalance: parseFloat(user.walletBalance ?? "0"), emailVerified: user.emailVerified ?? false, phoneVerified: user.phoneVerified ?? false },
+    user: { id: user.id, phone: decryptPii(user.encryptedPhone, user.phone), name: user.name, email: decryptPii(user.encryptedEmail, user.email), username: user.username, role: user.roles, roles: user.roles, avatar: user.avatar, walletBalance: parseFloat(user.walletBalance ?? "0"), emailVerified: user.emailVerified ?? false, phoneVerified: user.phoneVerified ?? false },
   });
 }
 
@@ -2439,7 +2458,7 @@ router.post("/login/verify-otp", async (req, res) => {
     refreshToken: refreshRaw,
     expiresAt,
     sessionDays: getRefreshTokenTtlDays(),
-    user: { id: user.id, phone: user.phone, name: user.name, email: user.email, username: user.username, role: user.roles, roles: user.roles, walletBalance: parseFloat(user.walletBalance ?? "0") },
+    user: { id: user.id, phone: decryptPii(user.encryptedPhone, user.phone), name: user.name, email: decryptPii(user.encryptedEmail, user.email), username: user.username, role: user.roles, roles: user.roles, walletBalance: parseFloat(user.walletBalance ?? "0") },
   });
 });
 
@@ -2856,11 +2875,14 @@ router.post("/register", verifyCaptcha, sharedValidateBody(registerSchema), asyn
     if (attempt === 9) throw new Error("Failed to generate unique AJK ID after 10 attempts");
   }
 
+  const emailForInsert = email ? email.toLowerCase().trim() : null;
   await db.insert(usersTable).values({
     id: userId,
     phone: normalizedPhone,
+    encryptedPhone: tryEncrypt(normalizedPhone),
     name: name?.trim() || null,
-    email: email ? email.toLowerCase().trim() : null,
+    email: emailForInsert,
+    encryptedEmail: tryEncrypt(emailForInsert),
     username: cleanUsername,
 
     roles: userRole,
@@ -3337,8 +3359,10 @@ router.post("/email-register", verifyCaptcha, async (req, res) => {
   await db.insert(usersTable).values({
     id: userId,
     phone: resolvedPhone,
+    encryptedPhone: tryEncrypt(phone?.trim() || null),
     name: name?.trim() || null,
     email: normalizedEmail,
+    encryptedEmail: tryEncrypt(normalizedEmail),
     username: cleanUsername,
 
     roles: userRole,

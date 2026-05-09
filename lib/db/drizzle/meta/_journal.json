@@ -43,6 +43,13 @@
       "when": 1778224533135,
       "tag": "0005_red_human_robot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1746960000000,
+      "tag": "0006_pii_encryption_columns",
+      "breakpoints": true
     }
   ]
 }

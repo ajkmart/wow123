@@ -81,7 +81,9 @@ router.use("/parcel-bookings", parcelRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/addresses", addressesRouter);
 router.use("/settings", settingsRouter);
-router.use("/seed", seedRouter);
+if (process.env["NODE_ENV"] !== "production") {
+  router.use("/seed", seedRouter);
+}
 router.use("/admin/system", systemRouter);
 // Sentry webhook is public (HMAC-verified) — must be mounted BEFORE adminRouter
 // so it is NOT intercepted by adminAuth. The route is POST /admin/sentry-webhook.

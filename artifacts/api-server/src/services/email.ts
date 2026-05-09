@@ -34,13 +34,15 @@ function buildTransporterFromSettings(settings: Record<string, string>): Transpo
   const secure = secMode === "ssl" || port === 465;
   const requireTls = secMode === "tls";
 
+  const rejectUnauthorized = process.env["SMTP_TLS_REJECT_UNAUTHORIZED"] !== "false";
+
   return createTransport({
     host,
     port,
     secure,
     requireTLS: requireTls,
     auth: { user, pass },
-    tls: { rejectUnauthorized: false },
+    tls: { rejectUnauthorized },
   });
 }
 

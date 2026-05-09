@@ -107,6 +107,9 @@ export const usersTable = pgTable("users", {
   lastLoginAt:         timestamp("last_login_at"),
   lastActive:          timestamp("last_active"),
   acceptedTermsVersion: text("accepted_terms_version"),
+  /* ── PII encryption columns (AES-256-GCM, dual-write alongside plaintext) ── */
+  encryptedPhone:  text("encrypted_phone"),
+  encryptedEmail:  text("encrypted_email"),
   deletedAt:       timestamp("deleted_at", { withTimezone: true }),
   createdAt:       timestamp("created_at").notNull().defaultNow(),
   updatedAt:       timestamp("updated_at").notNull().defaultNow(),

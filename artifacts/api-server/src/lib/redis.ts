@@ -39,6 +39,14 @@ let redisClient: Redis | null = null;
 
 const rawUrl = process.env["REDIS_URL"];
 
+if (!rawUrl) {
+  console.warn(
+    "[redis] REDIS_URL is not set — JWT token blacklisting is DISABLED. " +
+    "Logged-out access tokens will remain valid until they expire naturally. " +
+    "Set REDIS_URL in the Replit Secrets panel to enable blacklisting."
+  );
+}
+
 if (rawUrl) {
   const url = sanitizeRedisUrl(rawUrl);
   if (url) {
@@ -50,6 +58,10 @@ if (rawUrl) {
         retryStrategy: (times) => {
           if (times >= 4) {
             console.error("[redis] Max reconnect attempts reached — rate limits will use in-memory store");
+            console.warn(
+              "[redis] Redis connection failed — JWT token blacklisting is DISABLED. " +
+              "Logged-out access tokens will remain valid until they expire naturally."
+            );
             return null; // stop retrying; RedisStore will throw and express-rate-limit falls back
           }
           return Math.min(times * 500, 3000);
@@ -62,6 +74,10 @@ if (rawUrl) {
       redisClient.on("close",   () => console.warn("[redis] Connection closed"));
     } catch (err) {
       console.error("[redis] Failed to initialise client:", (err as Error).message);
+      console.warn(
+        "[redis] Redis init failed — JWT token blacklisting is DISABLED. " +
+        "Logged-out access tokens will remain valid until they expire naturally."
+      );
       redisClient = null;
     }
   }
