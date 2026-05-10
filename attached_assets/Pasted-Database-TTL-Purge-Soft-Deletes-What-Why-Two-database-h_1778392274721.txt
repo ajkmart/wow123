@@ -1,0 +1,29 @@
+Database TTL Purge & Soft Deletes
+What & Why
+Two database hygiene gaps need closing:
+
+TTL purge gaps — live_locations cleanup runs every 30 min but uses a 4-hour window instead of the intended 2-hour window. location_history has no cleanup job at all and will grow without bound.
+Soft deletes — users and orders have no deleted_at column, making hard-delete the only option and breaking audit trails, foreign-key integrity, and any recovery scenarios.
+Done looks like
+live_locations scheduler job purges rows with updated_at < NOW() - INTERVAL '2 hours' (corrected from 4 hours).
+A new location_history cleanup job in the scheduler purges rows with created_at < NOW() - INTERVAL '30 days'.
+users and orders tables have a deleted_at TIMESTAMPTZ column in the Drizzle schema.
+A Drizzle migration adds deleted_at to both tables in the database.
+Existing queries that fetch users or orders filter WHERE deleted_at IS NULL so soft-deleted records don't surface in normal responses.
+Any hard-delete calls on users or orders are replaced with a soft-delete (UPDATE ... SET deleted_at = NOW()).
+Out of scope
+Soft deletes on other tables (rides, products, etc.) — users and orders only.
+A scheduled purge of old soft-deleted records (can be added later).
+Admin UI to view or restore soft-deleted records.
+Steps
+Fix live_locations TTL — In scheduler.ts, change the purgeStaleLocations threshold from 4 hours to 2 hours.
+Add location_history cleanup job — In scheduler.ts, register a new setInterval job (location-history-cleanup) that runs every 24 hours and deletes rows from location_history where created_at < NOW() - INTERVAL '30 days'. Add the corresponding purgeOldLocationHistory() function alongside the other purge helpers.
+Update Drizzle schema — Add deletedAt: timestamp('deleted_at') (nullable) to the users and orders table definitions in lib/db/src/schema/users.ts and lib/db/src/schema/orders.ts.
+Generate and apply migration — Run pnpm --filter @workspace/db drizzle-kit generate to create the migration SQL, then verify the generated file looks correct before committing it. The migration only adds columns (non-breaking).
+Filter soft-deleted records — Update all route handlers that query users or orders to add .where(isNull(users.deletedAt)) / .where(isNull(orders.deletedAt)). Replace any hard DELETE FROM users / DELETE FROM orders calls with an UPDATE ... SET deleted_at = NOW().
+Relevant files
+artifacts/api-server/src/scheduler.ts
+lib/db/src/schema/users.ts
+lib/db/src/schema/orders.ts
+lib/db/src/schema/live_locations.ts
+lib/db/src/schema/location_history.ts
