@@ -30,7 +30,13 @@ function makeStore(prefix: string): Store | undefined {
     return new RedisStore({
       prefix: `rl:${prefix}:`,
       sendCommand: (...args: string[]) => {
-        return (redisClient!.call as (...a: string[]) => Promise<unknown>)(...args).catch((err: Error) => {
+        /* Null-safe guard: if redisClient was cleared after store construction,
+           return a rejected Promise so express-rate-limit handles it gracefully
+           rather than crashing with a TypeError on null.call. */
+        if (!redisClient) {
+          return Promise.reject(new Error("[rate-limit] Redis client not available")) as ReturnType<import("rate-limit-redis").SendCommandFn>;
+        }
+        return (redisClient.call as (...a: string[]) => Promise<unknown>)(...args).catch((err: Error) => {
           if (!err.message.includes("closed")) {
             logger.error({ prefix, err: err.message }, "[rate-limit] Redis error");
           }

@@ -174,11 +174,20 @@ export async function waitForRedisReady(): Promise<void> {
       );
       process.exit(1);
     }
+    /*
+     * Dev fallback: do NOT null redisClient here. Rate-limit stores are already
+     * constructed with closures referencing redisClient; nulling it post-construction
+     * would cause a TypeError (null.call) in sendCommand instead of a graceful error.
+     * The existing ioredis retryStrategy will stop reconnecting after 4 attempts and
+     * close the connection. Subsequent store operations will reject cleanly (the
+     * sendCommand in rate-limit.ts is null-safe and handles closed-stream errors).
+     * The health endpoint will report redis:"error" (accurate) rather than "disabled".
+     */
     logger.warn(
       { err: message },
-      "[redis] Redis unreachable at startup — running without Redis in development. " +
-      "JWT token blacklisting and distributed rate limiting are DISABLED."
+      "[redis] Redis unreachable at startup — running in degraded mode in development. " +
+      "JWT token blacklisting and distributed rate limiting are DISABLED. " +
+      "Rate limiters will fall back to in-memory once the Redis connection closes."
     );
-    redisClient = null;
   }
 }
