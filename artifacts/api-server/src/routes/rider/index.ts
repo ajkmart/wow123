@@ -265,9 +265,9 @@ router.get("/me", async (req, res) => {
     bonusTodayStats,  bonusAllStats,
   ] = await Promise.all([
     db.select({ c: count(), s: sum(ordersTable.total) }).from(ordersTable)
-      .where(and(eq(ordersTable.riderId, riderId), eq(ordersTable.status, "delivered"), gte(ordersTable.updatedAt, today))),
+      .where(and(eq(ordersTable.riderId, riderId), eq(ordersTable.status, "delivered"), gte(ordersTable.updatedAt, today), isNull(ordersTable.deletedAt))),
     db.select({ c: count(), s: sum(ordersTable.total) }).from(ordersTable)
-      .where(and(eq(ordersTable.riderId, riderId), eq(ordersTable.status, "delivered"))),
+      .where(and(eq(ordersTable.riderId, riderId), eq(ordersTable.status, "delivered"), isNull(ordersTable.deletedAt))),
     db.select({ c: count(), s: sum(ridesTable.fare) }).from(ridesTable)
       .where(and(eq(ridesTable.riderId, riderId), eq(ridesTable.status, "completed"), gte(ridesTable.updatedAt, today))),
     db.select({ c: count(), s: sum(ridesTable.fare) }).from(ridesTable)
@@ -584,6 +584,7 @@ router.get("/requests", async (req, res) => {
       .where(and(
         or(eq(ordersTable.status, "confirmed"), eq(ordersTable.status, "preparing")),
         isNull(ordersTable.riderId),
+        isNull(ordersTable.deletedAt),
       ))
       .orderBy(desc(ordersTable.createdAt)).limit(20),
     db.select().from(ridesTable)

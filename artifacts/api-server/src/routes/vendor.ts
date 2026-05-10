@@ -81,10 +81,10 @@ router.get("/me", async (req, res) => {
   const vendorShare = 1 - (parseFloat(s["vendor_commission_pct"] ?? "15") / 100);
 
   const [todayOrders, todayRev, totalOrders, totalRev] = await Promise.all([
-    db.select({ c: count() }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, today))),
-    db.select({ s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, today), or(eq(ordersTable.status, "delivered"), eq(ordersTable.status, "completed")))),
-    db.select({ c: count() }).from(ordersTable).where(eq(ordersTable.vendorId, vendorId)),
-    db.select({ s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), or(eq(ordersTable.status, "delivered"), eq(ordersTable.status, "completed")))),
+    db.select({ c: count() }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, today), isNull(ordersTable.deletedAt))),
+    db.select({ s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, today), or(eq(ordersTable.status, "delivered"), eq(ordersTable.status, "completed")), isNull(ordersTable.deletedAt))),
+    db.select({ c: count() }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), isNull(ordersTable.deletedAt))),
+    db.select({ s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), or(eq(ordersTable.status, "delivered"), eq(ordersTable.status, "completed")), isNull(ordersTable.deletedAt))),
   ]);
   sendSuccess(res, {
     ...formatUser(user),
@@ -186,10 +186,10 @@ router.get("/stats", async (req, res) => {
   const vendorShare = 1 - (parseFloat(s["vendor_commission_pct"] ?? "15") / 100);
 
   const [tData, wData, mData, pending, lowStock] = await Promise.all([
-    db.select({ c: count(), s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, today))),
-    db.select({ c: count(), s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, weekAgo))),
-    db.select({ c: count(), s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, monthAgo))),
-    db.select({ c: count() }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), eq(ordersTable.status, "pending"))),
+    db.select({ c: count(), s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, today), isNull(ordersTable.deletedAt))),
+    db.select({ c: count(), s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, weekAgo), isNull(ordersTable.deletedAt))),
+    db.select({ c: count(), s: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), gte(ordersTable.createdAt, monthAgo), isNull(ordersTable.deletedAt))),
+    db.select({ c: count() }).from(ordersTable).where(and(eq(ordersTable.vendorId, vendorId), eq(ordersTable.status, "pending"), isNull(ordersTable.deletedAt))),
     getCachedSettings().then(cfg => {
       const threshold = parseInt(cfg["low_stock_threshold"] ?? "10", 10) || 10;
       return db.select({ c: count() }).from(productsTable).where(and(eq(productsTable.vendorId, vendorId), isNull(productsTable.deletedAt), sql`stock IS NOT NULL AND stock < ${threshold} AND stock > 0`));
@@ -208,7 +208,7 @@ router.get("/stats", async (req, res) => {
 router.get("/orders", async (req, res) => {
   const vendorId = req.vendorId!;
   const status = req.query["status"] as string | undefined;
-  const conditions: any[] = [eq(ordersTable.vendorId, vendorId)];
+  const conditions: any[] = [eq(ordersTable.vendorId, vendorId), isNull(ordersTable.deletedAt)];
   if (status && status !== "all") {
     if (status === "new") conditions.push(or(eq(ordersTable.status, "pending"), eq(ordersTable.status, "confirmed")));
     else if (status === "active") conditions.push(or(eq(ordersTable.status, "preparing"), eq(ordersTable.status, "ready"), eq(ordersTable.status, "picked_up"), eq(ordersTable.status, "out_for_delivery")));

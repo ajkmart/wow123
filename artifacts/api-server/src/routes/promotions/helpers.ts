@@ -4,13 +4,13 @@ import {
   campaignsTable, offersTable, offerRedemptionsTable, campaignParticipationsTable,
   offerTemplatesTable, promoCodesTable, ordersTable, adminAccountsTable, usersTable,
 } from "@workspace/db/schema";
-import { eq, desc, asc, and, gte, lte, count, sum, inArray, SQL, sql } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, count, sum, inArray, SQL, sql, isNull } from "drizzle-orm";
 import { generateId, adminAuth } from "../admin-shared.js";
 import { sendSuccess, sendCreated, sendError, sendNotFound, sendValidationError, sendForbidden } from "../../lib/response.js";
 import { customerAuth, requireRole } from "../../middleware/security.js";
 
 export { Router, db, campaignsTable, offersTable, offerRedemptionsTable, campaignParticipationsTable, offerTemplatesTable, promoCodesTable, ordersTable, adminAccountsTable, usersTable };
-export { eq, desc, asc, and, gte, lte, count, sum, inArray, sql };
+export { eq, desc, asc, and, gte, lte, count, sum, inArray, sql, isNull };
 export type { SQL };
 export { generateId, adminAuth, customerAuth, requireRole };
 export { sendSuccess, sendCreated, sendError, sendNotFound, sendValidationError, sendForbidden };

@@ -4,7 +4,7 @@ import {
   productsTable, vendorProfilesTable, ordersTable, ridesTable,
   usersTable, walletTransactionsTable,
 } from "@workspace/db/schema";
-import { count, eq, gte, and, sum, sql } from "drizzle-orm";
+import { count, eq, gte, and, sum, sql, isNull } from "drizzle-orm";
 import { sendSuccess, sendInternalError } from "../lib/response.js";
 import { adminAuth } from "./admin-shared.js";
 import {
@@ -48,25 +48,27 @@ router.get("/", adminAuth, async (_req, res) => {
     ] = await Promise.all([
       db.select({ total: sum(ordersTable.total) })
         .from(ordersTable)
-        .where(sql`${ordersTable.status} NOT IN ('cancelled', 'refunded')`),
+        .where(and(sql`${ordersTable.status} NOT IN ('cancelled', 'refunded')`, isNull(ordersTable.deletedAt))),
       db.select({ total: sum(ordersTable.total) })
         .from(ordersTable)
         .where(and(
           gte(ordersTable.createdAt, todayStart),
           sql`${ordersTable.status} NOT IN ('cancelled', 'refunded')`,
+          isNull(ordersTable.deletedAt),
         )),
       db.select({ status: ordersTable.status, c: count() })
         .from(ordersTable)
+        .where(isNull(ordersTable.deletedAt))
         .groupBy(ordersTable.status),
       db.select({ c: count() })
         .from(ridesTable)
         .where(eq(ridesTable.status, "completed")),
       db.select({ c: count() })
         .from(usersTable)
-        .where(gte(usersTable.createdAt, weekStart)),
+        .where(and(gte(usersTable.createdAt, weekStart), isNull(usersTable.deletedAt))),
       db.select({ c: count() })
         .from(usersTable)
-        .where(gte(usersTable.createdAt, todayStart)),
+        .where(and(gte(usersTable.createdAt, todayStart), isNull(usersTable.deletedAt))),
       db.select({ c: count() })
         .from(vendorProfilesTable)
         .where(eq(vendorProfilesTable.storeIsOpen, true)),

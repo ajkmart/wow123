@@ -1,6 +1,6 @@
 import { Router, type Request } from "express";
 import { db, offersTable, campaignsTable, ordersTable, usersTable, promoCodesTable, offerRedemptionsTable, campaignParticipationsTable } from "./helpers.js";
-import { eq, desc, asc, and, gte, lte, count, sum, inArray, sql } from "./helpers.js";
+import { eq, desc, asc, and, gte, lte, count, sum, inArray, sql, isNull } from "./helpers.js";
 import { generateId, customerAuth, requireRole } from "./helpers.js";
 import { sendSuccess, sendCreated, sendError, sendNotFound, sendValidationError } from "./helpers.js";
 import { nowIso, mapOffer, mapCampaign, computeOfferStatus } from "./helpers.js";
@@ -90,7 +90,7 @@ router.get("/for-you", customerAuth, async (req: Request, res) => {
   const userOrders = await db
     .select({ type: ordersTable.type, total: ordersTable.total, createdAt: ordersTable.createdAt })
     .from(ordersTable)
-    .where(eq(ordersTable.userId, userId))
+    .where(and(eq(ordersTable.userId, userId), isNull(ordersTable.deletedAt)))
     .orderBy(desc(ordersTable.createdAt))
     .limit(20);
 
@@ -142,9 +142,9 @@ router.post("/auto-apply", customerAuth, async (req: Request, res) => {
   const [userRow] = await db.select({ createdAt: usersTable.createdAt }).from(usersTable)
     .where(eq(usersTable.id, userId)).limit(1);
   const [orderCountRow] = await db.select({ c: count() }).from(ordersTable)
-    .where(eq(ordersTable.userId, userId));
+    .where(and(eq(ordersTable.userId, userId), isNull(ordersTable.deletedAt)));
   const [spendRow] = await db.select({ s: sum(ordersTable.total) }).from(ordersTable)
-    .where(eq(ordersTable.userId, userId));
+    .where(and(eq(ordersTable.userId, userId), isNull(ordersTable.deletedAt)));
 
   const isNewUser = userRow ? (Date.now() - userRow.createdAt.getTime()) < 30 * 24 * 60 * 60 * 1000 : false;
   const totalOrders = Number(orderCountRow?.c ?? 0);
@@ -304,7 +304,7 @@ router.post("/validate", customerAuth, async (req: Request, res) => {
     const rules = (offer.targetingRules ?? {}) as Record<string, unknown>;
 
     if (rules["newUsersOnly"] && userId) {
-      const [orderCount] = await db.select({ c: count() }).from(ordersTable).where(eq(ordersTable.userId, userId));
+      const [orderCount] = await db.select({ c: count() }).from(ordersTable).where(and(eq(ordersTable.userId, userId), isNull(ordersTable.deletedAt)));
       if (Number(orderCount?.c ?? 0) > 0) { errors.push(`Offer "${offer.name}" is for new users only.`); continue; }
     }
 
@@ -315,7 +315,7 @@ router.post("/validate", customerAuth, async (req: Request, res) => {
     }
 
     if (rules["minOrders"] != null && userId) {
-      const [orderCount] = await db.select({ c: count() }).from(ordersTable).where(eq(ordersTable.userId, userId));
+      const [orderCount] = await db.select({ c: count() }).from(ordersTable).where(and(eq(ordersTable.userId, userId), isNull(ordersTable.deletedAt)));
       if (Number(orderCount?.c ?? 0) < Number(rules["minOrders"])) {
         errors.push(`Offer "${offer.name}" requires at least ${rules["minOrders"]} previous orders.`); continue;
       }
