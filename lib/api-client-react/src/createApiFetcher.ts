@@ -241,6 +241,13 @@ export function createApiFetcher(
     }
 
     const bodyToken = getRefreshToken?.() ?? null;
+    // Apply the same instance timeout to the refresh request so a stalled
+    // network does not leave the mutex locked indefinitely. Timeout maps to
+    // "transient" (keep tokens, try again later) rather than "auth_failed".
+    const refreshMs = getTimeoutMs();
+    const refreshCtrl = new AbortController();
+    const refreshTid =
+      refreshMs > 0 ? setTimeout(() => refreshCtrl.abort(), refreshMs) : null;
     try {
       const res = await fetch(refreshEndpoint!, {
         method: "POST",
@@ -250,7 +257,9 @@ export function createApiFetcher(
           ...extraRefreshHeaders?.(),
         },
         body: JSON.stringify(bodyToken ? { refreshToken: bodyToken } : {}),
+        signal: refreshMs > 0 ? refreshCtrl.signal : undefined,
       });
+      if (refreshTid) clearTimeout(refreshTid);
       if (!res.ok) {
         return res.status >= 500 ? "transient" : "auth_failed";
       }
@@ -263,7 +272,8 @@ export function createApiFetcher(
       if (data.refreshToken && setRefreshToken) setRefreshToken(data.refreshToken);
       return "refreshed";
     } catch {
-      return "transient";
+      if (refreshTid) clearTimeout(refreshTid);
+      return "transient"; // network error or timeout → keep tokens, retry later
     }
   }
 
