@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -15,7 +16,6 @@ import { tDual, type TranslationKey } from "@workspace/i18n";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { useVendors, useUpdateVendorStatus, useVendorPayout, useVendorCredit, usePlatformSettings, useVendorCommissionOverride, useOverrideSuspension, useDeliveryAccess, useAddWhitelistEntry, useDeleteWhitelistEntry, useDeliveryAccessRequests, useResolveDeliveryRequest } from "@/hooks/use-admin";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { fetcher } from "@/lib/api";
 import { PLATFORM_DEFAULTS } from "@/lib/platformConfig";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -366,7 +366,7 @@ export default function Vendors() {
     }
     setInviteSending(true);
     try {
-      await fetcher("/vendors/invite", {
+      await adminFetch("/vendors/invite", {
         method: "POST",
         body: JSON.stringify({ phone: invitePhone.trim() || undefined, email: inviteEmail.trim() || undefined, storeName: inviteStore.trim() || undefined }),
       });
@@ -472,7 +472,7 @@ export default function Vendors() {
     const ids = Array.from(selectedIds);
     for (const id of ids) {
       try {
-        await fetcher(`/vendors/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive: true, isBanned: false }) });
+        await adminFetch(`/vendors/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive: true, isBanned: false }) });
       } catch { /* continue */ }
     }
     toast({ title: `${ids.length} vendor(s) approved` });
@@ -484,7 +484,7 @@ export default function Vendors() {
     const ids = Array.from(selectedIds);
     for (const id of ids) {
       try {
-        await fetcher(`/vendors/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive: false, isBanned: false }) });
+        await adminFetch(`/vendors/${id}/status`, { method: "PATCH", body: JSON.stringify({ isActive: false, isBanned: false }) });
       } catch { /* continue */ }
     }
     toast({ title: `${ids.length} vendor(s) suspended` });
@@ -500,7 +500,7 @@ export default function Vendors() {
   const handleTierChange = useCallback(async (vendorId: string, tier: VendorTier) => {
     setTierUpdating(vendorId);
     try {
-      await fetcher(`/vendors/${vendorId}/tier`, { method: "PATCH", body: JSON.stringify({ tier }) });
+      await adminFetch(`/vendors/${vendorId}/tier`, { method: "PATCH", body: JSON.stringify({ tier }) });
       await qc.invalidateQueries({ queryKey: ["admin-vendors"] });
       toast({ title: "Tier updated", description: `Vendor tier set to ${tier}.` });
     } catch (e: any) {

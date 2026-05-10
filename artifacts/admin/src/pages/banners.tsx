@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Image, Plus, Pencil, Trash2, Save, GripVertical,
@@ -8,7 +9,6 @@ import {
 import { PageHeader } from "@/components/shared";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -140,7 +140,7 @@ export default function BannersPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-banners"],
-    queryFn: () => fetcher("/banners"),
+    queryFn: () => adminFetch("/banners"),
     refetchInterval: 30000,
   });
 
@@ -148,8 +148,8 @@ export default function BannersPage() {
 
   const saveBanner = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      if (editing) return fetcher(`/banners/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) });
-      return fetcher("/banners", { method: "POST", body: JSON.stringify(body) });
+      if (editing) return adminFetch(`/banners/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) });
+      return adminFetch("/banners", { method: "POST", body: JSON.stringify(body) });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-banners"] });
@@ -162,7 +162,7 @@ export default function BannersPage() {
   });
 
   const deleteBanner = useMutation({
-    mutationFn: (id: string) => fetcher(`/banners/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/banners/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-banners"] });
       toast({ title: "Banner deleted" });
@@ -171,13 +171,13 @@ export default function BannersPage() {
 
   const toggleBanner = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      fetcher(`/banners/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+      adminFetch(`/banners/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-banners"] }),
   });
 
   const reorderBanners = useMutation({
     mutationFn: (items: { id: string; sortOrder: number }[]) =>
-      fetcher("/banners/reorder", { method: "PATCH", body: JSON.stringify({ items }) }),
+      adminFetch("/banners/reorder", { method: "PATCH", body: JSON.stringify({ items }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-banners"] }),
   });
 

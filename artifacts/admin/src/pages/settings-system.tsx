@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type ReactElement } from "react";
+import { fetchAdminAbsolute, fetchAdminAbsoluteResponse } from "@/lib/adminFetcher";
 import { useAbortableEffect, isAbortError } from "@/lib/useAbortableEffect";
 import {
   Database, Download, Upload, Trash2, HardDrive, RefreshCcw,
@@ -8,7 +9,6 @@ import {
   Wrench, Shield, FileSpreadsheet, Calendar, BookCopy, Save, RotateCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiAbsoluteFetchRaw, fetchAdminAbsoluteResponse } from "@/lib/api";
 
 type PendingUndo = { id: string; label: string; expiresAt: string; actionId: string };
 
@@ -61,7 +61,7 @@ export function SystemSection() {
   }, []);
 
   const apiFetch = async (path: string, opts?: RequestInit) => {
-    return apiAbsoluteFetchRaw(`/api/admin/system${path}`, opts);
+    return fetchAdminAbsolute(`/api/admin/system${path}`, opts);
   };
 
   const loadStats = async () => {
@@ -350,7 +350,7 @@ export function SystemSection() {
         };
       }
 
-      const data = await apiAbsoluteFetchRaw(endpoint, {
+      const data = await fetchAdminAbsolute(endpoint, {
         method: "POST",
         body: JSON.stringify(body),
       });

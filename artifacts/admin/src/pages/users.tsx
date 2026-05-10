@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { useLocation, Link } from "wouter";
 import {
   Search, CheckCircle2, XCircle, Wallet, RefreshCw, Trash2,
@@ -17,7 +18,6 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useUsers, useUpdateUser, useUpdateUserSecurity, useDeleteUser, useUserActivity, usePendingUsers, useApproveUser, useRejectUser, useRequestUserCorrection, useBulkBanUsers, useCreateUser, useAdminUserSessions, useRevokeUserSession, useRevokeAllUserSessions, useAdminForcePasswordReset, useAdminKycByUserId, useAdminKycApprove, useAdminKycReject, useWaiveDebt, useAdminResetOtp, type CreateUserInput } from "@/hooks/use-admin";
 import { WalletAdjustModal } from "@/components/WalletAdjustModal";
-import { fetcher } from "@/lib/api";
 import { useAdminAuth } from "@/lib/adminAuthContext";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
@@ -587,7 +587,7 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
   );
 
   const securityMutation = useMutation({
-    mutationFn: (body: any) => fetcher(`/users/${user.id}/security`, { method: "PATCH", body: JSON.stringify(body) }),
+    mutationFn: (body: any) => adminFetch(`/users/${user.id}/security`, { method: "PATCH", body: JSON.stringify(body) }),
     onSuccess: (_data, vars: any) => {
       qc.invalidateQueries({ queryKey: ["admin-users"], exact: false });
       const changedParts: string[] = [];
@@ -615,7 +615,7 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
   const resetOtpMutation = useAdminResetOtp();
 
   const setBypassMutation = useMutation({
-    mutationFn: (minutes: number) => fetcher(`/users/${user.id}/otp/bypass`, { method: "POST", body: JSON.stringify({ minutes }) }),
+    mutationFn: (minutes: number) => adminFetch(`/users/${user.id}/otp/bypass`, { method: "POST", body: JSON.stringify({ minutes }) }),
     onSuccess: (d: any) => {
       setBypassActive(true);
       setBypassUntil(d.bypassUntil);
@@ -626,7 +626,7 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
   });
 
   const cancelBypassMutation = useMutation({
-    mutationFn: () => fetcher(`/users/${user.id}/otp/bypass`, { method: "DELETE", body: "{}" }),
+    mutationFn: () => adminFetch(`/users/${user.id}/otp/bypass`, { method: "DELETE", body: "{}" }),
     onSuccess: () => {
       setBypassActive(false);
       setBypassUntil(null);
@@ -637,7 +637,7 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
   });
 
   const disable2faMutation = useMutation({
-    mutationFn: () => fetcher(`/users/${user.id}/2fa/disable`, { method: "POST", body: "{}" }),
+    mutationFn: () => adminFetch(`/users/${user.id}/2fa/disable`, { method: "POST", body: "{}" }),
     onSuccess: () => {
       setTotpEnabled(false);
       qc.invalidateQueries({ queryKey: ["admin-users"] });
@@ -647,7 +647,7 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
   });
 
   const resetWalletPinMutation = useMutation({
-    mutationFn: () => fetcher(`/users/${user.id}/reset-wallet-pin`, { method: "POST", body: "{}" }),
+    mutationFn: () => adminFetch(`/users/${user.id}/reset-wallet-pin`, { method: "POST", body: "{}" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"] });
       toast({ title: "MPIN reset", description: "User's wallet MPIN has been cleared. They will need to create a new one." });
@@ -662,7 +662,7 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
   const revokeAll = useRevokeAllUserSessions();
 
   const identityMutation = useMutation({
-    mutationFn: (body: any) => fetcher(`/users/${user.id}/identity`, { method: "PATCH", body: JSON.stringify(body) }),
+    mutationFn: (body: any) => adminFetch(`/users/${user.id}/identity`, { method: "PATCH", body: JSON.stringify(body) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"] });
       toast({ title: "Identity updated", description: "User identity fields saved successfully." });
@@ -1655,7 +1655,7 @@ function KycDocModal({ user, onClose }: { user: any; onClose: () => void }) {
 function AddressBookModal({ user, onClose }: { user: any; onClose: () => void }) {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-user-addresses", user.id],
-    queryFn: () => fetcher(`/users/${user.id}/addresses`),
+    queryFn: () => adminFetch(`/users/${user.id}/addresses`),
   });
   const addresses = data?.addresses || [];
 

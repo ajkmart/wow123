@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { fetcher, apiAbsoluteFetchRaw } from "@/lib/api";
+import { adminFetch, fetchAdminAbsolute } from "@/lib/adminFetcher";
 import { useToast } from "@/hooks/use-toast";
 import {
   ShoppingBag, Car, Pill,
@@ -159,7 +159,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     setCmdExecuting(true);
     setCmdResult(null);
     try {
-      const data = await apiAbsoluteFetchRaw(`/api/admin/command/execute`, {
+      const data = await fetchAdminAbsolute(`/api/admin/command/execute`, {
         method: "POST",
         body: JSON.stringify({ command: cmdText }),
       }) as { data?: CmdResult };
@@ -224,7 +224,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   /* ── Live DB search (with filter params) ── */
   const { data: liveData, isFetching } = useQuery({
     queryKey: ["cmd-search", debouncedQ, activeFilter, activeStatus],
-    queryFn:  () => fetcher(`/admin/search?${backendParams.toString()}`),
+    queryFn:  () => adminFetch(`/admin/search?${backendParams.toString()}`),
     enabled:  debouncedQ.length >= 2,
     staleTime: getAdminTiming().commandPaletteLiveStaleMs,
   });
@@ -233,7 +233,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const { data: aiData, isFetching: aiLoading } = useQuery({
     queryKey: ["cmd-ai-search", debouncedQ, aiEnabled],
     queryFn:  async () => {
-      return apiAbsoluteFetchRaw(`/api/admin/search/ai`, {
+      return fetchAdminAbsolute(`/api/admin/search/ai`, {
         method: "POST",
         body: JSON.stringify({ query: debouncedQ }),
       });

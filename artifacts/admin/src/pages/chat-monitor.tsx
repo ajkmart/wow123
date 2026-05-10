@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetcher } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -38,14 +38,14 @@ type ChatReport = {
 function useConversations() {
   return useQuery({
     queryKey: ["admin-chat-conversations"],
-    queryFn: () => fetcher("/chat-monitor/conversations?limit=200"),
+    queryFn: () => adminFetch("/chat-monitor/conversations?limit=200"),
     refetchInterval: 30_000,
   });
 }
 function useConversationMessages(id: string | null) {
   return useQuery({
     queryKey: ["admin-chat-messages", id],
-    queryFn: () => fetcher(`/chat-monitor/conversations/${id}/messages?limit=200`),
+    queryFn: () => adminFetch(`/chat-monitor/conversations/${id}/messages?limit=200`),
     enabled: !!id,
   });
 }
@@ -53,7 +53,7 @@ function useChatReports(status?: string) {
   const params = status ? `?status=${status}` : "";
   return useQuery({
     queryKey: ["admin-chat-reports", status || "all"],
-    queryFn: () => fetcher(`/chat-monitor/reports${params}`),
+    queryFn: () => adminFetch(`/chat-monitor/reports${params}`),
     refetchInterval: 30_000,
   });
 }
@@ -88,17 +88,17 @@ export default function ChatMonitor() {
   });
 
   const muteMutation = useMutation({
-    mutationFn: (userId: string) => fetcher(`/chat-monitor/users/${userId}/chat-mute`, { method: "POST", body: "{}" }),
+    mutationFn: (userId: string) => adminFetch(`/chat-monitor/users/${userId}/chat-mute`, { method: "POST", body: "{}" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-chat-conversations"] }); toast({ title: "User muted from chat" }); },
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
   const unmuteMutation = useMutation({
-    mutationFn: (userId: string) => fetcher(`/chat-monitor/users/${userId}/chat-unmute`, { method: "POST", body: "{}" }),
+    mutationFn: (userId: string) => adminFetch(`/chat-monitor/users/${userId}/chat-unmute`, { method: "POST", body: "{}" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-chat-conversations"] }); toast({ title: "User unmuted" }); },
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
   const resolveMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/chat-monitor/reports/${id}/resolve`, { method: "PATCH", body: "{}" }),
+    mutationFn: (id: string) => adminFetch(`/chat-monitor/reports/${id}/resolve`, { method: "PATCH", body: "{}" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-chat-reports"] }); toast({ title: "Report resolved" }); },
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });

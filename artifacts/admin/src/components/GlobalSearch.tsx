@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Search, X, User, ShoppingBag, Bike, Loader2 } from "lucide-react";
-import { fetcher } from "@/lib/api";
+import { adminFetch } from "@/lib/adminFetcher";
 import { cn } from "@/lib/utils";
 
 interface SearchResult {
@@ -84,9 +84,9 @@ export function GlobalSearch({ inputRef: externalRef, onClose }: GlobalSearchPro
     try {
       const encoded = encodeURIComponent(q);
       const [usersRaw, ordersRaw, ridersRaw] = await Promise.allSettled([
-        fetcher(`/users?search=${encoded}&limit=3`) as Promise<AdminListResponse<AdminUserRecord>>,
-        fetcher(`/orders?search=${encoded}&limit=3`) as Promise<AdminListResponse<AdminOrderRecord>>,
-        fetcher(`/riders?search=${encoded}&limit=3`) as Promise<AdminListResponse<AdminRiderRecord>>,
+        adminFetch(`/users?search=${encoded}&limit=3`) as Promise<AdminListResponse<AdminUserRecord>>,
+        adminFetch(`/orders?search=${encoded}&limit=3`) as Promise<AdminListResponse<AdminOrderRecord>>,
+        adminFetch(`/riders?search=${encoded}&limit=3`) as Promise<AdminListResponse<AdminRiderRecord>>,
       ]);
 
       const mapped: SearchResult[] = [];

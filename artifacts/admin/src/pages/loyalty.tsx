@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { Search, Star, Plus, Minus, Loader2, Settings2, ArrowUpDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetcher } from "@/lib/api";
 import { usePlatformSettings, useUpdatePlatformSettings } from "@/hooks/use-admin";
 import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
@@ -48,7 +48,7 @@ type PlatformSetting = {
 function useLoyaltyUsers(search: string) {
   return useQuery<{ users: LoyaltyUser[]; total: number }>({
     queryKey: ["admin-loyalty-users", search],
-    queryFn: () => fetcher(`/loyalty/users${search ? `?q=${encodeURIComponent(search)}` : ""}`),
+    queryFn: () => adminFetch(`/loyalty/users${search ? `?q=${encodeURIComponent(search)}` : ""}`),
     refetchInterval: 30_000,
   });
 }
@@ -62,7 +62,7 @@ function AdjustPointsModal({ user, onClose }: { user: LoyaltyUser; onClose: () =
 
   const mutation = useMutation<AdjustResponse, Error, { amount: number; reason: string; type: string }>({
     mutationFn: (body) =>
-      fetcher(`/loyalty/users/${user.id}/adjust`, { method: "POST", body: JSON.stringify(body) }),
+      adminFetch(`/loyalty/users/${user.id}/adjust`, { method: "POST", body: JSON.stringify(body) }),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["admin-loyalty-users"] });
       toast({

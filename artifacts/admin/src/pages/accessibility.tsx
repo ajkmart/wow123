@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { Eye, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/shared";
 import { useAccessibilitySettings, type AdminFontScale, type AdminContrast } from "@/lib/useAccessibilitySettings";
@@ -7,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ADMIN_I18N_KEYS, t } from "@/lib/i18nKeys";
-import { fetcher } from "@/lib/api";
 import { NavigationGuard } from "@/components/NavigationGuard";
 
 export default function AccessibilityPage() {
@@ -19,7 +19,7 @@ export default function AccessibilityPage() {
   const mountedRef = useRef(false);
 
   useEffect(() => {
-    fetcher("/me/preferences")
+    adminFetch("/me/preferences")
       .then((data: any) => {
         const prefs = data?.preferences ?? {};
         if (prefs.font_scale) setFontScale(prefs.font_scale as AdminFontScale);
@@ -35,7 +35,7 @@ export default function AccessibilityPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setSyncStatus("saving");
     debounceRef.current = setTimeout(() => {
-      fetcher("/me/preferences", {
+      adminFetch("/me/preferences", {
         method: "PUT",
         body: JSON.stringify({
           font_scale: settings.fontScale,

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { adminAbsoluteFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { MessageCircle, RefreshCw, Filter, CheckCheck, Check, Eye, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
-import { apiAbsoluteFetch } from "@/lib/api";
 
 const LIMIT = 50;
 
@@ -45,7 +45,7 @@ export default function WhatsAppDeliveryLog() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-wa-delivery-log", statusFilter, phoneFilter, page],
     queryFn: async () => {
-      const result = await apiAbsoluteFetch(`/api/webhooks/whatsapp/delivery-log?${qs.toString()}`);
+      const result = await adminAbsoluteFetch(`/api/webhooks/whatsapp/delivery-log?${qs.toString()}`);
       return result;
     },
     refetchInterval: 30_000,

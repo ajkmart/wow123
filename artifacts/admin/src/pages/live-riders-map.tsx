@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { adminFetch, getAdminAccessToken } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useLiveRiders, usePlatformSettings, useRiderRoute, useCustomerLocations, useRiderTrailsBatch, useFleetVendors } from "@/hooks/use-admin";
 import { MapPin, RefreshCw, Users, Navigation, Route, Clock, Eye, EyeOff, AlertTriangle, MessageSquare, BarChart2, Activity, TrendingUp, X, History, Layers, ChevronLeft, ChevronRight, Store, Search, Bike, Zap } from "lucide-react";
@@ -12,7 +13,6 @@ import "leaflet/dist/leaflet.css";
 import UniversalMap, { type MapMarkerData, type MapPolylineData } from "@/components/UniversalMap";
 import { PLATFORM_DEFAULTS } from "@/lib/platformConfig";
 import { io, type Socket } from "socket.io-client";
-import { fetcher, getAdminAccessToken } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -496,7 +496,7 @@ function FleetAnalyticsTab({ mapConfig }: { mapConfig?: MapConfig }) {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-fleet-analytics", fromDate, toDate],
-    queryFn: () => fetcher(`/fleet-analytics?from=${fromDate}&to=${toDate}`),
+    queryFn: () => adminFetch(`/fleet-analytics?from=${fromDate}&to=${toDate}`),
     staleTime: 60_000,
   });
 

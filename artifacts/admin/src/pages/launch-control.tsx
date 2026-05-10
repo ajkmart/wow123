@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { adminFetch, fetchAdminAbsolute } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -10,7 +11,6 @@ import {
   Globe,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher, apiAbsoluteFetchRaw } from "@/lib/api";
 import { getAdminTiming } from "@/lib/adminTiming";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -243,18 +243,18 @@ export default function LaunchControl() {
   /* ── Data fetching ── */
   const { data: launchData, isLoading, refetch } = useQuery<LaunchData>({
     queryKey: ["launch-settings"],
-    queryFn: () => fetcher("/launch/settings") as Promise<LaunchData>,
+    queryFn: () => adminFetch("/launch/settings") as Promise<LaunchData>,
     staleTime: getAdminTiming().refetchIntervalLaunchControlMs,
   });
 
   const { data: plansData } = useQuery<PlansData>({
     queryKey: ["launch-vendor-plans"],
-    queryFn: () => fetcher("/launch/vendor-plans") as Promise<PlansData>,
+    queryFn: () => adminFetch("/launch/vendor-plans") as Promise<PlansData>,
   });
 
   const { data: presetsData } = useQuery<PresetsData>({
     queryKey: ["launch-role-presets"],
-    queryFn: () => fetcher("/launch/role-presets") as Promise<PresetsData>,
+    queryFn: () => adminFetch("/launch/role-presets") as Promise<PresetsData>,
   });
 
   const settings: SettingRow[] = launchData?.settings ?? [];
@@ -276,7 +276,7 @@ export default function LaunchControl() {
   /* ── Helpers ── */
   async function apiCall(url: string, options: RequestInit): Promise<{ ok: boolean; data: Record<string, unknown> }> {
     try {
-      const data = await apiAbsoluteFetchRaw(url, options);
+      const data = await fetchAdminAbsolute(url, options);
       return { ok: true, data: (data ?? {}) as Record<string, unknown> };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Request failed";

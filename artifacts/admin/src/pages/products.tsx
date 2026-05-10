@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PageHeader } from "@/components/shared";
 import { PackageSearch, Plus, Search, Edit, Trash2, ToggleLeft, ToggleRight, Download, Filter, CheckCircle, XCircle, Clock, Upload, X, ImageIcon, ArrowUpDown, ArrowUp, ArrowDown, History, Tag, Percent, ChevronDown } from "lucide-react";
-import { fetcher } from "@/lib/api";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, usePendingProducts, useApproveProduct, useRejectProduct, useCategories, useProductStockHistory } from "@/hooks/use-admin";
 import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
@@ -16,13 +16,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLanguage } from "@/lib/useLanguage";
 import { tDual, type TranslationKey } from "@workspace/i18n";
-import { uploadAdminImageWithProgress } from "@/lib/api";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import type { ProductRow } from "@/lib/adminApiTypes";
 import { useHasPermission } from "@/hooks/usePermissions";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { LastUpdated } from "@/components/ui/LastUpdated";
+import { uploadAdminImageWithProgress } from "@/lib/api";
 
 const errMsg = (e: unknown): string =>
   e instanceof Error ? e.message : typeof e === "string" ? e : "Unknown error";
@@ -305,7 +305,7 @@ export default function Products() {
   useEffect(() => {
     if (tab !== "pricing") return;
     setPricingLoading(true);
-    fetcher("/platform-settings")
+    adminFetch("/platform-settings")
       .then((data: any) => {
         const all: Array<{ key: string; value: string }> = data?.settings ?? [];
         const raw = all.find(s => s.key === "global_pricing_rules")?.value;
@@ -328,7 +328,7 @@ export default function Products() {
   const savePricingRules = async () => {
     setPricingSaving(true);
     try {
-      await fetcher("/platform-settings", {
+      await adminFetch("/platform-settings", {
         method: "PUT",
         body: JSON.stringify({ settings: [{ key: "global_pricing_rules", value: JSON.stringify(pricingRules) }] }),
       });
@@ -360,7 +360,7 @@ export default function Products() {
     if (bulkStock === "in")  update.inStock = true;
     if (bulkStock === "out") update.inStock = false;
     try {
-      const result = await fetcher("/products/bulk", { method: "PATCH", body: JSON.stringify({ ids, update }) }) as { updated: number };
+      const result = await adminFetch("/products/bulk", { method: "PATCH", body: JSON.stringify({ ids, update }) }) as { updated: number };
       toast({ title: "Bulk edit applied", description: `${result.updated} of ${ids.length} products updated in one operation.` });
     } catch (e: any) {
       toast({ title: "Bulk update failed", description: e.message, variant: "destructive" });

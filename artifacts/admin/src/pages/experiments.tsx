@@ -1,7 +1,7 @@
 import { useState } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetcher } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,20 +47,20 @@ export default function ExperimentsPage() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-experiments"],
-    queryFn: () => fetcher("/experiments"),
+    queryFn: () => adminFetch("/experiments"),
     refetchInterval: 30_000,
   });
   const experiments: Experiment[] = data?.experiments || [];
 
   const { data: resultsData, isLoading: resultsLoading } = useQuery({
     queryKey: ["admin-experiment-results", showResults],
-    queryFn: () => fetcher(`/experiments/${showResults}/results`),
+    queryFn: () => adminFetch(`/experiments/${showResults}/results`),
     enabled: !!showResults,
   });
   const results: ResultRow[] = resultsData?.results || [];
 
   const createMutation = useMutation({
-    mutationFn: (body: any) => fetcher("/experiments", { method: "POST", body: JSON.stringify(body) }),
+    mutationFn: (body: any) => adminFetch("/experiments", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-experiments"] });
       toast({ title: "Experiment created" });
@@ -71,13 +71,13 @@ export default function ExperimentsPage() {
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      fetcher(`/experiments/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+      adminFetch(`/experiments/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-experiments"] }); toast({ title: "Status updated" }); },
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/experiments/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/experiments/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-experiments"] }); toast({ title: "Experiment deleted" }); setDeletingId(null); },
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { fetchAdminAbsolute } from "@/lib/adminFetcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck, Clock, XCircle, AlertCircle, CheckCircle,
@@ -10,7 +11,6 @@ import {
 import { PageHeader, StatCard } from "@/components/shared";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
-import { apiAbsoluteFetchRaw } from "@/lib/api";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LastUpdated } from "@/components/ui/LastUpdated";
@@ -217,7 +217,7 @@ function KycDetailPanel({ record, onClose, onApprove, onReject }: {
 
   const approveMut = useMutation({
     mutationFn: async (reason: string) => {
-      return apiAbsoluteFetchRaw(`/api/kyc/admin/${record.id}/approve`, {
+      return fetchAdminAbsolute(`/api/kyc/admin/${record.id}/approve`, {
         method: "POST",
         body: JSON.stringify({ reason }),
       });
@@ -227,7 +227,7 @@ function KycDetailPanel({ record, onClose, onApprove, onReject }: {
 
   const rejectMut = useMutation({
     mutationFn: async (reason: string) => {
-      return apiAbsoluteFetchRaw(`/api/kyc/admin/${record.id}/reject`, {
+      return fetchAdminAbsolute(`/api/kyc/admin/${record.id}/reject`, {
         method: "POST",
         body: JSON.stringify({ reason }),
       });
@@ -238,7 +238,7 @@ function KycDetailPanel({ record, onClose, onApprove, onReject }: {
   const { data: fullRecord } = useQuery({
     queryKey: ["admin-kyc-detail", record.id],
     queryFn: async () => {
-      const j = await apiAbsoluteFetchRaw(`/api/kyc/admin/${record.id}`);
+      const j = await fetchAdminAbsolute(`/api/kyc/admin/${record.id}`);
       return (j?.data ?? j) as KycRecord;
     },
   });
@@ -462,7 +462,7 @@ export default function KycPage() {
     queryFn: async () => {
       const params = new URLSearchParams({ status: statusFilter, limit: "50" });
       if (search) params.set("q", search);
-      const j = await apiAbsoluteFetchRaw(`/api/kyc/admin/list?${params.toString()}`);
+      const j = await fetchAdminAbsolute(`/api/kyc/admin/list?${params.toString()}`);
       return (j?.data ?? j) as { records: KycRecord[] };
     },
     refetchInterval: 30000,

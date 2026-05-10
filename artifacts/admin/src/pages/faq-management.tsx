@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { adminAbsoluteFetch } from "@/lib/adminFetcher";
 import { PageHeader, StatCard } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -21,10 +22,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
-import { apiAbsoluteFetch } from "@/lib/api";
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
-  return apiAbsoluteFetch(`/api${path}`, opts);
+  return adminAbsoluteFetch(`/api${path}`, opts);
 }
 
 type FAQ = {

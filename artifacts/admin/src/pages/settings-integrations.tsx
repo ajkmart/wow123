@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { adminAbsoluteFetch, adminFetch } from "@/lib/adminFetcher";
 import { ManageInSettingsLink } from "@/components/shared";
 import {
   loadIntegrationTestHistory,
@@ -11,7 +12,6 @@ import {
   Flame, Mail, Activity, Siren, CreditCard, RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher, apiAbsoluteFetch } from "@/lib/api";
 import { parseIntegrationTestResponse } from "@/lib/integrationsApi";
 import { isValidPhone } from "@/lib/validation";
 import { Card } from "@/components/ui/card";
@@ -281,7 +281,7 @@ function IntegrationHealthPanel({
     try {
       let data: unknown;
       if (row.testType === "jazzcash" || row.testType === "easypaisa") {
-        data = await apiAbsoluteFetch(`/api/payments/test-connection/${row.testType}`, { method: "GET" });
+        data = await adminAbsoluteFetch(`/api/payments/test-connection/${row.testType}`, { method: "GET" });
       } else {
         const body: Record<string, string> = {};
         if (row.testType === "sms" || row.testType === "whatsapp") {
@@ -311,7 +311,7 @@ function IntegrationHealthPanel({
           }
           body["deviceToken"] = token;
         }
-        data = await fetcher(`/system/test-integration/${row.testType}`, { method: "POST", body: JSON.stringify(body) });
+        data = await adminFetch(`/system/test-integration/${row.testType}`, { method: "POST", body: JSON.stringify(body) });
       }
       // Use the typed normaliser instead of `(data as any)` accesses so
       // that the integration health card honours backend `ok`/`error`
@@ -592,7 +592,7 @@ export function IntegrationsSection({ localValues, dirtyKeys, handleChange, hand
         }
         body["deviceToken"] = token;
       }
-      const data = await fetcher(`/system/test-integration/${type}`, {
+      const data = await adminFetch(`/system/test-integration/${type}`, {
         method: "POST",
         body: JSON.stringify(body),
       });

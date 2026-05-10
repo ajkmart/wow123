@@ -1,4 +1,5 @@
 import { useState, type ComponentType, type SVGProps } from "react";
+import { adminFetch, fetchAdminAbsolute } from "@/lib/adminFetcher";
 import {
   AlertTriangle, ExternalLink, Loader2, CheckCircle2, XCircle, Wifi,
   Settings, KeyRound, Phone, Building2, Banknote, Wallet,
@@ -9,7 +10,6 @@ import {
   Ban, Gem, Calendar, PartyPopper, Tag, Circle, CheckCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher, apiAbsoluteFetchRaw } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,7 +74,7 @@ function GatewayCard({
     setTesting(true); setTestResult(null);
     try {
       // Backend uses sendSuccess(res, { ok, message }) → envelope
-      // `{ success, data: { ok, message } }`. `apiAbsoluteFetchRaw`
+      // `{ success, data: { ok, message } }`. `fetchAdminAbsolute`
       // does NOT unwrap, so read the inner payload first; fall back
       // if a future route returns the bare object directly.
       interface PaymentTestPayload { ok?: boolean; message?: string }
@@ -83,7 +83,7 @@ function GatewayCard({
         message?: string;
         ok?: boolean;
       }
-      const raw = (await apiAbsoluteFetchRaw(
+      const raw = (await fetchAdminAbsolute(
         `/api/payments/test-connection/${prefix}`,
       )) as unknown as PaymentTestEnvelope;
       const payload: PaymentTestPayload = raw?.data ?? raw;
@@ -99,7 +99,7 @@ function GatewayCard({
       // Surface real error info instead of swallowing every failure as the same generic line.
       let detail =
         err instanceof Error ? err.message : typeof err === "string" ? err : "Unknown error";
-      // Common cases: HTTP error codes embedded in apiAbsoluteFetchRaw error message
+      // Common cases: HTTP error codes embedded in fetchAdminAbsolute error message
       if (/401|403/.test(detail)) detail = "Unauthorized — please re-login as admin";
       else if (/404/.test(detail))  detail = "Endpoint not found — check that the API server is up to date";
       else if (/500|502|503/.test(detail)) detail = `Server error: ${detail}`;

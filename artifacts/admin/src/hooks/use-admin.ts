@@ -1,5 +1,5 @@
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetcher, apiAbsoluteFetch } from "@/lib/api";
+import { adminFetch, adminAbsoluteFetch } from "@/lib/adminFetcher";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorHandler } from "@/hooks/useErrorHandler";
 
@@ -10,7 +10,7 @@ const RIDES_REFETCH_INTERVAL = 5_000;
 export const useAdminLogin = () => {
   return useMutation({
     mutationFn: (creds: { username: string; password: string }) =>
-      fetcher("/auth", {
+      adminFetch("/auth", {
         method: "POST",
         body: JSON.stringify({
           username: creds.username,
@@ -26,7 +26,7 @@ export const useAdminLogin = () => {
 export const useStats = () => {
   return useQuery({
     queryKey: ["admin-stats"],
-    queryFn: () => fetcher("/stats"),
+    queryFn: () => adminFetch("/stats"),
     refetchInterval: REFETCH_INTERVAL,
     staleTime: 30_000,
   });
@@ -56,7 +56,7 @@ export const useUsers = (params?: {
   const qsStr = qs.toString();
   return useQuery({
     queryKey: ["admin-users", conditionTier || "", status || "", search || "", role || "", dateFrom || "", dateTo || "", page, limit],
-    queryFn: () => fetcher(`/users${qsStr ? `?${qsStr}` : ""}`),
+    queryFn: () => adminFetch(`/users${qsStr ? `?${qsStr}` : ""}`),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -64,7 +64,7 @@ export const useUsers = (params?: {
 export const useSearchRiders = (q: string, onlineOnly = true) => {
   return useQuery({
     queryKey: ["admin-search-riders", q, onlineOnly],
-    queryFn: () => fetcher(`/users/search-riders?q=${encodeURIComponent(q)}&limit=20&onlineOnly=${onlineOnly}`),
+    queryFn: () => adminFetch(`/users/search-riders?q=${encodeURIComponent(q)}&limit=20&onlineOnly=${onlineOnly}`),
     enabled: true,
     staleTime: 10_000,
   });
@@ -73,7 +73,7 @@ export const useSearchRiders = (q: string, onlineOnly = true) => {
 export const usePendingUsers = () => {
   return useQuery({
     queryKey: ["admin-users-pending"],
-    queryFn: () => fetcher("/users/pending"),
+    queryFn: () => adminFetch("/users/pending"),
     refetchInterval: 15_000,
   });
 };
@@ -82,7 +82,7 @@ export const useApproveUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, note }: { id: string; note?: string }) =>
-      fetcher(`/users/${id}/approve`, { method: "POST", body: JSON.stringify({ note }) }),
+      adminFetch(`/users/${id}/approve`, { method: "POST", body: JSON.stringify({ note }) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       queryClient.invalidateQueries({ queryKey: ["admin-users-pending"] });
@@ -94,7 +94,7 @@ export const useRejectUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, note }: { id: string; note: string }) =>
-      fetcher(`/users/${id}/reject`, { method: "POST", body: JSON.stringify({ note }) }),
+      adminFetch(`/users/${id}/reject`, { method: "POST", body: JSON.stringify({ note }) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       queryClient.invalidateQueries({ queryKey: ["admin-users-pending"] });
@@ -106,7 +106,7 @@ export const useUpdateUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; role?: string; isActive?: boolean; walletBalance?: string | number }) =>
-      fetcher(`/users/${id}`, {
+      adminFetch(`/users/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
@@ -121,7 +121,7 @@ export const useUpdateUserSecurity = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; isActive?: boolean; isBanned?: boolean; banReason?: string | null; roles?: string; blockedServices?: string; securityNote?: string | null }) =>
-      fetcher(`/users/${id}/security`, {
+      adminFetch(`/users/${id}/security`, {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
@@ -135,7 +135,7 @@ export const useWalletTopup = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, amount, description }: { id: string; amount: number; description?: string }) =>
-      fetcher(`/users/${id}/wallet-topup`, {
+      adminFetch(`/users/${id}/wallet-topup`, {
         method: "POST",
         body: JSON.stringify({ amount, description }),
       }),
@@ -151,7 +151,7 @@ export const useWalletTopup = () => {
 export const useOrders = () => {
   return useQuery({
     queryKey: ["admin-orders"],
-    queryFn: () => fetcher("/orders"),
+    queryFn: () => adminFetch("/orders"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -160,7 +160,7 @@ export const useUpdateOrder = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      fetcher(`/orders/${id}/status`, {
+      adminFetch(`/orders/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       }),
@@ -206,7 +206,7 @@ export const useUpdateOrder = () => {
 export const useRides = () => {
   return useQuery({
     queryKey: ["admin-rides"],
-    queryFn: () => fetcher("/rides"),
+    queryFn: () => adminFetch("/rides"),
     refetchInterval: RIDES_REFETCH_INTERVAL,
   });
 };
@@ -217,7 +217,7 @@ export const useUpdateRide = () => {
   const { toast } = useToast();
   return useMutation({
     mutationFn: ({ id, status, riderName, riderPhone }: { id: string; status: string; riderName?: string; riderPhone?: string }) =>
-      fetcher(`/rides/${id}/status`, {
+      adminFetch(`/rides/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status, riderName, riderPhone }),
       }),
@@ -239,7 +239,7 @@ export const useUpdateRide = () => {
 export const usePharmacyOrders = () => {
   return useQuery({
     queryKey: ["admin-pharmacy"],
-    queryFn: () => fetcher("/pharmacy-enriched"),
+    queryFn: () => adminFetch("/pharmacy-enriched"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -248,7 +248,7 @@ export const useUpdatePharmacyOrder = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      fetcher(`/pharmacy-orders/${id}/status`, {
+      adminFetch(`/pharmacy-orders/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       }),
@@ -263,7 +263,7 @@ export const useUpdatePharmacyOrder = () => {
 export const useParcelBookings = () => {
   return useQuery({
     queryKey: ["admin-parcel"],
-    queryFn: () => fetcher("/parcel-enriched"),
+    queryFn: () => adminFetch("/parcel-enriched"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -272,7 +272,7 @@ export const useUpdateParcelBooking = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      fetcher(`/parcel-bookings/${id}/status`, {
+      adminFetch(`/parcel-bookings/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       }),
@@ -299,7 +299,7 @@ export const useCreateUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateUserInput) =>
-      fetcher("/users", {
+      adminFetch("/users", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -315,7 +315,7 @@ export const useWaiveDebt = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (userId: string) =>
-      fetcher(`/users/${userId}/waive-debt`, { method: "PATCH" }),
+      adminFetch(`/users/${userId}/waive-debt`, { method: "PATCH" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"], exact: false });
     },
@@ -326,7 +326,7 @@ export const useWaiveDebt = () => {
 export const useDeleteUser = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/users/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/users/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -338,7 +338,7 @@ export const useDeleteUser = () => {
 export const useUserActivity = (userId: string | null) => {
   return useQuery({
     queryKey: ["admin-user-activity", userId],
-    queryFn: () => fetcher(`/users/${userId}/activity`),
+    queryFn: () => adminFetch(`/users/${userId}/activity`),
     enabled: !!userId,
   });
 };
@@ -367,7 +367,7 @@ export const useCategories = () => {
 export const useProducts = () => {
   return useQuery({
     queryKey: ["admin-products"],
-    queryFn: () => fetcher("/products"),
+    queryFn: () => adminFetch("/products"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -376,7 +376,7 @@ export const useCreateProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) =>
-      fetcher("/products", {
+      adminFetch("/products", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -391,7 +391,7 @@ export const useUpdateProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
-      fetcher(`/products/${id}`, {
+      adminFetch(`/products/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
@@ -403,7 +403,7 @@ export const useDeleteProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      fetcher(`/products/${id}`, {
+      adminFetch(`/products/${id}`, {
         method: "DELETE",
       }),
     onSuccess: () => {
@@ -416,7 +416,7 @@ export const useDeleteProduct = () => {
 export const usePendingProducts = () => {
   return useQuery({
     queryKey: ["admin-products-pending"],
-    queryFn: () => fetcher("/products/pending"),
+    queryFn: () => adminFetch("/products/pending"),
     refetchInterval: 30_000,
   });
 };
@@ -425,7 +425,7 @@ export const useApproveProduct = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, note }: { id: string; note?: string }) =>
-      fetcher(`/products/${id}/approve`, { method: "PATCH", body: JSON.stringify({ note }) }),
+      adminFetch(`/products/${id}/approve`, { method: "PATCH", body: JSON.stringify({ note }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products-pending"] });
       qc.invalidateQueries({ queryKey: ["admin-products"] });
@@ -437,7 +437,7 @@ export const useRejectProduct = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      fetcher(`/products/${id}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+      adminFetch(`/products/${id}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products-pending"] });
       qc.invalidateQueries({ queryKey: ["admin-products"] });
@@ -456,7 +456,7 @@ export const useProductStockHistory = (
   const qs = params.toString();
   return useQuery({
     queryKey: ["admin-stock-history", productId, filters],
-    queryFn: () => fetcher(`/products/${productId}/stock-history${qs ? `?${qs}` : ""}`),
+    queryFn: () => adminFetch(`/products/${productId}/stock-history${qs ? `?${qs}` : ""}`),
     enabled: !!productId,
     staleTime: 30_000,
   });
@@ -466,7 +466,7 @@ export const useOrderRefund = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, amount, reason }: { id: string; amount?: number; reason?: string }) =>
-      fetcher(`/orders/${id}/refund`, { method: "POST", body: JSON.stringify({ amount, reason }) }),
+      adminFetch(`/orders/${id}/refund`, { method: "POST", body: JSON.stringify({ amount, reason }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-orders-enriched"] });
       qc.invalidateQueries({ queryKey: ["admin-transactions"] });
@@ -478,7 +478,7 @@ export const useOrderRefund = () => {
 export const useBroadcast = () => {
   return useMutation({
     mutationFn: (data: BroadcastInput) =>
-      fetcher("/broadcast", {
+      adminFetch("/broadcast", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -502,7 +502,7 @@ export const useBroadcastRecipientCount = (
   return useQuery({
     queryKey: ["admin-broadcast-recipient-count", roles.join(",") || "all"],
     queryFn: () =>
-      fetcher(`/broadcast/recipients/count${queryParam}`) as Promise<{
+      adminFetch(`/broadcast/recipients/count${queryParam}`) as Promise<{
         count: number;
         targetRoles: string[];
       }>,
@@ -515,7 +515,7 @@ export const useBroadcastRecipientCount = (
 export const useTransactions = () => {
   return useQuery({
     queryKey: ["admin-transactions"],
-    queryFn: () => fetcher("/transactions-enriched"),
+    queryFn: () => adminFetch("/transactions-enriched"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -554,7 +554,7 @@ export const useOrdersEnriched = (filters?: OrdersEnrichedFilters) => {
 
   return useQuery({
     queryKey: ["admin-orders-enriched", filters?.status, filters?.type, filters?.search, filters?.dateFrom, filters?.dateTo, filters?.page, filters?.limit, filters?.sortBy, filters?.sortDir],
-    queryFn: () => fetcher(url),
+    queryFn: () => adminFetch(url),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -562,7 +562,7 @@ export const useOrdersEnriched = (filters?: OrdersEnrichedFilters) => {
 export const useOrdersStats = () => {
   return useQuery({
     queryKey: ["admin-orders-stats"],
-    queryFn: () => fetcher("/orders-stats"),
+    queryFn: () => adminFetch("/orders-stats"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -570,7 +570,7 @@ export const useOrdersStats = () => {
 export const fetchOrdersExport = async (filters?: OrdersEnrichedFilters): Promise<any> => {
   const qs = buildOrderParams(filters);
   const url = qs ? `/orders-export?${qs}` : "/orders-export";
-  return fetcher(url);
+  return adminFetch(url);
 };
 
 export const useRidesEnriched = (params?: {
@@ -594,7 +594,7 @@ export const useRidesEnriched = (params?: {
   const query = qs.toString();
   return useQuery({
     queryKey: ["admin-rides-enriched", params?.page ?? 1, params?.limit ?? 50, params?.status ?? "all", params?.type ?? "all", params?.search ?? "", params?.customer ?? "", params?.rider ?? "", params?.dateFrom ?? "", params?.dateTo ?? "", params?.sortBy ?? "date", params?.sortDir ?? "desc"],
-    queryFn: () => fetcher(query ? `/rides-enriched?${query}` : "/rides-enriched"),
+    queryFn: () => adminFetch(query ? `/rides-enriched?${query}` : "/rides-enriched"),
     refetchInterval: RIDES_REFETCH_INTERVAL,
   });
 };
@@ -603,11 +603,9 @@ export const useRidesEnriched = (params?: {
 export const useHealthDashboard = () => {
   return useQuery({
     queryKey: ["admin-health-dashboard"],
-    queryFn: () => fetcher("/system/health-dashboard"),
+    queryFn: () => adminFetch("/system/health-dashboard"),
     refetchInterval: 10_000,
     staleTime: 8_000,
-=======
->>>>>>> e9794bd (Admin Panel: Settings remap, Health Dashboard metrics, RBAC endpoints, comms routing)
   });
 };
 
@@ -615,7 +613,7 @@ export const useUnlockAdminIpLockout = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (key: string) =>
-      fetcher(`/system/admin-ip-lockouts/${encodeURIComponent(key)}`, { method: "DELETE" }),
+      adminFetch(`/system/admin-ip-lockouts/${encodeURIComponent(key)}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-health-dashboard"] });
     },
@@ -626,7 +624,7 @@ export const useUnlockAdminIpLockout = () => {
 export const usePlatformSettings = () => {
   return useQuery({
     queryKey: ["admin-platform-settings"],
-    queryFn: () => fetcher("/platform-settings"),
+    queryFn: () => adminFetch("/platform-settings"),
   });
 };
 
@@ -634,7 +632,7 @@ export const useUpdatePlatformSettings = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (settings: Array<{ key: string; value: string }>) =>
-      fetcher("/platform-settings", {
+      adminFetch("/platform-settings", {
         method: "PUT",
         body: JSON.stringify({ settings }),
       }),
@@ -644,15 +642,15 @@ export const useUpdatePlatformSettings = () => {
 
 /* ── Vendors ── */
 export const useVendors = () =>
-  useQuery({ queryKey: ["admin-vendors"], queryFn: () => fetcher("/vendors"), refetchInterval: REFETCH_INTERVAL });
+  useQuery({ queryKey: ["admin-vendors"], queryFn: () => adminFetch("/vendors"), refetchInterval: REFETCH_INTERVAL });
 
 export const useFleetVendors = () =>
-  useQuery({ queryKey: ["admin-fleet-vendors"], queryFn: () => fetcher("/fleet/vendors"), refetchInterval: 60_000 });
+  useQuery({ queryKey: ["admin-fleet-vendors"], queryFn: () => adminFetch("/fleet/vendors"), refetchInterval: 60_000 });
 
 export const useUpdateVendorStatus = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: any) => fetcher(`/vendors/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+    mutationFn: ({ id, ...data }: any) => adminFetch(`/vendors/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-vendors"] }),
   });
 };
@@ -661,7 +659,7 @@ export const useVendorPayout = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, amount, description }: { id: string; amount: number; description?: string }) =>
-      fetcher(`/vendors/${id}/payout`, { method: "POST", body: JSON.stringify({ amount, description }) }),
+      adminFetch(`/vendors/${id}/payout`, { method: "POST", body: JSON.stringify({ amount, description }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-vendors"] });
       qc.invalidateQueries({ queryKey: ["admin-users"] });
@@ -675,7 +673,7 @@ export const useVendorCredit = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, amount, description }: { id: string; amount: number; description?: string }) =>
-      fetcher(`/vendors/${id}/credit`, { method: "POST", body: JSON.stringify({ amount, description }) }),
+      adminFetch(`/vendors/${id}/credit`, { method: "POST", body: JSON.stringify({ amount, description }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-vendors"] });
       qc.invalidateQueries({ queryKey: ["admin-users"] });
@@ -689,12 +687,12 @@ export const useVendorCredit = () => {
 export const useRiders = () =>
   /* staleTime: 0 ensures the wallet balance and rider state shown in modals
      are always fresh immediately after any mutation invalidates this query. */
-  useQuery({ queryKey: ["admin-riders"], queryFn: () => fetcher("/riders"), refetchInterval: REFETCH_INTERVAL, staleTime: 0 });
+  useQuery({ queryKey: ["admin-riders"], queryFn: () => adminFetch("/riders"), refetchInterval: REFETCH_INTERVAL, staleTime: 0 });
 
 export const useUpdateRiderStatus = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: any) => fetcher(`/riders/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+    mutationFn: ({ id, ...data }: any) => adminFetch(`/riders/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-riders"] }),
   });
 };
@@ -703,7 +701,7 @@ export const useRiderPayout = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, amount, description }: { id: string; amount: number; description?: string }) =>
-      fetcher(`/riders/${id}/payout`, { method: "POST", body: JSON.stringify({ amount, description }) }),
+      adminFetch(`/riders/${id}/payout`, { method: "POST", body: JSON.stringify({ amount, description }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-riders"] });
       qc.invalidateQueries({ queryKey: ["admin-users"] });
@@ -717,7 +715,7 @@ export const useRiderBonus = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, amount, description }: { id: string; amount: number; description?: string }) =>
-      fetcher(`/riders/${id}/bonus`, { method: "POST", body: JSON.stringify({ amount, description }) }),
+      adminFetch(`/riders/${id}/bonus`, { method: "POST", body: JSON.stringify({ amount, description }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-riders"] });
       qc.invalidateQueries({ queryKey: ["admin-users"] });
@@ -730,21 +728,21 @@ export const useRiderBonus = () => {
 export const useRiderPenalties = (riderId: string | null) =>
   useQuery({
     queryKey: ["admin-rider-penalties", riderId],
-    queryFn: () => fetcher(`/riders/${riderId}/penalties`),
+    queryFn: () => adminFetch(`/riders/${riderId}/penalties`),
     enabled: !!riderId,
   });
 
 export const useRiderRatings = (riderId: string | null) =>
   useQuery({
     queryKey: ["admin-rider-ratings", riderId],
-    queryFn: () => fetcher(`/riders/${riderId}/ratings`),
+    queryFn: () => adminFetch(`/riders/${riderId}/ratings`),
     enabled: !!riderId,
   });
 
 export const useRestrictRider = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/riders/${id}/restrict`, { method: "POST", body: "{}" }),
+    mutationFn: (id: string) => adminFetch(`/riders/${id}/restrict`, { method: "POST", body: "{}" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-riders"] }),
   });
 };
@@ -752,19 +750,19 @@ export const useRestrictRider = () => {
 export const useUnrestrictRider = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/riders/${id}/unrestrict`, { method: "POST", body: "{}" }),
+    mutationFn: (id: string) => adminFetch(`/riders/${id}/unrestrict`, { method: "POST", body: "{}" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-riders"] }),
   });
 };
 
 /* ── Promo Codes ── */
 export const usePromoCodes = () =>
-  useQuery({ queryKey: ["admin-promo-codes"], queryFn: () => fetcher("/promo-codes"), refetchInterval: REFETCH_INTERVAL });
+  useQuery({ queryKey: ["admin-promo-codes"], queryFn: () => adminFetch("/promo-codes"), refetchInterval: REFETCH_INTERVAL });
 
 export const useCreatePromoCode = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) => fetcher("/promo-codes", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => adminFetch("/promo-codes", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-promo-codes"] }),
   });
 };
@@ -772,7 +770,7 @@ export const useCreatePromoCode = () => {
 export const useUpdatePromoCode = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: any) => fetcher(`/promo-codes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    mutationFn: ({ id, ...data }: any) => adminFetch(`/promo-codes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-promo-codes"] }),
   });
 };
@@ -780,7 +778,7 @@ export const useUpdatePromoCode = () => {
 export const useDeletePromoCode = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/promo-codes/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/promo-codes/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-promo-codes"] }),
   });
 };
@@ -789,7 +787,7 @@ export const useDeletePromoCode = () => {
 export const useDepositRequests = (status?: string) => {
   return useQuery({
     queryKey: ["admin-deposits", status],
-    queryFn: () => fetcher(`/deposit-requests${status ? `?status=${status}` : ""}`),
+    queryFn: () => adminFetch(`/deposit-requests${status ? `?status=${status}` : ""}`),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -798,7 +796,7 @@ export const useApproveDeposit = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, refNo, note }: { id: string; refNo?: string; note?: string }) =>
-      fetcher(`/deposit-requests/${id}/approve`, { method: "PATCH", body: JSON.stringify({ refNo, note }) }),
+      adminFetch(`/deposit-requests/${id}/approve`, { method: "PATCH", body: JSON.stringify({ refNo, note }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-deposits"] });
       qc.invalidateQueries({ queryKey: ["admin-transactions"] });
@@ -811,7 +809,7 @@ export const useRejectDeposit = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      fetcher(`/deposit-requests/${id}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+      adminFetch(`/deposit-requests/${id}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-deposits"] });
     },
@@ -822,7 +820,7 @@ export const useBulkApproveDeposits = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ ids, refNo }: { ids: string[]; refNo?: string }) =>
-      fetcher("/deposit-requests/bulk-approve", { method: "POST", body: JSON.stringify({ ids, refNo }) }),
+      adminFetch("/deposit-requests/bulk-approve", { method: "POST", body: JSON.stringify({ ids, refNo }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-deposits"] });
       qc.invalidateQueries({ queryKey: ["admin-transactions"] });
@@ -835,7 +833,7 @@ export const useBulkRejectDeposits = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ ids, reason }: { ids: string[]; reason: string }) =>
-      fetcher("/deposit-requests/bulk-reject", { method: "POST", body: JSON.stringify({ ids, reason }) }),
+      adminFetch("/deposit-requests/bulk-reject", { method: "POST", body: JSON.stringify({ ids, reason }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-deposits"] });
       qc.invalidateQueries({ queryKey: ["admin-transactions"] });
@@ -848,7 +846,7 @@ export const useBulkRejectDeposits = () => {
 export const useWithdrawalRequests = (status?: string) => {
   return useQuery({
     queryKey: ["admin-withdrawals", status],
-    queryFn: () => fetcher(`/withdrawal-requests${status ? `?status=${status}` : ""}`),
+    queryFn: () => adminFetch(`/withdrawal-requests${status ? `?status=${status}` : ""}`),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -857,7 +855,7 @@ export const useApproveWithdrawal = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, refNo, note }: { id: string; refNo: string; note?: string }) =>
-      fetcher(`/withdrawal-requests/${id}/approve`, { method: "PATCH", body: JSON.stringify({ refNo, note }) }),
+      adminFetch(`/withdrawal-requests/${id}/approve`, { method: "PATCH", body: JSON.stringify({ refNo, note }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-withdrawals"] }),
   });
 };
@@ -866,7 +864,7 @@ export const useRejectWithdrawal = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      fetcher(`/withdrawal-requests/${id}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+      adminFetch(`/withdrawal-requests/${id}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-withdrawals"] }),
   });
 };
@@ -875,7 +873,7 @@ export const useBatchApproveWithdrawals = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (ids: string[]) =>
-      fetcher("/withdrawal-requests/batch-approve", { method: "PATCH", body: JSON.stringify({ ids }) }),
+      adminFetch("/withdrawal-requests/batch-approve", { method: "PATCH", body: JSON.stringify({ ids }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-withdrawals"] }),
   });
 };
@@ -884,7 +882,7 @@ export const useBatchRejectWithdrawals = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ ids, reason }: { ids: string[]; reason: string }) =>
-      fetcher("/withdrawal-requests/batch-reject", { method: "PATCH", body: JSON.stringify({ ids, reason }) }),
+      adminFetch("/withdrawal-requests/batch-reject", { method: "PATCH", body: JSON.stringify({ ids, reason }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-withdrawals"] }),
   });
 };
@@ -893,7 +891,7 @@ export const useCreditRiderWallet = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, amount, description, type }: { id: string; amount: number; description?: string; type?: string }) =>
-      fetcher(`/riders/${id}/credit`, { method: "POST", body: JSON.stringify({ amount, description, type }) }),
+      adminFetch(`/riders/${id}/credit`, { method: "POST", body: JSON.stringify({ amount, description, type }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-riders"] });
       qc.invalidateQueries({ queryKey: ["admin-transactions"] });
@@ -903,13 +901,13 @@ export const useCreditRiderWallet = () => {
 
 // ── Ride Service Types ──
 export const useRideServices = () =>
-  useQuery({ queryKey: ["admin-ride-services"], queryFn: () => fetcher("/ride-services"), staleTime: 0 });
+  useQuery({ queryKey: ["admin-ride-services"], queryFn: () => adminFetch("/ride-services"), staleTime: 0 });
 
 export const useCreateRideService = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) =>
-      fetcher("/ride-services", { method: "POST", body: JSON.stringify(data) }),
+      adminFetch("/ride-services", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-ride-services"] }),
   });
 };
@@ -918,7 +916,7 @@ export const useUpdateRideService = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; [k: string]: unknown }) =>
-      fetcher(`/ride-services/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      adminFetch(`/ride-services/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-ride-services"] }),
   });
 };
@@ -926,7 +924,7 @@ export const useUpdateRideService = () => {
 export const useDeleteRideService = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/ride-services/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/ride-services/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-ride-services"] }),
   });
 };
@@ -935,7 +933,7 @@ export const useDeleteRideService = () => {
 export const useAllNotifications = (role?: string) => {
   return useQuery({
     queryKey: ["admin-all-notifications", role],
-    queryFn: () => fetcher(`/all-notifications${role ? `?role=${role}` : ""}`),
+    queryFn: () => adminFetch(`/all-notifications${role ? `?role=${role}` : ""}`),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -950,7 +948,7 @@ export const useWhatsAppDeliveryLog = (params?: { status?: string; phone?: strin
   qs.set("offset", String(offset));
   return useQuery({
     queryKey: ["admin-wa-delivery-log", status ?? "", phone ?? "", limit, offset],
-    queryFn: () => apiAbsoluteFetch(`/api/webhooks/whatsapp/delivery-log?${qs.toString()}`),
+    queryFn: () => adminAbsoluteFetch(`/api/webhooks/whatsapp/delivery-log?${qs.toString()}`),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -962,7 +960,7 @@ export const useWhatsAppDeliveryLog = (params?: { status?: string; phone?: strin
 export const usePopularLocations = () => {
   return useQuery({
     queryKey: ["admin-popular-locations"],
-    queryFn: () => fetcher("/locations"),
+    queryFn: () => adminFetch("/locations"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -971,7 +969,7 @@ export const useCreateLocation = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) =>
-      fetcher("/locations", { method: "POST", body: JSON.stringify(data) }),
+      adminFetch("/locations", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-popular-locations"] }),
   });
 };
@@ -980,7 +978,7 @@ export const useUpdateLocation = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; [k: string]: unknown }) =>
-      fetcher(`/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      adminFetch(`/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-popular-locations"] }),
   });
 };
@@ -988,7 +986,7 @@ export const useUpdateLocation = () => {
 export const useDeleteLocation = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/locations/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/locations/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-popular-locations"] }),
   });
 };
@@ -1000,7 +998,7 @@ export const useDeleteLocation = () => {
 export const useSchoolRoutes = () => {
   return useQuery({
     queryKey: ["admin-school-routes"],
-    queryFn: () => fetcher("/school-routes"),
+    queryFn: () => adminFetch("/school-routes"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -1009,7 +1007,7 @@ export const useCreateSchoolRoute = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) =>
-      fetcher("/school-routes", { method: "POST", body: JSON.stringify(data) }),
+      adminFetch("/school-routes", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-school-routes"] }),
   });
 };
@@ -1018,7 +1016,7 @@ export const useUpdateSchoolRoute = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; [k: string]: unknown }) =>
-      fetcher(`/school-routes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      adminFetch(`/school-routes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-school-routes"] }),
   });
 };
@@ -1026,7 +1024,7 @@ export const useUpdateSchoolRoute = () => {
 export const useDeleteSchoolRoute = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/school-routes/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/school-routes/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-school-routes"] }),
   });
 };
@@ -1034,7 +1032,7 @@ export const useDeleteSchoolRoute = () => {
 export const useSchoolSubscriptions = (routeId?: string) => {
   return useQuery({
     queryKey: ["admin-school-subscriptions", routeId],
-    queryFn: () => fetcher(`/school-subscriptions${routeId ? `?routeId=${routeId}` : ""}`),
+    queryFn: () => adminFetch(`/school-subscriptions${routeId ? `?routeId=${routeId}` : ""}`),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -1062,7 +1060,7 @@ type LiveRidersResponse = {
 export const useLiveRiders = () => {
   return useQuery<LiveRidersResponse>({
     queryKey: ["admin-live-riders"],
-    queryFn: () => fetcher("/live-riders"),
+    queryFn: () => adminFetch("/live-riders"),
     refetchInterval: 10_000,
   });
 };
@@ -1070,7 +1068,7 @@ export const useLiveRiders = () => {
 export const useCustomerLocations = () => {
   return useQuery({
     queryKey: ["admin-customer-locations"],
-    queryFn: () => fetcher("/customer-locations"),
+    queryFn: () => adminFetch("/customer-locations"),
     refetchInterval: 30_000,
   });
 };
@@ -1081,7 +1079,7 @@ export const useRequestUserCorrection = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, field, note }: { id: string; field?: string; note?: string }) =>
-      fetcher(`/users/${id}/request-correction`, { method: "PATCH", body: JSON.stringify({ field, note }) }),
+      adminFetch(`/users/${id}/request-correction`, { method: "PATCH", body: JSON.stringify({ field, note }) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-users"] }); qc.invalidateQueries({ queryKey: ["admin-users-pending"] }); },
   });
 };
@@ -1090,7 +1088,7 @@ export const useBulkBanUsers = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ ids, action, reason }: { ids: string[]; action: "ban" | "unban"; reason?: string }) =>
-      fetcher("/users/bulk-ban", { method: "PATCH", body: JSON.stringify({ ids, action, reason }) }),
+      adminFetch("/users/bulk-ban", { method: "PATCH", body: JSON.stringify({ ids, action, reason }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 };
@@ -1099,7 +1097,7 @@ export const useAssignRider = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ orderId, riderId, riderName, riderPhone }: { orderId: string; riderId?: string; riderName?: string; riderPhone?: string }) =>
-      fetcher(`/orders/${orderId}/assign-rider`, { method: "PATCH", body: JSON.stringify({ riderId, riderName, riderPhone }) }),
+      adminFetch(`/orders/${orderId}/assign-rider`, { method: "PATCH", body: JSON.stringify({ riderId, riderName, riderPhone }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-orders-enriched"] }),
   });
 };
@@ -1108,7 +1106,7 @@ export const useVendorCommissionOverride = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, commissionPct }: { id: string; commissionPct: number }) =>
-      fetcher(`/vendors/${id}/commission`, { method: "PATCH", body: JSON.stringify({ commissionPct }) }),
+      adminFetch(`/vendors/${id}/commission`, { method: "PATCH", body: JSON.stringify({ commissionPct }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-vendors"] }),
   });
 };
@@ -1117,26 +1115,26 @@ export const useToggleRiderOnline = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, isOnline }: { id: string; isOnline: boolean }) =>
-      fetcher(`/riders/${id}/online`, { method: "PATCH", body: JSON.stringify({ isOnline }) }),
+      adminFetch(`/riders/${id}/online`, { method: "PATCH", body: JSON.stringify({ isOnline }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-riders"] }),
   });
 };
 
 export const useRevenueTrend = () =>
-  useQuery({ queryKey: ["admin-revenue-trend"], queryFn: () => fetcher("/revenue-trend"), refetchInterval: 60_000 });
+  useQuery({ queryKey: ["admin-revenue-trend"], queryFn: () => adminFetch("/revenue-trend"), refetchInterval: 60_000 });
 
 export const useLeaderboard = () =>
-  useQuery({ queryKey: ["admin-leaderboard"], queryFn: () => fetcher("/leaderboard"), refetchInterval: 60_000 });
+  useQuery({ queryKey: ["admin-leaderboard"], queryFn: () => adminFetch("/leaderboard"), refetchInterval: 60_000 });
 
 export const useRevenueAnalytics = () =>
-  useQuery({ queryKey: ["admin-revenue-analytics"], queryFn: () => fetcher("/revenue-analytics"), refetchInterval: 5 * 60_000 });
+  useQuery({ queryKey: ["admin-revenue-analytics"], queryFn: () => adminFetch("/revenue-analytics"), refetchInterval: 5 * 60_000 });
 
 export const useAdminCancelRide = () => {
   const qc = useQueryClient();
   const { onError: handleCancelRideError } = useErrorHandler({ title: "Failed to cancel ride" });
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
-      fetcher(`/rides/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
+      adminFetch(`/rides/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-rides-enriched"] });
       qc.invalidateQueries({ queryKey: ["admin-rides"] });
@@ -1158,7 +1156,7 @@ export const useAdminRefundRide = () => {
   const { onError: handleRefundRideError } = useErrorHandler({ title: "Failed to process refund" });
   return useMutation({
     mutationFn: ({ id, amount, reason }: { id: string; amount?: number; reason?: string }) =>
-      fetcher(`/rides/${id}/refund`, { method: "POST", body: JSON.stringify({ amount, reason }) }),
+      adminFetch(`/rides/${id}/refund`, { method: "POST", body: JSON.stringify({ amount, reason }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-rides-enriched"] });
       qc.invalidateQueries({ queryKey: ["admin-transactions"] });
@@ -1179,7 +1177,7 @@ export const useAdminReassignRide = () => {
   const { onError: handleReassignRideError } = useErrorHandler({ title: "Failed to reassign rider" });
   return useMutation({
     mutationFn: ({ id, riderId, riderName, riderPhone }: { id: string; riderId?: string; riderName?: string; riderPhone?: string }) =>
-      fetcher(`/rides/${id}/reassign`, { method: "POST", body: JSON.stringify({ riderId, riderName, riderPhone }) }),
+      adminFetch(`/rides/${id}/reassign`, { method: "POST", body: JSON.stringify({ riderId, riderName, riderPhone }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-rides-enriched"] });
       qc.invalidateQueries({ queryKey: ["admin-rides"] });
@@ -1198,14 +1196,14 @@ export const useAdminReassignRide = () => {
 export const useRideDetail = (rideId: string | null) =>
   useQuery({
     queryKey: ["admin-ride-detail", rideId],
-    queryFn: () => fetcher(`/rides/${rideId}/detail`),
+    queryFn: () => adminFetch(`/rides/${rideId}/detail`),
     enabled: !!rideId,
   });
 
 export const useRideAuditTrail = (rideId: string | null) =>
   useQuery({
     queryKey: ["admin-ride-audit", rideId],
-    queryFn: () => fetcher(`/rides/${rideId}/audit-trail`),
+    queryFn: () => adminFetch(`/rides/${rideId}/audit-trail`),
     enabled: !!rideId,
     refetchInterval: 15_000,
   });
@@ -1213,7 +1211,7 @@ export const useRideAuditTrail = (rideId: string | null) =>
 export const useDispatchMonitor = () =>
   useQuery({
     queryKey: ["admin-dispatch-monitor"],
-    queryFn: () => fetcher("/dispatch-monitor"),
+    queryFn: () => adminFetch("/dispatch-monitor"),
     refetchInterval: 10_000,
   });
 
@@ -1228,7 +1226,7 @@ export const useAuditLog = (params?: { page?: number; action?: string; from?: st
   const q = qs.toString();
   return useQuery({
     queryKey: ["admin-audit-log", params],
-    queryFn: () => fetcher(`/audit-log${q ? `?${q}` : ""}`),
+    queryFn: () => adminFetch(`/audit-log${q ? `?${q}` : ""}`),
     refetchInterval: 30_000,
   });
 };
@@ -1237,7 +1235,7 @@ export const useRiderRoute = (userId: string | null, date?: string) => {
   const qs = date ? `?date=${date}` : "?sinceOnline=true";
   return useQuery({
     queryKey: ["admin-rider-route", userId, date ?? "session"],
-    queryFn: () => fetcher(`/riders/${userId}/route${qs}`),
+    queryFn: () => adminFetch(`/riders/${userId}/route${qs}`),
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -1249,7 +1247,7 @@ export const useRiderTrailsBatch = (riderIds: string[]) => {
   const results = useQueries({
     queries: riderIds.map(id => ({
       queryKey: ["admin-rider-route", id, "session"],
-      queryFn: () => fetcher(`/riders/${id}/route?sinceOnline=true`),
+      queryFn: () => adminFetch(`/riders/${id}/route?sinceOnline=true`),
       enabled: riderIds.length > 0,
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
@@ -1273,7 +1271,7 @@ export const useAdminReviews = (params?: { status?: string; type?: string; q?: s
       if (params?.type   && params.type   !== "all") qs.set("type", params.type);
       if (params?.q)                                  qs.set("q", params.q);
       const query = qs.toString();
-      return fetcher(`/reviews${query ? `?${query}` : ""}`);
+      return adminFetch(`/reviews${query ? `?${query}` : ""}`);
     },
     refetchInterval: 30_000,
   });
@@ -1281,14 +1279,14 @@ export const useAdminReviews = (params?: { status?: string; type?: string; q?: s
 export const useModerationQueue = () =>
   useQuery({
     queryKey: ["admin-moderation-queue"],
-    queryFn: () => fetcher("/reviews/moderation-queue"),
+    queryFn: () => adminFetch("/reviews/moderation-queue"),
     refetchInterval: 15_000,
   });
 
 export const useApproveReview = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/reviews/${id}/approve`, { method: "PATCH" }),
+    mutationFn: (id: string) => adminFetch(`/reviews/${id}/approve`, { method: "PATCH" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-moderation-queue"] });
       qc.invalidateQueries({ queryKey: ["admin-reviews"] });
@@ -1299,7 +1297,7 @@ export const useApproveReview = () => {
 export const useRejectReview = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/reviews/${id}/reject`, { method: "PATCH" }),
+    mutationFn: (id: string) => adminFetch(`/reviews/${id}/reject`, { method: "PATCH" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-moderation-queue"] });
       qc.invalidateQueries({ queryKey: ["admin-reviews"] });
@@ -1308,12 +1306,12 @@ export const useRejectReview = () => {
 };
 
 export const useRunRatingSuspension = () =>
-  useMutation({ mutationFn: () => fetcher("/jobs/rating-suspension", { method: "POST" }) });
+  useMutation({ mutationFn: () => adminFetch("/jobs/rating-suspension", { method: "POST" }) });
 
 export const useOverrideSuspension = (role: "riders" | "vendors") => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/${role}/${id}/override-suspension`, { method: "POST" }),
+    mutationFn: (id: string) => adminFetch(`/${role}/${id}/override-suspension`, { method: "POST" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-riders"] });
       qc.invalidateQueries({ queryKey: ["admin-vendors"] });
@@ -1341,7 +1339,7 @@ export type ServiceZone = {
 export const useServiceZones = () =>
   useQuery<ServiceZone[]>({
     queryKey: ["admin-service-zones"],
-    queryFn: () => fetcher("/service-zones"),
+    queryFn: () => adminFetch("/service-zones"),
     staleTime: 30_000,
   });
 
@@ -1349,7 +1347,7 @@ export const useCreateServiceZone = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Partial<ServiceZone>) =>
-      fetcher("/service-zones", { method: "POST", body: JSON.stringify(data) }),
+      adminFetch("/service-zones", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-service-zones"] }),
   });
 };
@@ -1358,7 +1356,7 @@ export const useUpdateServiceZone = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: Partial<ServiceZone> & { id: number }) =>
-      fetcher(`/service-zones/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      adminFetch(`/service-zones/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-service-zones"] }),
   });
 };
@@ -1367,7 +1365,7 @@ export const useDeleteServiceZone = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) =>
-      fetcher(`/service-zones/${id}`, { method: "DELETE" }),
+      adminFetch(`/service-zones/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-service-zones"] }),
   });
 };
@@ -1375,7 +1373,7 @@ export const useDeleteServiceZone = () => {
 export const useDeliveryAccess = () => {
   return useQuery({
     queryKey: ["admin-delivery-access"],
-    queryFn: () => fetcher("/delivery-access"),
+    queryFn: () => adminFetch("/delivery-access"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -1384,7 +1382,7 @@ export const useUpdateDeliveryMode = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (mode: string) =>
-      fetcher("/delivery-access/mode", { method: "PUT", body: JSON.stringify({ mode }) }),
+      adminFetch("/delivery-access/mode", { method: "PUT", body: JSON.stringify({ mode }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-delivery-access"] });
     },
@@ -1395,7 +1393,7 @@ export const useAddWhitelistEntry = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { type: string; targetId: string; serviceType?: string; validUntil?: string; deliveryLabel?: string; notes?: string }) =>
-      fetcher("/delivery-access/whitelist", { method: "POST", body: JSON.stringify(data) }),
+      adminFetch("/delivery-access/whitelist", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-delivery-access"] }),
   });
 };
@@ -1404,7 +1402,7 @@ export const useBulkAddWhitelist = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (entries: any[]) =>
-      fetcher("/delivery-access/whitelist/bulk", { method: "POST", body: JSON.stringify({ entries }) }),
+      adminFetch("/delivery-access/whitelist/bulk", { method: "POST", body: JSON.stringify({ entries }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-delivery-access"] }),
   });
 };
@@ -1413,7 +1411,7 @@ export const useUpdateWhitelistEntry = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; deliveryLabel?: string; notes?: string; validUntil?: string; status?: string }) =>
-      fetcher(`/delivery-access/whitelist/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      adminFetch(`/delivery-access/whitelist/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-delivery-access"] }),
   });
 };
@@ -1422,7 +1420,7 @@ export const useDeleteWhitelistEntry = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      fetcher(`/delivery-access/whitelist/${id}`, { method: "DELETE" }),
+      adminFetch(`/delivery-access/whitelist/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-delivery-access"] }),
   });
 };
@@ -1430,7 +1428,7 @@ export const useDeleteWhitelistEntry = () => {
 export const useDeliveryAccessRequests = () => {
   return useQuery({
     queryKey: ["admin-delivery-requests"],
-    queryFn: () => fetcher("/delivery-access/requests"),
+    queryFn: () => adminFetch("/delivery-access/requests"),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -1439,7 +1437,7 @@ export const useResolveDeliveryRequest = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status, notes }: { id: string; status: "approved" | "rejected"; notes?: string }) =>
-      fetcher(`/delivery-access/requests/${id}`, { method: "PATCH", body: JSON.stringify({ status, notes }) }),
+      adminFetch(`/delivery-access/requests/${id}`, { method: "PATCH", body: JSON.stringify({ status, notes }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-delivery-requests"] });
       qc.invalidateQueries({ queryKey: ["admin-delivery-access"] });
@@ -1450,7 +1448,7 @@ export const useResolveDeliveryRequest = () => {
 export const useDeliveryAccessAudit = () => {
   return useQuery({
     queryKey: ["admin-delivery-audit"],
-    queryFn: () => fetcher("/delivery-access/audit"),
+    queryFn: () => adminFetch("/delivery-access/audit"),
   });
 };
 
@@ -1458,7 +1456,7 @@ export const useConditions = (filters?: Record<string, string>) => {
   const params = new URLSearchParams(filters || {}).toString();
   return useQuery({
     queryKey: ["admin-conditions", filters],
-    queryFn: () => fetcher(`/conditions${params ? `?${params}` : ""}`),
+    queryFn: () => adminFetch(`/conditions${params ? `?${params}` : ""}`),
     refetchInterval: REFETCH_INTERVAL,
   });
 };
@@ -1466,7 +1464,7 @@ export const useConditions = (filters?: Record<string, string>) => {
 export const useUserConditions = (userId: string) => {
   return useQuery({
     queryKey: ["admin-conditions-user", userId],
-    queryFn: () => fetcher(`/conditions/user/${userId}`),
+    queryFn: () => adminFetch(`/conditions/user/${userId}`),
     enabled: !!userId,
   });
 };
@@ -1475,7 +1473,7 @@ export const useApplyCondition = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, any>) =>
-      fetcher("/conditions", { method: "POST", body: JSON.stringify(data) }),
+      adminFetch("/conditions", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-conditions"] });
       qc.invalidateQueries({ queryKey: ["admin-users"] });
@@ -1489,7 +1487,7 @@ export const useUpdateCondition = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; [key: string]: any }) =>
-      fetcher(`/conditions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      adminFetch(`/conditions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-conditions"] });
       qc.invalidateQueries({ queryKey: ["admin-users"] });
@@ -1501,7 +1499,7 @@ export const useDeleteCondition = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      fetcher(`/conditions/${id}`, { method: "DELETE" }),
+      adminFetch(`/conditions/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-conditions"] });
     },
@@ -1512,7 +1510,7 @@ export const useBulkConditionAction = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { ids: string[]; action: string; reason?: string }) =>
-      fetcher("/conditions/bulk", { method: "POST", body: JSON.stringify(data) }),
+      adminFetch("/conditions/bulk", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-conditions"] });
     },
@@ -1522,7 +1520,7 @@ export const useBulkConditionAction = () => {
 export const useConditionRules = () => {
   return useQuery({
     queryKey: ["admin-condition-rules"],
-    queryFn: () => fetcher("/condition-rules"),
+    queryFn: () => adminFetch("/condition-rules"),
   });
 };
 
@@ -1530,7 +1528,7 @@ export const useCreateConditionRule = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, any>) =>
-      fetcher("/condition-rules", { method: "POST", body: JSON.stringify(data) }),
+      adminFetch("/condition-rules", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-condition-rules"] });
     },
@@ -1541,7 +1539,7 @@ export const useUpdateConditionRule = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; [key: string]: any }) =>
-      fetcher(`/condition-rules/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      adminFetch(`/condition-rules/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-condition-rules"] });
     },
@@ -1552,7 +1550,7 @@ export const useDeleteConditionRule = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      fetcher(`/condition-rules/${id}`, { method: "DELETE" }),
+      adminFetch(`/condition-rules/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-condition-rules"] });
     },
@@ -1563,7 +1561,7 @@ export const useSeedDefaultRules = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () =>
-      fetcher("/condition-rules/seed-defaults", { method: "POST", body: "{}" }),
+      adminFetch("/condition-rules/seed-defaults", { method: "POST", body: "{}" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-condition-rules"] });
     },
@@ -1573,7 +1571,7 @@ export const useSeedDefaultRules = () => {
 export const useConditionSettings = () => {
   return useQuery({
     queryKey: ["admin-condition-settings"],
-    queryFn: () => fetcher("/condition-settings"),
+    queryFn: () => adminFetch("/condition-settings"),
   });
 };
 
@@ -1581,7 +1579,7 @@ export const useUpdateConditionSettings = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, any>) =>
-      fetcher("/condition-settings", { method: "PATCH", body: JSON.stringify(data) }),
+      adminFetch("/condition-settings", { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-condition-settings"] });
     },
@@ -1592,7 +1590,7 @@ export const useEvaluateRules = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId: string) =>
-      fetcher(`/condition-rules/evaluate/${userId}`, { method: "POST" }),
+      adminFetch(`/condition-rules/evaluate/${userId}`, { method: "POST" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-conditions"] });
     },
@@ -1604,12 +1602,12 @@ export const useEvaluateRules = () => {
 // ══════════════════════════════════════════════════════
 
 export const useSmsGateways = () =>
-  useQuery({ queryKey: ["admin-sms-gateways"], queryFn: () => fetcher("/sms-gateways"), refetchInterval: 60_000 });
+  useQuery({ queryKey: ["admin-sms-gateways"], queryFn: () => adminFetch("/sms-gateways"), refetchInterval: 60_000 });
 
 export const useCreateSmsGateway = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) => fetcher("/sms-gateways", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => adminFetch("/sms-gateways", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-sms-gateways"] }),
   });
 };
@@ -1617,7 +1615,7 @@ export const useCreateSmsGateway = () => {
 export const useUpdateSmsGateway = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: any) => fetcher(`/sms-gateways/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    mutationFn: ({ id, ...data }: any) => adminFetch(`/sms-gateways/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-sms-gateways"] }),
   });
 };
@@ -1625,7 +1623,7 @@ export const useUpdateSmsGateway = () => {
 export const useDeleteSmsGateway = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/sms-gateways/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/sms-gateways/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-sms-gateways"] }),
   });
 };
@@ -1633,7 +1631,7 @@ export const useDeleteSmsGateway = () => {
 export const useToggleSmsGateway = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/sms-gateways/${id}/toggle`, { method: "PATCH" }),
+    mutationFn: (id: string) => adminFetch(`/sms-gateways/${id}/toggle`, { method: "PATCH" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-sms-gateways"] }),
   });
 };
@@ -1681,7 +1679,7 @@ export const useOtpWhitelist = () =>
      into every consumer of `entries`. */
   useQuery<OtpWhitelistResponse>({
     queryKey: ["admin-otp-whitelist"],
-    queryFn: () => fetcher("/whitelist"),
+    queryFn: () => adminFetch("/whitelist"),
     refetchInterval: 30_000,
   });
 
@@ -1692,7 +1690,7 @@ export const useAddOtpWhitelist = () => {
        router — every "Add" call would 404. Aligned with the route in
        `artifacts/api-server/src/routes/admin/otp.ts`. */
     mutationFn: (data: AddOtpWhitelistInput) =>
-      fetcher("/whitelist", { method: "POST", body: JSON.stringify(data) }),
+      adminFetch("/whitelist", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-otp-whitelist"] }),
   });
 };
@@ -1701,7 +1699,7 @@ export const useUpdateOtpWhitelist = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: UpdateOtpWhitelistInput) =>
-      fetcher(`/whitelist/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      adminFetch(`/whitelist/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-otp-whitelist"] }),
   });
 };
@@ -1709,7 +1707,7 @@ export const useUpdateOtpWhitelist = () => {
 export const useDeleteOtpWhitelist = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => fetcher(`/admin/whitelist/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/admin/whitelist/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-otp-whitelist"] }),
   });
 };
@@ -1722,7 +1720,7 @@ export const useAdminResetOtp = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId: string) =>
-      fetcher(`/users/${userId}/reset-otp`, { method: "POST", body: "{}" }),
+      adminFetch(`/users/${userId}/reset-otp`, { method: "POST", body: "{}" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"], exact: false });
     },
@@ -1732,7 +1730,7 @@ export const useAdminResetOtp = () => {
 export const useAdminViewOtp = (userId: string | null) =>
   useQuery({
     queryKey: ["admin-user-otp", userId],
-    queryFn: () => fetcher(`/users/${userId}/otp`),
+    queryFn: () => adminFetch(`/users/${userId}/otp`),
     enabled: false,
     staleTime: 0,
   });
@@ -1741,7 +1739,7 @@ export const useAdminVerifyContact = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, type }: { userId: string; type: "phone" | "email" }) =>
-      fetcher(`/users/${userId}/verify-contact`, { method: "PATCH", body: JSON.stringify({ type }) }),
+      adminFetch(`/users/${userId}/verify-contact`, { method: "PATCH", body: JSON.stringify({ type }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"], exact: false });
     },
@@ -1752,7 +1750,7 @@ export const useAdminForcePasswordReset = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId: string) =>
-      fetcher(`/users/${userId}/force-password-reset`, { method: "POST", body: "{}" }),
+      adminFetch(`/users/${userId}/force-password-reset`, { method: "POST", body: "{}" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"], exact: false });
     },
@@ -1762,7 +1760,7 @@ export const useAdminForcePasswordReset = () => {
 export const useAdminKycByUserId = (userId: string | null) =>
   useQuery({
     queryKey: ["admin-kyc-by-user", userId],
-    queryFn: () => apiAbsoluteFetch(`/api/kyc/admin/list?userId=${userId}&limit=1`),
+    queryFn: () => adminAbsoluteFetch(`/api/kyc/admin/list?userId=${userId}&limit=1`),
     enabled: !!userId,
     staleTime: 30_000,
   });
@@ -1771,7 +1769,7 @@ export const useAdminKycApprove = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ kycId, reason }: { kycId: string; reason?: string }) =>
-      apiAbsoluteFetch(`/api/kyc/admin/${kycId}/approve`, { method: "POST", body: JSON.stringify({ reason: reason ?? "" }) }),
+      adminAbsoluteFetch(`/api/kyc/admin/${kycId}/approve`, { method: "POST", body: JSON.stringify({ reason: reason ?? "" }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"], exact: false });
       qc.invalidateQueries({ queryKey: ["admin-kyc-by-user"], exact: false });
@@ -1784,7 +1782,7 @@ export const useAdminKycReject = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ kycId, reason }: { kycId: string; reason: string }) =>
-      apiAbsoluteFetch(`/api/kyc/admin/${kycId}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+      adminAbsoluteFetch(`/api/kyc/admin/${kycId}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"], exact: false });
       qc.invalidateQueries({ queryKey: ["admin-kyc-by-user"], exact: false });
@@ -1800,7 +1798,7 @@ export const useAdminKycReject = () => {
 export const useAdminUserSessions = (userId: string | null) =>
   useQuery({
     queryKey: ["admin-user-sessions", userId],
-    queryFn: () => fetcher(`/users/${userId}/sessions`),
+    queryFn: () => adminFetch(`/users/${userId}/sessions`),
     enabled: !!userId,
   });
 
@@ -1808,7 +1806,7 @@ export const useRevokeUserSession = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, sessionId }: { userId: string; sessionId: string }) =>
-      fetcher(`/users/${userId}/sessions/revoke`, { method: "POST", body: JSON.stringify({ sessionId }) }),
+      adminFetch(`/users/${userId}/sessions/revoke`, { method: "POST", body: JSON.stringify({ sessionId }) }),
     onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ["admin-user-sessions", vars.userId] }),
   });
 };
@@ -1817,7 +1815,7 @@ export const useRevokeAllUserSessions = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId: string) =>
-      fetcher(`/users/${userId}/sessions/revoke`, { method: "POST", body: "{}" }),
+      adminFetch(`/users/${userId}/sessions/revoke`, { method: "POST", body: "{}" }),
     onSuccess: (_data, userId) => qc.invalidateQueries({ queryKey: ["admin-user-sessions", userId] }),
   });
 };

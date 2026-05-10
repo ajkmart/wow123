@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { Megaphone, Send, Bell, Users, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, History } from "lucide-react";
 import { PageHeader } from "@/components/shared";
 import { useBroadcast, useBroadcastRecipientCount } from "@/hooks/use-admin";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetcher } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ export default function Broadcast() {
 
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ["admin-broadcasts-history"],
-    queryFn: () => fetcher("/broadcasts"),
+    queryFn: () => adminFetch("/broadcasts"),
     enabled: historyOpen,
     refetchInterval: historyOpen ? 30_000 : false,
   });

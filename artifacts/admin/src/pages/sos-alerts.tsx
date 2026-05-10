@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { adminFetch, getAdminAccessToken } from "@/lib/adminFetcher";
 import { LastUpdated } from "@/components/ui/LastUpdated";
 import { AlertTriangle, RefreshCw, Phone, MapPin, Car, Clock, CheckCircle, CheckCheck, X } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/shared";
-import { fetcher, getAdminAccessToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -76,7 +76,7 @@ function ResolveDialog({ alert, onClose, onResolved }: {
     setLoading(true);
     setError(null);
     try {
-      await fetcher(`/sos/alerts/${alert.id}/resolve`, {
+      await adminFetch(`/sos/alerts/${alert.id}/resolve`, {
         method: "PATCH",
         body: JSON.stringify({ notes: notes.trim() || null }),
       });
@@ -304,7 +304,7 @@ export default function SosAlerts() {
     const status = statusForTab(currentTab);
     try {
       const qs = `?page=${p}&limit=20${status ? `&status=${status}` : ""}`;
-      const data = await fetcher(`/sos/alerts${qs}`);
+      const data = await adminFetch(`/sos/alerts${qs}`);
       const newAlerts: SosAlert[] = data.alerts || [];
       setAlerts(prev => append ? [...prev, ...newAlerts] : newAlerts);
       setTotal(data.total || 0);
@@ -396,7 +396,7 @@ export default function SosAlerts() {
   const handleAcknowledge = async (id: string) => {
     setAcknowledging(id);
     try {
-      await fetcher(`/sos/alerts/${id}/acknowledge`, { method: "PATCH", body: "{}" });
+      await adminFetch(`/sos/alerts/${id}/acknowledge`, { method: "PATCH", body: "{}" });
     } catch { /* socket will update UI anyway */ }
     setAcknowledging(null);
   };

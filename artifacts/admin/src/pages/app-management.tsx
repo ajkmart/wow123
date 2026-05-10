@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -13,7 +14,6 @@ import {
 import { useLanguage } from "@/lib/useLanguage";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher } from "@/lib/api";
 import { getAdminTiming } from "@/lib/adminTiming";
 import { useAdminAuth } from "@/lib/adminAuthContext";
 import { Mail } from "lucide-react";
@@ -120,7 +120,7 @@ function SessionsTab() {
   const loadSessions = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await fetcher("/auth/sessions");
+      const data = await adminFetch("/auth/sessions");
       const raw: unknown = Array.isArray(data) ? data : data?.sessions ?? [];
       setSessions(Array.isArray(raw) ? (raw as AdminSession[]) : []);
     } catch (err) {
@@ -134,7 +134,7 @@ function SessionsTab() {
   // Remove a specific session
   const revokeSession = async (sessionId: string) => {
     try {
-      await fetcher(`/auth/sessions/${sessionId}`, { method: "DELETE" });
+      await adminFetch(`/auth/sessions/${sessionId}`, { method: "DELETE" });
       setSessions(sessions.filter(s => s.id !== sessionId));
       toast({ title: "Session revoked" });
     } catch (err) {
@@ -147,7 +147,7 @@ function SessionsTab() {
   const revokeAllSessions = async () => {
     setConfirmRevokeAll(false);
     try {
-      await fetcher("/auth/sessions", { method: "DELETE" });
+      await adminFetch("/auth/sessions", { method: "DELETE" });
       setSessions([]);
       toast({ title: "All sessions revoked - logging out...", description: "You will be redirected to login." });
       redirectTimerRef.current = setTimeout(() => {
@@ -289,23 +289,23 @@ export default function AppManagement() {
   /* ── Queries ── */
   const { data: overview, isLoading: overviewLoading, refetch: refetchOverview } = useQuery<AppOverview>({
     queryKey: ["admin-app-overview"],
-    queryFn: () => fetcher("/app-overview"),
+    queryFn: () => adminFetch("/app-overview"),
     refetchInterval: getAdminTiming().refetchIntervalAppManagementMs,
   });
 
   const { data: adminsData, isLoading: adminsLoading, refetch: refetchAdmins } = useQuery({
     queryKey: ["admin-accounts"],
-    queryFn: () => fetcher("/admin-accounts"),
+    queryFn: () => adminFetch("/admin-accounts"),
   });
 
   const { data: settingsData } = useQuery({
     queryKey: ["admin-platform-settings"],
-    queryFn: () => fetcher("/platform-settings"),
+    queryFn: () => adminFetch("/platform-settings"),
   });
 
   const { data: rnData, isLoading: rnLoading, refetch: refetchRn } = useQuery({
     queryKey: ["admin-release-notes"],
-    queryFn: () => fetcher("/release-notes"),
+    queryFn: () => adminFetch("/release-notes"),
   });
 
   const admins: AdminAccount[] = adminsData?.accounts || [];
@@ -330,8 +330,8 @@ export default function AppManagement() {
   /* ── Release Notes Mutations ── */
   const saveRn = useMutation({
     mutationFn: async (body: any) => {
-      if (editingRn) return fetcher(`/release-notes/${editingRn.id}`, { method: "PATCH", body: JSON.stringify(body) });
-      return fetcher("/release-notes", { method: "POST", body: JSON.stringify(body) });
+      if (editingRn) return adminFetch(`/release-notes/${editingRn.id}`, { method: "PATCH", body: JSON.stringify(body) });
+      return adminFetch("/release-notes", { method: "POST", body: JSON.stringify(body) });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-release-notes"] });
@@ -343,7 +343,7 @@ export default function AppManagement() {
   });
 
   const deleteRn = useMutation({
-    mutationFn: (id: string) => fetcher(`/release-notes/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/release-notes/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-release-notes"] }); toast({ title: "Release note deleted" }); },
   });
 
@@ -382,7 +382,7 @@ export default function AppManagement() {
         { key: "app_store_url",   value: appStoreUrl.trim()            },
         { key: "play_store_url",  value: playStoreUrl.trim()           },
       ].filter(p => p.value !== "");
-      await fetcher("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: pairs }) });
+      await adminFetch("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: pairs }) });
       qc.invalidateQueries({ queryKey: ["admin-platform-settings"] });
       toast({ title: "Compliance settings saved" });
     } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
@@ -392,8 +392,8 @@ export default function AppManagement() {
   /* ── Admin Mutations ── */
   const saveAdmin = useMutation({
     mutationFn: async (body: any) => {
-      if (editingAdmin) return fetcher(`/admin-accounts/${editingAdmin.id}`, { method: "PATCH", body: JSON.stringify(body) });
-      return fetcher("/admin-accounts", { method: "POST", body: JSON.stringify(body) });
+      if (editingAdmin) return adminFetch(`/admin-accounts/${editingAdmin.id}`, { method: "PATCH", body: JSON.stringify(body) });
+      return adminFetch("/admin-accounts", { method: "POST", body: JSON.stringify(body) });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-accounts"] });
@@ -405,13 +405,13 @@ export default function AppManagement() {
   });
 
   const deleteAdmin = useMutation({
-    mutationFn: (id: string) => fetcher(`/admin-accounts/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/admin-accounts/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-accounts"] }); toast({ title: "Admin removed" }); },
   });
 
   const toggleAdmin = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      fetcher(`/admin-accounts/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+      adminFetch(`/admin-accounts/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-accounts"] }),
   });
 
@@ -422,7 +422,7 @@ export default function AppManagement() {
      a super-admin can copy it directly when SMTP isn't configured. */
   const sendResetLink = useMutation({
     mutationFn: (id: string) =>
-      fetcher(`/admin-accounts/${id}/send-reset-link`, { method: "POST", body: JSON.stringify({}) }),
+      adminFetch(`/admin-accounts/${id}/send-reset-link`, { method: "POST", body: JSON.stringify({}) }),
     onSuccess: async (data: { resetUrl?: string } | null | undefined) => {
       const resetUrl: string | undefined = data?.resetUrl;
       if (resetUrl) {

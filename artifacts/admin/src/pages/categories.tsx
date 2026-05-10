@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FolderTree, Plus, Pencil, Trash2, Save,
@@ -9,7 +10,6 @@ import { PageHeader } from "@/components/shared";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorHandler } from "@/hooks/useErrorHandler";
-import { fetcher } from "@/lib/api";
 import { getAdminTiming } from "@/lib/adminTiming";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,7 @@ export default function CategoriesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-categories-tree", filterType],
-    queryFn: () => fetcher(`/categories/tree${filterType ? `?type=${filterType}` : ""}`),
+    queryFn: () => adminFetch(`/categories/tree${filterType ? `?type=${filterType}` : ""}`),
     refetchInterval: getAdminTiming().refetchIntervalCategoriesMs,
   });
 
@@ -115,8 +115,8 @@ export default function CategoriesPage() {
     e instanceof Error ? e.message : typeof e === "string" ? e : "Unknown error";
   const saveMutation = useMutation({
     mutationFn: async (body: SaveCategoryBody) => {
-      if (editing) return fetcher(`/categories/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) });
-      return fetcher("/categories", { method: "POST", body: JSON.stringify(body) });
+      if (editing) return adminFetch(`/categories/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) });
+      return adminFetch("/categories", { method: "POST", body: JSON.stringify(body) });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-categories-tree"] });
@@ -132,7 +132,7 @@ export default function CategoriesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/categories/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/categories/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-categories-tree"] });
       toast({ title: "Category deleted" });
@@ -141,13 +141,13 @@ export default function CategoriesPage() {
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      fetcher(`/categories/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+      adminFetch(`/categories/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-categories-tree"] }),
   });
 
   const reorderMutation = useMutation({
     mutationFn: (items: { id: string; sortOrder: number }[]) =>
-      fetcher("/categories/reorder", { method: "POST", body: JSON.stringify({ items }) }),
+      adminFetch("/categories/reorder", { method: "POST", body: JSON.stringify({ items }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-categories-tree"] }),
   });
 

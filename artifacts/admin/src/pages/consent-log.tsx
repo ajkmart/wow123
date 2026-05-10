@@ -1,8 +1,8 @@
 import { useState } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { FileText, Download, Filter } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/shared";
-import { fetcher } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ export default function ConsentLogPage() {
 
   const versions = useQuery<ApiPaginated<TermsVersionRow>>({
     queryKey: ["legal", "terms-versions"],
-    queryFn: () => fetcher("/legal/terms-versions") as Promise<ApiPaginated<TermsVersionRow>>,
+    queryFn: () => adminFetch("/legal/terms-versions") as Promise<ApiPaginated<TermsVersionRow>>,
     retry: false,
   });
 
@@ -64,7 +64,7 @@ export default function ConsentLogPage() {
 
   const log = useQuery<ApiPaginated<ConsentLogEntry>>({
     queryKey: ["legal", "consent-log", policyFilter, versionFilter, dateFrom, dateTo],
-    queryFn: () => fetcher(`/legal/consent-log?${buildQs()}`) as Promise<ApiPaginated<ConsentLogEntry>>,
+    queryFn: () => adminFetch(`/legal/consent-log?${buildQs()}`) as Promise<ApiPaginated<ConsentLogEntry>>,
     retry: false,
   });
 
@@ -74,7 +74,7 @@ export default function ConsentLogPage() {
   async function handleExport() {
     setExportLoading(true);
     try {
-      const all = await fetcher(`/legal/consent-log?${buildQs(9999, 0)}`) as ApiPaginated<ConsentLogEntry>;
+      const all = await adminFetch(`/legal/consent-log?${buildQs(9999, 0)}`) as ApiPaginated<ConsentLogEntry>;
       exportCsv(all.items ?? [], `consent-log-${new Date().toISOString().slice(0, 10)}.csv`);
     } catch {
       /* silently fail */

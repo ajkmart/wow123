@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { adminFetch, fetchAdminAbsolute, fetchAdminAbsoluteResponse } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import {
   Shield, Save, RefreshCw, Info, AlertTriangle,
@@ -8,7 +9,6 @@ import {
   X, Wifi, Clock, ChevronRight, Activity, LogOut, CheckCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher, apiAbsoluteFetchRaw, fetchAdminAbsoluteResponse } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -164,7 +164,7 @@ export default function SecurityPage() {
   const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetcher("/platform-settings");
+      const data = await adminFetch("/platform-settings");
       const vals: Record<string, string> = {};
       for (const s of (data.settings || [])) vals[s.key] = s.value;
       setLocalValues(vals);
@@ -185,10 +185,10 @@ export default function SecurityPage() {
     setLiveLoading(true);
     try {
       const [dash, lockoutData, ipsData, eventsData] = await Promise.all([
-        apiAbsoluteFetchRaw(`/api/admin/security-dashboard`),
-        apiAbsoluteFetchRaw(`/api/admin/login-lockouts`),
-        apiAbsoluteFetchRaw(`/api/admin/blocked-ips`),
-        apiAbsoluteFetchRaw(`/api/admin/security-events?limit=30`),
+        fetchAdminAbsolute(`/api/admin/security-dashboard`),
+        fetchAdminAbsolute(`/api/admin/login-lockouts`),
+        fetchAdminAbsolute(`/api/admin/blocked-ips`),
+        fetchAdminAbsolute(`/api/admin/security-events?limit=30`),
       ]);
       setSecDash(dash);
       setLockouts(lockoutData.lockouts ?? []);
@@ -203,7 +203,7 @@ export default function SecurityPage() {
   /* ── Load MFA status ── */
   const fetchMfaStatus = useCallback(async () => {
     try {
-      const data = await apiAbsoluteFetchRaw(`/api/admin/mfa/status`);
+      const data = await fetchAdminAbsolute(`/api/admin/mfa/status`);
       setMfaStatus(data);
     } catch (err) {
       if (import.meta.env.DEV) console.warn("[Security] MFA status fetch failed:", err);
@@ -217,8 +217,8 @@ export default function SecurityPage() {
     const offset = page * DATA_EXPORTS_PAGE_SIZE;
     try {
       const [exportsData, eventsData] = await Promise.all([
-        apiAbsoluteFetchRaw(`/api/admin/security/data-exports?limit=${DATA_EXPORTS_PAGE_SIZE}&offset=${offset}`),
-        apiAbsoluteFetchRaw(`/api/admin/security-events?limit=50&type=suspicious_pattern`),
+        fetchAdminAbsolute(`/api/admin/security/data-exports?limit=${DATA_EXPORTS_PAGE_SIZE}&offset=${offset}`),
+        fetchAdminAbsolute(`/api/admin/security-events?limit=50&type=suspicious_pattern`),
       ]);
       setDataExports(exportsData.exports ?? []);
       setDataExportsTotal(exportsData.total ?? 0);
@@ -240,7 +240,7 @@ export default function SecurityPage() {
     if (userId.trim()) params.set("userId", userId.trim());
     if (reason.trim()) params.set("reason", reason.trim());
     try {
-      const data = await apiAbsoluteFetchRaw(`/api/admin/security/token-audit?${params.toString()}`);
+      const data = await fetchAdminAbsolute(`/api/admin/security/token-audit?${params.toString()}`);
       setTokenAuditEvents(data.events ?? []);
       setTokenAuditTotal(data.total ?? 0);
     } catch (e: unknown) {
@@ -300,7 +300,7 @@ export default function SecurityPage() {
     setSaving(true);
     try {
       const changed = Array.from(dirtyKeys).map(key => ({ key, value: localValues[key] ?? "" }));
-      await fetcher("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: changed }) });
+      await adminFetch("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: changed }) });
       setSavedValues(prev => {
         const updated = { ...prev };
         for (const c of changed) updated[c.key] = c.value;
@@ -317,7 +317,7 @@ export default function SecurityPage() {
   /* ── Lockout management ── */
   const unlockPhone = async (phone: string) => {
     try {
-      await apiAbsoluteFetchRaw(`/api/admin/login-lockouts/${encodeURIComponent(phone)}`, { method: "DELETE" });
+      await fetchAdminAbsolute(`/api/admin/login-lockouts/${encodeURIComponent(phone)}`, { method: "DELETE" });
       toast({ title: "Account Unlocked", description: `${phone} has been unlocked.` });
       fetchLiveData();
     } catch (e: unknown) {
@@ -336,7 +336,7 @@ export default function SecurityPage() {
       return;
     }
     try {
-      await apiAbsoluteFetchRaw(`/api/admin/blocked-ips`, {
+      await fetchAdminAbsolute(`/api/admin/blocked-ips`, {
         method: "POST",
         body: JSON.stringify({ ip, reason: "Manual block by admin" }),
       });
@@ -350,7 +350,7 @@ export default function SecurityPage() {
 
   const unblockIP = async (ip: string) => {
     try {
-      await apiAbsoluteFetchRaw(`/api/admin/blocked-ips/${encodeURIComponent(ip)}`, { method: "DELETE" });
+      await fetchAdminAbsolute(`/api/admin/blocked-ips/${encodeURIComponent(ip)}`, { method: "DELETE" });
       toast({ title: "IP Unblocked", description: `${ip} has been unblocked.` });
       fetchLiveData();
     } catch (e: unknown) {
@@ -362,7 +362,7 @@ export default function SecurityPage() {
   const startMfaSetup = async () => {
     setMfaLoading(true);
     try {
-      const data = await apiAbsoluteFetchRaw(`/api/admin/mfa/setup`, { method: "POST" });
+      const data = await fetchAdminAbsolute(`/api/admin/mfa/setup`, { method: "POST" });
       if (data.secret) { setMfaSetupData(data); setMfaToken(""); }
       else toast({ title: "Error", description: data.error ?? "Failed to start MFA setup", variant: "destructive" });
     } catch {
@@ -378,7 +378,7 @@ export default function SecurityPage() {
     }
     setMfaLoading(true);
     try {
-      const data = await apiAbsoluteFetchRaw(`/api/admin/mfa/verify`, {
+      const data = await fetchAdminAbsolute(`/api/admin/mfa/verify`, {
         method: "POST", body: JSON.stringify({ token: mfaToken }),
       });
       if (data.success) {
@@ -400,7 +400,7 @@ export default function SecurityPage() {
     }
     setMfaLoading(true);
     try {
-      const data = await apiAbsoluteFetchRaw(`/api/admin/mfa/disable`, {
+      const data = await fetchAdminAbsolute(`/api/admin/mfa/disable`, {
         method: "DELETE", body: JSON.stringify({ token: disableToken }),
       });
       if (data.success) {
@@ -1805,7 +1805,7 @@ function UserTimelineDrawer({
   const revokeFamily = async (familyId: string) => {
     setFamState(familyId, "loading");
     try {
-      const resp = await apiAbsoluteFetchRaw(
+      const resp = await fetchAdminAbsolute(
         `/api/admin/security/revoke-family/${encodeURIComponent(userId)}/${encodeURIComponent(familyId)}`,
         { method: "POST" },
       );
@@ -1865,7 +1865,7 @@ function UserTimelineDrawer({
   const fetchTimeline = useCallback(() => {
     setLoading(true);
     setError(null);
-    apiAbsoluteFetchRaw(`/api/admin/security/token-timeline/${encodeURIComponent(userId)}`)
+    fetchAdminAbsolute(`/api/admin/security/token-timeline/${encodeURIComponent(userId)}`)
       .then((data: UserTimeline) => { setTimeline(data); setLoading(false); })
       .catch((err: unknown) => { setError((err as Error).message ?? "Failed to load"); setLoading(false); });
   }, [userId]);
@@ -1875,7 +1875,7 @@ function UserTimelineDrawer({
   const executeForceLogout = async () => {
     setFlState("loading");
     try {
-      const resp = await apiAbsoluteFetchRaw(
+      const resp = await fetchAdminAbsolute(
         `/api/admin/security/force-logout/${encodeURIComponent(userId)}`,
         { method: "POST" },
       );
@@ -2020,7 +2020,7 @@ function UserTimelineDrawer({
               <p className="text-sm text-center">{error}</p>
               <Button size="sm" variant="outline" onClick={() => {
                 setError(null); setLoading(true);
-                apiAbsoluteFetchRaw(`/api/admin/security/token-timeline/${encodeURIComponent(userId)}`)
+                fetchAdminAbsolute(`/api/admin/security/token-timeline/${encodeURIComponent(userId)}`)
                   .then((data: UserTimeline) => { setTimeline(data); setLoading(false); })
                   .catch((err: unknown) => { setError((err as Error).message); setLoading(false); });
               }}>

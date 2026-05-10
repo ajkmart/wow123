@@ -27,7 +27,7 @@ import { useAdminAuth } from "@/lib/adminAuthContext";
 import { safeLocalGet, safeLocalSet } from "@/lib/safeStorage";
 import { tDual, type TranslationKey, LANGUAGE_OPTIONS } from "@workspace/i18n";
 import { io, type Socket } from "socket.io-client";
-import { fetcher } from "@/lib/api";
+import { adminFetch } from "@/lib/adminFetcher";
 import { getAdminTiming } from "@/lib/adminTiming";
 import { lockBodyScroll } from "@/lib/domSafety";
 import {
@@ -126,16 +126,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   // Socket + data fetching
   useEffect(() => {
-    fetcher("/sos/alerts?limit=1")
+    adminFetch("/sos/alerts?limit=1")
       .then((data: { activeCount?: number }) => { if (typeof data.activeCount === "number") setSosCount(data.activeCount); })
       .catch((err) => { console.error("[AdminLayout] SOS badge fetch failed:", err); });
 
-    fetcher("/error-reports/new-count")
+    adminFetch("/error-reports/new-count")
       .then((data: { count?: number }) => { if (typeof data.count === "number") setErrorCount(data.count); })
       .catch((err) => { console.error("[AdminLayout] Error count fetch failed:", err); });
 
     const errorInterval = setInterval(() => {
-      fetcher("/error-reports/new-count")
+      adminFetch("/error-reports/new-count")
         .then((data: { count?: number }) => { if (typeof data.count === "number") setErrorCount(data.count); })
         .catch((err) => { console.error("[AdminLayout] Error count interval fetch failed:", err); });
     }, getAdminTiming().layoutErrorPollIntervalMs);

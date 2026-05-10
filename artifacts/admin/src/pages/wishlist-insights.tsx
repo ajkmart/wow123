@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
-import { fetcher } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -31,7 +31,7 @@ const CHART_COLORS = [
 function useWishlistAnalytics() {
   return useQuery({
     queryKey: ["admin-wishlist-analytics"],
-    queryFn: () => fetcher("/wishlist-analytics"),
+    queryFn: () => adminFetch("/wishlist-analytics"),
     refetchInterval: 60_000,
   });
 }

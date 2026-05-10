@@ -9,13 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Toggle, Field, SecretInput, SLabel } from "@/components/AdminShared";
 import { useToast } from "@/hooks/use-toast";
-import { apiAbsoluteFetch } from "@/lib/api";
+import { adminAbsoluteFetch } from "@/lib/adminFetcher";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 
 async function mapsApiFetch(path: string, options: RequestInit = {}) {
-  return apiAbsoluteFetch(`/api${path}`, options);
+  return adminAbsoluteFetch(`/api${path}`, options);
 }
 
 type TestResult = { ok: boolean; latencyMs: number; error?: string; testedAt?: string } | null;

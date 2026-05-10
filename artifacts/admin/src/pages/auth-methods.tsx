@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import {
   KeyRound,
@@ -31,7 +32,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher } from "@/lib/api";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Auth Methods (per-role)
@@ -192,7 +192,7 @@ export default function AuthMethodsPage() {
   const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetcher("/platform-settings");
+      const data = await adminFetch("/platform-settings");
       const arr: PlatformSetting[] = data.settings || [];
       setSettings(arr);
       const map: Record<string, string> = {};
@@ -245,7 +245,7 @@ export default function AuthMethodsPage() {
     )) return;
     setRotatingSecret(true);
     try {
-      const data = await fetcher("/admin/system/rotate-secret", { method: "POST" });
+      const data = await adminFetch("/admin/system/rotate-secret", { method: "POST" });
       toast({
         title: "Master secret rotated",
         description: data?.message ?? "New secret is now active. All admins notified.",
@@ -261,7 +261,7 @@ export default function AuthMethodsPage() {
     setSaving(true);
     try {
       const changes = Array.from(dirtyKeys).map(key => ({ key, value: localValues[key] ?? "" }));
-      await fetcher("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: changes }) });
+      await adminFetch("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: changes }) });
       setSavedValues(prev => {
         const updated = { ...prev };
         for (const c of changes) updated[c.key] = c.value;

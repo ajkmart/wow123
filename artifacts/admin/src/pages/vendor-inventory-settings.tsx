@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { Package } from "lucide-react";
 import { PageHeader } from "@/components/shared";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,7 +67,7 @@ export default function VendorInventorySettingsPage() {
   const q = useQuery<InventorySettings>({
     queryKey: ["admin", "inventory-settings"],
     queryFn: () =>
-      fetcher("/inventory-settings") as Promise<InventorySettings>,
+      adminFetch("/inventory-settings") as Promise<InventorySettings>,
     retry: false,
   });
 
@@ -78,7 +78,7 @@ export default function VendorInventorySettingsPage() {
   async function save() {
     setSaving(true);
     try {
-      await fetcher("/inventory-settings", {
+      await adminFetch("/inventory-settings", {
         method: "PUT",
         body: JSON.stringify(settings),
       });

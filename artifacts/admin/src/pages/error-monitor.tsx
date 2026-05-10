@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { LastUpdated } from "@/components/ui/LastUpdated";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetcher } from "@/lib/api";
 import { safeCopyToClipboard } from "@/lib/safeClipboard";
 import {
   AlertTriangle, Bug, Server, Monitor, Code, Zap,
@@ -384,7 +384,7 @@ function useTabCount(tab: Exclude<Tab, "customers" | "filescan">, sourceApp: str
   if (errorType) p.set("errorType", errorType);
   const { data } = useQuery({
     queryKey: ["error-count", tab, sourceApp, severity, errorType],
-    queryFn: () => fetcher(`/error-reports?${p}`),
+    queryFn: () => adminFetch(`/error-reports?${p}`),
     refetchInterval: 15000,
   });
   return (data?.pagination?.total ?? 0) as number;
@@ -460,7 +460,7 @@ export default function ErrorMonitor() {
 
   const { data, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["error-reports", activeTab, page, sourceApp, severity, errorType, resolutionMethod, dateFrom, dateTo],
-    queryFn: () => fetcher(`/error-reports?${params}`),
+    queryFn: () => adminFetch(`/error-reports?${params}`),
     refetchInterval: 30000,
     enabled: activeTab !== "customers" && activeTab !== "filescan",
   });
@@ -470,7 +470,7 @@ export default function ErrorMonitor() {
 
   const { data: customerData, isLoading: customerLoading, refetch: refetchCustomers } = useQuery({
     queryKey: ["customer-reports", customerPage, customerStatusFilter],
-    queryFn: () => fetcher(`/error-reports/customer-reports?${customerParams}`),
+    queryFn: () => adminFetch(`/error-reports/customer-reports?${customerParams}`),
     refetchInterval: 30000,
     enabled: activeTab === "customers",
   });
@@ -482,14 +482,14 @@ export default function ErrorMonitor() {
 
   const { data: fileScanLatest, refetch: refetchFileScanLatest } = useQuery<FileScanLatest | null>({
     queryKey: ["file-scan-latest"],
-    queryFn: () => fetcher("/error-reports/file-scan/latest"),
+    queryFn: () => adminFetch("/error-reports/file-scan/latest"),
     enabled: activeTab === "filescan",
     staleTime: 0,
   });
 
   const { data: fileScanHistory, refetch: refetchFileScanHistory } = useQuery<FileScanHistoryEntry[]>({
     queryKey: ["file-scan-history"],
-    queryFn: () => fetcher("/error-reports/file-scan/history"),
+    queryFn: () => adminFetch("/error-reports/file-scan/history"),
     enabled: activeTab === "filescan",
   });
 
@@ -501,7 +501,7 @@ export default function ErrorMonitor() {
 
   const { data: customerCountData } = useQuery({
     queryKey: ["customer-reports-count"],
-    queryFn: () => fetcher("/error-reports/customer-reports?status=new&limit=1"),
+    queryFn: () => adminFetch("/error-reports/customer-reports?status=new&limit=1"),
     refetchInterval: 30000,
   });
   const customerNewCount = customerCountData?.pagination?.total ?? 0;
@@ -516,7 +516,7 @@ export default function ErrorMonitor() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, newStatus }: { id: string; newStatus: string }) =>
-      fetcher(`/error-reports/${id}`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) }),
+      adminFetch(`/error-reports/${id}`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["error-reports"] });
       queryClient.invalidateQueries({ queryKey: ["error-count"] });
@@ -525,7 +525,7 @@ export default function ErrorMonitor() {
 
   const updateCustomerReportMutation = useMutation({
     mutationFn: ({ id, status, adminNote }: { id: string; status?: string; adminNote?: string }) =>
-      fetcher(`/error-reports/customer-reports/${id}`, {
+      adminFetch(`/error-reports/customer-reports/${id}`, {
         method: "PATCH",
         body: JSON.stringify({ status, adminNote }),
       }),
@@ -537,7 +537,7 @@ export default function ErrorMonitor() {
 
   const resolveMutation = useMutation({
     mutationFn: ({ id, method, resolutionNotes, rootCause }: { id: string; method: string; resolutionNotes?: string; rootCause?: string }) =>
-      fetcher(`/error-reports/${id}/resolve`, {
+      adminFetch(`/error-reports/${id}/resolve`, {
         method: "POST",
         body: JSON.stringify({ method, resolutionNotes, rootCause }),
       }),
@@ -549,7 +549,7 @@ export default function ErrorMonitor() {
 
   const undoMutation = useMutation({
     mutationFn: (id: string) =>
-      fetcher(`/error-reports/${id}/undo`, { method: "POST" }),
+      adminFetch(`/error-reports/${id}/undo`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["error-reports"] });
       queryClient.invalidateQueries({ queryKey: ["error-count"] });
@@ -558,13 +558,13 @@ export default function ErrorMonitor() {
 
   const { data: autoResolveSettings, refetch: refetchAutoSettings } = useQuery<AutoResolveSettings>({
     queryKey: ["auto-resolve-settings"],
-    queryFn: () => fetcher("/error-reports/auto-resolve-settings"),
+    queryFn: () => adminFetch("/error-reports/auto-resolve-settings"),
     refetchInterval: 60000,
   });
 
   const updateAutoSettingsMutation = useMutation({
     mutationFn: (settings: Partial<AutoResolveSettings>) =>
-      fetcher("/error-reports/auto-resolve-settings", {
+      adminFetch("/error-reports/auto-resolve-settings", {
         method: "PUT",
         body: JSON.stringify(settings),
       }),
@@ -575,13 +575,13 @@ export default function ErrorMonitor() {
 
   const { data: autoResolveLog, refetch: refetchAutoLog } = useQuery<AutoResolveLogEntry[]>({
     queryKey: ["auto-resolve-log"],
-    queryFn: () => fetcher("/error-reports/auto-resolve-log?limit=50"),
+    queryFn: () => adminFetch("/error-reports/auto-resolve-log?limit=50"),
     refetchInterval: 30000,
     enabled: showAutoResolvePanel,
   });
 
   const runAutoResolveMutation = useMutation({
-    mutationFn: () => fetcher("/error-reports/auto-resolve-run", { method: "POST" }),
+    mutationFn: () => adminFetch("/error-reports/auto-resolve-run", { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["error-reports"] });
       queryClient.invalidateQueries({ queryKey: ["error-count"] });
@@ -593,7 +593,7 @@ export default function ErrorMonitor() {
     setTaskPlanLoading(true);
     setShowTaskPlanDialog(id);
     try {
-      const result = await fetcher(`/error-reports/${id}/generate-task`, { method: "POST" });
+      const result = await adminFetch(`/error-reports/${id}/generate-task`, { method: "POST" });
       setTaskPlanContent(result.taskPlan);
       queryClient.invalidateQueries({ queryKey: ["error-reports"] });
     } catch (err) {
@@ -623,7 +623,7 @@ export default function ErrorMonitor() {
     setBulkTaskContent("");
     try {
       const ids = Array.from(selectedIds);
-      const result = await fetcher("/error-reports/bulk-generate-task", {
+      const result = await adminFetch("/error-reports/bulk-generate-task", {
         method: "POST",
         body: JSON.stringify({ ids }),
       });
@@ -641,7 +641,7 @@ export default function ErrorMonitor() {
     setFileScanRunning(true);
     setFileScanError(null);
     try {
-      await fetcher("/error-reports/file-scan/run", { method: "POST" });
+      await adminFetch("/error-reports/file-scan/run", { method: "POST" });
       await refetchFileScanLatest();
       await refetchFileScanHistory();
     } catch (err) {
@@ -657,7 +657,7 @@ export default function ErrorMonitor() {
     setShowTaskPlanDialog("filescan-finding");
     setTaskPlanContent("");
     try {
-      const result = await fetcher("/error-reports/file-scan/generate-task", {
+      const result = await adminFetch("/error-reports/file-scan/generate-task", {
         method: "POST",
         body: JSON.stringify({ finding }),
       });
@@ -684,7 +684,7 @@ export default function ErrorMonitor() {
     setIsScanning(true);
     setScanError(null);
     try {
-      const result = await fetcher("/error-reports/scan", { method: "POST" });
+      const result = await adminFetch("/error-reports/scan", { method: "POST" });
       setScanResult(result);
       setLastScanAt(new Date().toISOString());
       queryClient.invalidateQueries({ queryKey: ["error-reports"] });
@@ -747,7 +747,7 @@ export default function ErrorMonitor() {
     if (fixingAll) return;
     setFixingAll(true);
     try {
-      await fetcher("/error-reports/bulk-resolve", {
+      await adminFetch("/error-reports/bulk-resolve", {
         method: "POST",
         body: JSON.stringify({
           sourceApp: sourceApp || undefined,

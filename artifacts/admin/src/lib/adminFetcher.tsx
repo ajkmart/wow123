@@ -409,6 +409,30 @@ export function getAdminAccessToken(): string | null {
   return getAccessToken ? getAccessToken() : null;
 }
 
+// ============================================================================
+// Drop-in replacements for legacy api.ts helpers
+// These mirror the exact data-unwrapping behaviour of the old `fetcher` and
+// `apiAbsoluteFetch` so every page can be migrated with a pure import swap.
+// ============================================================================
+
+/**
+ * Authenticated admin fetch scoped to `/api/admin/*`.
+ * Unwraps `response.data` when present — identical to the old `fetcher()`.
+ */
+export async function adminFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
+  const result = await fetchAdmin(endpoint, options);
+  return result?.data !== undefined ? result.data : result;
+}
+
+/**
+ * Authenticated admin fetch against an absolute API path (e.g. `/api/kyc/…`).
+ * Unwraps `response.data` when present — identical to the old `apiAbsoluteFetch()`.
+ */
+export async function adminAbsoluteFetch(path: string, options: RequestInit = {}): Promise<any> {
+  const result = await fetchAdminAbsolute(path, options);
+  return result?.data !== undefined ? result.data : result;
+}
+
 /**
  * Convenience methods for common HTTP verbs
  */

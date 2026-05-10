@@ -15,7 +15,6 @@ import { initErrorReporter, reportError } from "@/lib/error-reporter";
 import { AdminAuthProvider, useAdminAuth } from "@/lib/adminAuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { setupAdminFetcherHandlers } from "@/lib/adminFetcher";
-import { setTokenHandlers } from "@/lib/api";
 import { auditAdminEnv } from "@/lib/envValidation";
 import { bootAccessibilitySettings } from "@/lib/useAccessibilitySettings";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
@@ -442,11 +441,6 @@ function IntegrationsInit() {
       () => refreshAccessToken()
     );
     
-    // Setup token handlers for api.ts bridge layer
-    setTokenHandlers(
-      () => state.accessToken,
-      () => refreshAccessToken()
-    );
   }, [state.accessToken, refreshAccessToken]);
 
   useEffect(() => {

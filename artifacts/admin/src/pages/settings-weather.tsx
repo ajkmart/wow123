@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetcher } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { CloudSun, Plus, X, Loader2, Save, MapPin, Wifi, CheckCircle2, XCircle }
 function useWeatherConfig() {
   return useQuery({
     queryKey: ["admin-weather-config"],
-    queryFn: () => fetcher("/weather-config"),
+    queryFn: () => adminFetch("/weather-config"),
   });
 }
 
@@ -33,7 +33,7 @@ export function WeatherSection() {
 
   const saveMutation = useMutation({
     mutationFn: (body: { widgetEnabled: boolean; cities: string }) =>
-      fetcher("/weather-config", { method: "PATCH", body: JSON.stringify(body) }),
+      adminFetch("/weather-config", { method: "PATCH", body: JSON.stringify(body) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-weather-config"] });
       toast({ title: "Weather config saved" });
@@ -63,7 +63,7 @@ export function WeatherSection() {
     setTesting(true); setTestResult(null);
     try {
       const city = cities[0];
-      const result: any = await fetcher("/weather-config/test", {
+      const result: any = await adminFetch("/weather-config/test", {
         method: "POST",
         body: JSON.stringify({ city }),
       });

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { adminFetch, fetchAdminAbsoluteResponse } from "@/lib/adminFetcher";
 import {
   Star, Search, RefreshCw, Download, Upload, CheckCircle2, XCircle,
   ShieldAlert, ShieldCheck, AlertTriangle, MessageSquare, Play,
@@ -10,7 +11,6 @@ import {
   useAdminReviews, useModerationQueue, useApproveReview,
   useRejectReview, useRunRatingSuspension
 } from "@/hooks/use-admin";
-import { fetcher, fetchAdminAbsoluteResponse } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -306,7 +306,7 @@ function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
     if (!csvText.trim()) { toast({ title: "Paste or upload a CSV file first", variant: "destructive" }); return; }
     setLoading(true);
     try {
-      const data = await fetcher("/reviews/import", { method: "POST", body: JSON.stringify({ csvData: csvText }) });
+      const data = await adminFetch("/reviews/import", { method: "POST", body: JSON.stringify({ csvData: csvText }) });
       setResult(data);
       onSuccess();
     } catch (e: unknown) {
@@ -394,7 +394,7 @@ export default function ReviewsPage() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-reviews", page, typeFilter, starsFilter, statusFilter, subjectFilter, dateFrom, dateTo, debouncedQ],
-    queryFn: () => fetcher(`/reviews?${buildQS()}`),
+    queryFn: () => adminFetch(`/reviews?${buildQS()}`),
     staleTime: 10_000,
   });
 
@@ -407,22 +407,22 @@ export default function ReviewsPage() {
   const pendingCount = queueData?.total || 0;
 
   const hideOrder = useMutation({
-    mutationFn: (id: string) => fetcher(`/reviews/${id}/hide`, { method: "PATCH" }),
+    mutationFn: (id: string) => adminFetch(`/reviews/${id}/hide`, { method: "PATCH" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-reviews"] }); toast({ title: T("visibilityToggled") }); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
   const deleteOrder = useMutation({
-    mutationFn: (id: string) => fetcher(`/reviews/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/reviews/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-reviews"] }); toast({ title: T("reviewDeleted") }); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
   const hideRide = useMutation({
-    mutationFn: (id: string) => fetcher(`/ride-ratings/${id}/hide`, { method: "PATCH" }),
+    mutationFn: (id: string) => adminFetch(`/ride-ratings/${id}/hide`, { method: "PATCH" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-reviews"] }); toast({ title: T("visibilityToggled") }); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
   const deleteRide = useMutation({
-    mutationFn: (id: string) => fetcher(`/ride-ratings/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/ride-ratings/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-reviews"] }); toast({ title: T("reviewDeleted") }); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -460,8 +460,8 @@ export default function ReviewsPage() {
     const toHide = reviews.filter(r => ids.includes(r.id) && r.type === "order");
     const toHideR = reviews.filter(r => ids.includes(r.id) && r.type === "ride");
     await Promise.all([
-      ...toHide.map(r => fetcher(`/reviews/${r.id}/hide`, { method: "PATCH" })),
-      ...toHideR.map(r => fetcher(`/ride-ratings/${r.id}/hide`, { method: "PATCH" })),
+      ...toHide.map(r => adminFetch(`/reviews/${r.id}/hide`, { method: "PATCH" })),
+      ...toHideR.map(r => adminFetch(`/ride-ratings/${r.id}/hide`, { method: "PATCH" })),
     ]);
     qc.invalidateQueries({ queryKey: ["admin-reviews"] });
     setSelected(new Set());
@@ -475,8 +475,8 @@ export default function ReviewsPage() {
     const orders = reviews.filter(r => ids.includes(r.id) && r.type === "order");
     const rides = reviews.filter(r => ids.includes(r.id) && r.type === "ride");
     await Promise.all([
-      ...orders.map(r => fetcher(`/reviews/${r.id}`, { method: "DELETE" })),
-      ...rides.map(r => fetcher(`/ride-ratings/${r.id}`, { method: "DELETE" })),
+      ...orders.map(r => adminFetch(`/reviews/${r.id}`, { method: "DELETE" })),
+      ...rides.map(r => adminFetch(`/ride-ratings/${r.id}`, { method: "DELETE" })),
     ]);
     qc.invalidateQueries({ queryKey: ["admin-reviews"] });
     setSelected(new Set());
@@ -822,7 +822,7 @@ function VendorRatingsTab() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-vendor-ratings"],
-    queryFn: () => fetcher("/vendor-ratings"),
+    queryFn: () => adminFetch("/vendor-ratings"),
     staleTime: 30_000,
   });
 

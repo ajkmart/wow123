@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type ElementType, type ReactNode } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import {
   Shield, RefreshCw, CheckCircle2, XCircle, Loader2,
@@ -7,7 +8,6 @@ import {
   ShieldOff, Activity, Zap, Gauge, KeyRound, Eye, EyeOff,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +35,7 @@ function errorMessage(value: unknown, fallback = "Something went wrong"): string
 
 async function api(method: string, path: string, body?: unknown) {
   try {
-    return await fetcher(path, {
+    return await adminFetch(path, {
       method,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -268,7 +268,7 @@ export default function OtpControl() {
 
   const loadRateLimits = useCallback(async () => {
     try {
-      const d = await fetcher("/platform-settings");
+      const d = await adminFetch("/platform-settings");
       const settings: Array<{ key: string; value: string }> = d?.settings ?? [];
       const get = (key: string, def: string) => settings.find(s => s.key === key)?.value ?? def;
       const perPhone = get("security_otp_max_per_phone", "5");
@@ -406,7 +406,7 @@ export default function OtpControl() {
     }
     setRlSaving(true);
     try {
-      await fetcher("/platform-settings", {
+      await adminFetch("/platform-settings", {
         method: "PUT",
         body: JSON.stringify({
           settings: [
@@ -448,7 +448,7 @@ export default function OtpControl() {
     searchAbortRef.current = ctrl;
     setSearching(true);
     try {
-      const d = await fetcher(
+      const d = await adminFetch(
         `/users/search?q=${encodeURIComponent(query)}&limit=20`,
         { signal: ctrl.signal },
       );

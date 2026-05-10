@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { adminFetch, fetchAdmin, getAdminAccessToken } from "@/lib/adminFetcher";
 import { useToast } from "@/hooks/use-toast";
 import { useHasPermission } from "@/hooks/usePermissions";
 import { PageHeader } from "@/components/shared";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { fetcher, fetcherWithMeta } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { io } from "socket.io-client";
-import { getAdminAccessToken } from "@/lib/api";
 import { useAdminAuth } from "@/lib/adminAuthContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
@@ -154,7 +153,7 @@ function DashboardTab() {
   const token = authState.accessToken ?? "";
 
   useEffect(() => {
-    fetcher("/communication/dashboard").then(setStats).catch((err) => {
+    adminFetch("/communication/dashboard").then(setStats).catch((err) => {
       console.error("[Communication] Dashboard stats load failed:", err);
     });
 
@@ -203,7 +202,7 @@ function SettingsTab() {
   }, []);
 
   useEffect(() => {
-    fetcher("/communication/settings").then((d: Record<string, string>) => {
+    adminFetch("/communication/settings").then((d: Record<string, string>) => {
       setSettings(d);
       const stunRaw = d["comm_stun_servers"] || "";
       try {
@@ -233,7 +232,7 @@ function SettingsTab() {
       const nonEmptyStun = stunServers.filter(s => s.trim());
       const finalStun = nonEmptyStun.length > 0 ? nonEmptyStun : ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"];
       const merged = { ...settings, comm_stun_servers: JSON.stringify(finalStun) };
-      await fetcher("/communication/settings", { method: "PUT", body: JSON.stringify(merged) });
+      await adminFetch("/communication/settings", { method: "PUT", body: JSON.stringify(merged) });
       if (nonEmptyStun.length === 0) setStunServers(finalStun);
       setSaveStatus("success");
     } catch {
@@ -463,7 +462,7 @@ function ConversationsTab() {
   }, [debouncedSearch]);
 
   useEffect(() => {
-    fetcherWithMeta(`/communication/conversations?search=${encodeURIComponent(debouncedSearch)}&page=${page}&limit=${LIMIT}`)
+    fetchAdmin(`/communication/conversations?search=${encodeURIComponent(debouncedSearch)}&page=${page}&limit=${LIMIT}`)
       .then((d) => { setConversations((d.data as ConversationItem[]) || []); setTotal((d.total as number) || 0); })
       .catch((err) => { console.error("[Communication] Conversations load failed:", err); });
   }, [debouncedSearch, page]);
@@ -472,7 +471,7 @@ function ConversationsTab() {
     setSelectedConv(conv);
     setViewError("");
     try {
-      const resp = await fetcherWithMeta(`/communication/conversations/${conv.id}/messages`);
+      const resp = await fetchAdmin(`/communication/conversations/${conv.id}/messages`);
       setMessages((resp.data as MessageItem[]) || (Array.isArray(resp) ? resp as MessageItem[] : []));
     } catch (e: unknown) {
       setViewError(e instanceof Error ? e.message : "Failed to load messages");
@@ -599,7 +598,7 @@ function CallHistoryTab() {
   const LIMIT = 20;
 
   useEffect(() => {
-    fetcherWithMeta(`/communication/calls?page=${page}&limit=${LIMIT}`)
+    fetchAdmin(`/communication/calls?page=${page}&limit=${LIMIT}`)
       .then((d) => { setCalls((d.data as CallItem[]) || []); setTotal((d.total as number) || 0); })
       .catch((err) => { console.error("[Communication] Call history load failed:", err); });
   }, [page]);
@@ -671,7 +670,7 @@ function AILogsTab() {
   const LIMIT = 20;
 
   useEffect(() => {
-    fetcherWithMeta(`/communication/ai-logs?page=${page}&limit=${LIMIT}`)
+    fetchAdmin(`/communication/ai-logs?page=${page}&limit=${LIMIT}`)
       .then((d) => { setLogs((d.data as AILogItem[]) || []); setTotal((d.total as number) || 0); })
       .catch((err) => { console.error("[Communication] AI logs load failed:", err); });
   }, [page]);
@@ -742,7 +741,7 @@ function FlaggedTab() {
   const [resolveErrors, setResolveErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(() => {
-    fetcher(`/communication/flags?status=${status}`)
+    adminFetch(`/communication/flags?status=${status}`)
       .then((d: FlagItem[] | { data: FlagItem[] }) => setFlags(Array.isArray(d) ? d : d.data))
       .catch((err) => { console.error("[Communication] Flagged messages load failed:", err); });
   }, [status]);
@@ -752,7 +751,7 @@ function FlaggedTab() {
   const resolve = async (id: string) => {
     setResolveErrors(e => ({ ...e, [id]: "" }));
     try {
-      await fetcher(`/communication/flags/${id}/resolve`, { method: "PATCH" });
+      await adminFetch(`/communication/flags/${id}/resolve`, { method: "PATCH" });
       setFlags(f => f.filter(fl => fl.id !== id));
     } catch (e: unknown) {
       setResolveErrors(prev => ({ ...prev, [id]: e instanceof Error ? e.message : "Failed to resolve" }));
@@ -909,7 +908,7 @@ function RoleFormDialog({
       setAiError("");
       setSaveError("");
       setAiAvailable(null);
-      fetcher("/communication/roles/ai-status")
+      adminFetch("/communication/roles/ai-status")
         .then(() => setAiAvailable(true))
         .catch((err: unknown) => {
           console.warn("[Communication] AI status probe failed:", err);
@@ -929,7 +928,7 @@ function RoleFormDialog({
     setAiGenerating(true);
     setAiError("");
     try {
-      const result = await fetcher("/communication/roles/ai-generate", { method: "POST", body: JSON.stringify({ description: aiDescription }) });
+      const result = await adminFetch("/communication/roles/ai-generate", { method: "POST", body: JSON.stringify({ description: aiDescription }) });
       const data = (result as { data?: Partial<RoleItem> }).data || result;
       setForm(prev => ({
         ...prev,
@@ -954,9 +953,9 @@ function RoleFormDialog({
     setSaveError("");
     try {
       if (editId) {
-        await fetcher(`/communication/roles/${editId}`, { method: "PUT", body: JSON.stringify(form) });
+        await adminFetch(`/communication/roles/${editId}`, { method: "PUT", body: JSON.stringify(form) });
       } else {
-        await fetcher("/communication/roles", { method: "POST", body: JSON.stringify(form) });
+        await adminFetch("/communication/roles", { method: "POST", body: JSON.stringify(form) });
       }
       onOpenChange(false);
       onSaved();
@@ -1082,7 +1081,7 @@ function RoleTemplatesTab() {
   const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
 
   const loadRoles = () => {
-    fetcher("/communication/roles")
+    adminFetch("/communication/roles")
       .then((d: RoleItem[] | { data: RoleItem[] }) => setRoles(Array.isArray(d) ? d : d.data))
       .catch((err) => { console.error("[Communication] Roles load failed:", err); });
   };
@@ -1092,7 +1091,7 @@ function RoleTemplatesTab() {
   const deleteRole = async (id: string) => {
     setDeleteErrors(e => ({ ...e, [id]: "" }));
     try {
-      await fetcher(`/communication/roles/${id}`, { method: "DELETE" });
+      await adminFetch(`/communication/roles/${id}`, { method: "DELETE" });
       setRoles(r => r.filter(rl => rl.id !== id));
     } catch (e: unknown) {
       setDeleteErrors(prev => ({ ...prev, [id]: e instanceof Error ? e.message : "Failed to delete" }));
@@ -1226,7 +1225,7 @@ function AjkIdsTab() {
     if (roleFilter) params.set("role", roleFilter);
     params.set("page", String(page));
     params.set("limit", String(LIMIT));
-    fetcherWithMeta(`/communication/ajk-ids?${params.toString()}`)
+    fetchAdmin(`/communication/ajk-ids?${params.toString()}`)
       .then((d) => { setUsers((d.data as UserItem[]) || []); setTotal((d.total as number) || 0); })
       .catch((err) => { console.error("[Communication] AJK IDs load failed:", err); });
   }, [debouncedSearch, roleFilter, page]);
@@ -1237,7 +1236,7 @@ function AjkIdsTab() {
     setSearchQuery(q);
     if (q.length < 2) { setSearchResults([]); return; }
     try {
-      const data = await fetcher(`/communication/users/search?q=${encodeURIComponent(q)}`);
+      const data = await adminFetch(`/communication/users/search?q=${encodeURIComponent(q)}`);
       setSearchResults(data as UserItem[]);
     } catch (err) {
       if (import.meta.env.DEV) console.warn("[Communication] User search failed:", err);
@@ -1251,7 +1250,7 @@ function AjkIdsTab() {
     setSaving(true);
     setError("");
     try {
-      await fetcher(`/communication/ajk-ids/${editUser.id}`, {
+      await adminFetch(`/communication/ajk-ids/${editUser.id}`, {
         method: "PUT",
         body: JSON.stringify({ ajkId: editId.trim() }),
       });
@@ -1269,7 +1268,7 @@ function AjkIdsTab() {
     setBlockErrors(e => ({ ...e, [user.id]: "" }));
     try {
       const action = user.commBlocked ? "unblock" : "block";
-      await fetcher(`/communication/users/${user.id}/${action}`, { method: "POST" });
+      await adminFetch(`/communication/users/${user.id}/${action}`, { method: "POST" });
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, commBlocked: !u.commBlocked } : u));
     } catch (e: unknown) {
       setBlockErrors(prev => ({ ...prev, [user.id]: e instanceof Error ? e.message : "Action failed" }));

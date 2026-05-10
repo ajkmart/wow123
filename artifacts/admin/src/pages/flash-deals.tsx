@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Zap, Plus, Pencil, Trash2, Save,
@@ -7,7 +8,6 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/shared";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,12 +116,12 @@ export default function FlashDealsPage() {
   /* ── Queries ── */
   const { data: dealsData, isLoading: dealsLoading } = useQuery({
     queryKey: ["admin-flash-deals"],
-    queryFn: () => fetcher("/flash-deals"),
+    queryFn: () => adminFetch("/flash-deals"),
     refetchInterval: 30000,
   });
   const { data: productsData } = useQuery({
     queryKey: ["admin-products-list"],
-    queryFn: () => fetcher("/products"),
+    queryFn: () => adminFetch("/products"),
   });
 
   const deals = useMemo<FlashDeal[]>(() => dealsData?.deals ?? [], [dealsData?.deals]);
@@ -133,8 +133,8 @@ export default function FlashDealsPage() {
   /* ── Flash Deal Mutations ── */
   const saveDeal = useMutation({
     mutationFn: async (body: any) => {
-      if (editingDeal) return fetcher(`/flash-deals/${editingDeal.id}`, { method: "PATCH", body: JSON.stringify(body) });
-      return fetcher("/flash-deals", { method: "POST", body: JSON.stringify(body) });
+      if (editingDeal) return adminFetch(`/flash-deals/${editingDeal.id}`, { method: "PATCH", body: JSON.stringify(body) });
+      return adminFetch("/flash-deals", { method: "POST", body: JSON.stringify(body) });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-flash-deals"] });
@@ -145,14 +145,14 @@ export default function FlashDealsPage() {
   });
 
   const deleteDeal = useMutation({
-    mutationFn: (id: string) => fetcher(`/flash-deals/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/flash-deals/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-flash-deals"] }); toast({ title: "Deal deleted" }); },
     onError: (e: Error) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
   });
 
   const toggleDeal = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      fetcher(`/flash-deals/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
+      adminFetch(`/flash-deals/${id}`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-flash-deals"] }),
     onError: (e: Error) => toast({ title: "Toggle failed", description: e.message, variant: "destructive" }),
   });

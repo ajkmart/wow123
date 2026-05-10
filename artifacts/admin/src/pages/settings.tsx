@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import {
   Settings2, Save, RefreshCw, Truck, Car, BarChart3,
@@ -15,7 +16,6 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { fetcher } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -195,7 +195,7 @@ export default function SettingsPage() {
   const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetcher("/platform-settings");
+      const data = await adminFetch("/platform-settings");
       setSettings(data.settings || []);
       const vals: Record<string,string> = {};
       for (const s of data.settings || []) vals[s.key] = s.value;
@@ -242,7 +242,7 @@ export default function SettingsPage() {
         ? pendingDiff.map(d => ({ key: d.key, value: d.newValue }))
         : Array.from(dirtyKeys).map(key => ({ key, value: localValues[key] ?? "" }));
 
-      await fetcher("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: changed }) });
+      await adminFetch("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: changed }) });
       setSavedValues(prev => {
         const updated = { ...prev };
         for (const c of changed) updated[c.key] = c.value;
@@ -267,7 +267,7 @@ export default function SettingsPage() {
   const handleBackup = async () => {
     setBackingUp(true);
     try {
-      const data = await fetcher("/platform-settings/backup");
+      const data = await adminFetch("/platform-settings/backup");
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -303,7 +303,7 @@ export default function SettingsPage() {
       const settingsArr = parsed?.settings ?? parsed;
       if (!Array.isArray(settingsArr)) throw new Error("Backup file must contain a settings array.");
       const payload = settingsArr.map((s: any) => ({ key: String(s.key ?? ""), value: String(s.value ?? "") }));
-      const result = await fetcher("/platform-settings/restore", { method: "POST", body: JSON.stringify({ settings: payload }) });
+      const result = await adminFetch("/platform-settings/restore", { method: "POST", body: JSON.stringify({ settings: payload }) });
       await loadSettings();
       toast({ title: "Settings restored ✅", description: `${result.restored ?? payload.length} settings applied${result.skipped ? `, ${result.skipped} skipped` : ""}.` });
     } catch (e: any) {

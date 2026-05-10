@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { adminAbsoluteFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -22,10 +23,9 @@ import {
   Settings, ChevronDown, ChevronRight, Save, Loader2, AlertTriangle, MoreHorizontal,
 } from "lucide-react";
 
-import { apiAbsoluteFetch } from "@/lib/api";
 
 async function vanFetch(path: string, opts: RequestInit = {}) {
-  return apiAbsoluteFetch(`/api/van${path}`, opts);
+  return adminAbsoluteFetch(`/api/van${path}`, opts);
 }
 
 type SeatTier = "window" | "aisle" | "economy";
@@ -1235,7 +1235,7 @@ const RULE_SECTIONS = [
 ];
 
 async function adminFetch(path: string, opts: RequestInit = {}) {
-  return apiAbsoluteFetch(`/api/admin/system${path}`, opts);
+  return adminAbsoluteFetch(`/api/admin/system${path}`, opts);
 }
 
 function RuleRow({ setting, onSave, saving }: { setting: PlatformSetting; onSave: (key: string, value: string) => void; saving: string | null }) {

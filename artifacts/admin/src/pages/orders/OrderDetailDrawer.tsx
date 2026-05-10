@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { ShoppingBag, User, Package, Phone, CheckCircle2, AlertTriangle, Receipt, RotateCcw, Flag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,7 +13,6 @@ import { CancelConfirmDialog } from "./CancelConfirmDialog";
 import { RefundConfirmDialog } from "./RefundConfirmDialog";
 import { RiderAssignPanel } from "./RiderAssignPanel";
 import { STATUS_LABELS, allowedNext, isTerminal, canCancel } from "./constants";
-import { fetcher } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 /* ── Return Request Panel — Admin Moderation View ── */
@@ -28,7 +28,7 @@ function ReturnPanel({ order, onRefundOrder }: { order: any; onRefundOrder?: (am
   const loadRequests = async () => {
     setLoadingReqs(true);
     try {
-      const data = await fetcher(`/orders/${order.id}/returns`);
+      const data = await adminFetch(`/orders/${order.id}/returns`);
       setRequests(Array.isArray(data) ? data : data?.returns ?? []);
     } catch {
       setRequests([]);
@@ -42,7 +42,7 @@ function ReturnPanel({ order, onRefundOrder }: { order: any; onRefundOrder?: (am
     if (!reason.trim()) { toast({ title: "Reason required", variant: "destructive" }); return; }
     setSubmitting(true);
     try {
-      await fetcher(`/orders/${order.id}/return`, { method: "POST", body: JSON.stringify({ reason: reason.trim(), amount: parseFloat(amount) || order.total }) });
+      await adminFetch(`/orders/${order.id}/return`, { method: "POST", body: JSON.stringify({ reason: reason.trim(), amount: parseFloat(amount) || order.total }) });
       toast({ title: "Return request created", description: "Return request logged." });
       setReason("");
       await loadRequests();
@@ -55,7 +55,7 @@ function ReturnPanel({ order, onRefundOrder }: { order: any; onRefundOrder?: (am
   const handleAction = async (returnId: string, action: "approve" | "reject") => {
     setActioning(returnId);
     try {
-      const updatedReqs = await fetcher(`/orders/${order.id}/returns/${returnId}`, { method: "PATCH", body: JSON.stringify({ status: action === "approve" ? "approved" : "rejected" }) });
+      const updatedReqs = await adminFetch(`/orders/${order.id}/returns/${returnId}`, { method: "PATCH", body: JSON.stringify({ status: action === "approve" ? "approved" : "rejected" }) });
       toast({ title: action === "approve" ? "Return approved" : "Return rejected", description: action === "approve" ? "Issuing refund now…" : "Return request closed." });
       await loadRequests();
       if (action === "approve" && onRefundOrder) {
@@ -163,7 +163,7 @@ function DisputePanel({ order }: { order: any }) {
   const loadDisputes = async () => {
     setLoadingDisp(true);
     try {
-      const data = await fetcher(`/orders/${order.id}/disputes`);
+      const data = await adminFetch(`/orders/${order.id}/disputes`);
       setDisputes(Array.isArray(data) ? data : data?.disputes ?? []);
     } catch {
       setDisputes([]);
@@ -177,7 +177,7 @@ function DisputePanel({ order }: { order: any }) {
     if (!note.trim()) { toast({ title: "Details required", variant: "destructive" }); return; }
     setSubmitting(true);
     try {
-      await fetcher(`/orders/${order.id}/dispute`, { method: "POST", body: JSON.stringify({ type, note: note.trim() }) });
+      await adminFetch(`/orders/${order.id}/dispute`, { method: "POST", body: JSON.stringify({ type, note: note.trim() }) });
       toast({ title: "Dispute logged", description: "Order flagged for investigation." });
       setNote("");
       await loadDisputes();
@@ -190,7 +190,7 @@ function DisputePanel({ order }: { order: any }) {
   const handleResolve = async (disputeId: string, resolution: "resolved" | "dismissed") => {
     setActioning(disputeId);
     try {
-      await fetcher(`/orders/${order.id}/disputes/${disputeId}`, { method: "PATCH", body: JSON.stringify({ status: resolution }) });
+      await adminFetch(`/orders/${order.id}/disputes/${disputeId}`, { method: "PATCH", body: JSON.stringify({ status: resolution }) });
       toast({ title: resolution === "resolved" ? "Dispute resolved" : "Dispute dismissed" });
       await loadDisputes();
     } catch (e: any) {

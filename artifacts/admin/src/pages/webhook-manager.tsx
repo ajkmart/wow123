@@ -1,7 +1,7 @@
 import { useState } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetcher } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -42,14 +42,14 @@ export default function WebhookManagerPage() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-webhooks"],
-    queryFn: () => fetcher("/webhooks"),
+    queryFn: () => adminFetch("/webhooks"),
     refetchInterval: 30_000,
   });
   const webhooks: WebhookReg[] = data?.webhooks || [];
 
   const { data: logsData, isLoading: logsLoading } = useQuery({
     queryKey: ["admin-webhook-logs", showLogs],
-    queryFn: () => fetcher(`/webhooks/${showLogs}/logs`),
+    queryFn: () => adminFetch(`/webhooks/${showLogs}/logs`),
     enabled: !!showLogs,
   });
   const logs: WebhookLogEntry[] = logsData?.logs || [];
@@ -76,7 +76,7 @@ export default function WebhookManagerPage() {
 
   const createMutation = useMutation({
     mutationFn: (body: CreateWebhookBody) =>
-      fetcher("/webhooks", { method: "POST", body: JSON.stringify(body) }),
+      adminFetch("/webhooks", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-webhooks"] });
       toast({ title: "Webhook registered" });
@@ -87,14 +87,14 @@ export default function WebhookManagerPage() {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/webhooks/${id}/toggle`, { method: "PATCH", body: "{}" }),
+    mutationFn: (id: string) => adminFetch(`/webhooks/${id}/toggle`, { method: "PATCH", body: "{}" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-webhooks"] }); },
     onError: (e: unknown) =>
       toast({ title: "Failed", description: errMsg(e), variant: "destructive" }),
   });
 
   const testMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/webhooks/${id}/test`, { method: "POST", body: "{}" }),
+    mutationFn: (id: string) => adminFetch(`/webhooks/${id}/test`, { method: "POST", body: "{}" }),
     onSuccess: (data: unknown) => {
       const resp = (data ?? {}) as WebhookTestResponse;
       if (resp.success) {
@@ -109,7 +109,7 @@ export default function WebhookManagerPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/webhooks/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/webhooks/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-webhooks"] }); toast({ title: "Webhook deleted" }); },
     onError: (e: unknown) =>
       toast({ title: "Failed", description: errMsg(e), variant: "destructive" }),

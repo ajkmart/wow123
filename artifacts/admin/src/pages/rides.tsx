@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { getAdminAccessToken } from "@/lib/adminFetcher";
 import { PageHeader, StatCard } from "@/components/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { io } from "socket.io-client";
@@ -15,7 +16,6 @@ import {
   usePlatformSettings, useUpdatePlatformSettings,
 } from "@/hooks/use-admin";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { getAdminAccessToken } from "@/lib/api";
 import { useAbortableEffect, isAbortError } from "@/lib/useAbortableEffect";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import {
   Wallet, Search, RefreshCw, Flag, FlagOff, AlertTriangle,
@@ -6,7 +7,6 @@ import {
   ArrowRight, ChevronDown, ChevronUp, User, MoreHorizontal,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { fetcher, apiFetch } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useErrorHandler } from "@/hooks/useErrorHandler";
@@ -87,7 +87,7 @@ export default function WalletTransfersPage() {
 function StatsPanel() {
   const { data: stats, isLoading } = useQuery<WalletStats>({
     queryKey: ["admin-wallet-stats"],
-    queryFn: () => fetcher("/wallet/stats"),
+    queryFn: () => adminFetch("/wallet/stats"),
     staleTime: 30_000,
   });
 
@@ -144,7 +144,7 @@ function TransactionsPanel() {
     if (!ids.length) return;
     setBulkProcessing(true);
     try {
-      await Promise.all(ids.map(id => apiFetch(`/wallets/transfers/${id}/approve`, { method: "POST" })));
+      await Promise.all(ids.map(id => adminFetch(`/wallets/transfers/${id}/approve`, { method: "POST" })));
       toast({ title: "Approved", description: `Successfully approved ${ids.length} transfers` });
       setSelectedIds(new Set());
       qc.invalidateQueries({ queryKey: ["admin-wallet-transfers"] });
@@ -175,7 +175,7 @@ function TransactionsPanel() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-p2p-txns", params.toString()],
-    queryFn: () => fetcher(`/wallet/p2p-transactions?${params}`),
+    queryFn: () => adminFetch(`/wallet/p2p-transactions?${params}`),
     staleTime: 15_000,
   });
 
@@ -190,7 +190,7 @@ function TransactionsPanel() {
 
   const flagMutation = useMutation({
     mutationFn: ({ id, flag, reason }: { id: string; flag: boolean; reason?: string }) =>
-      apiFetch(`/wallet/transactions/${id}/flag`, { method: "PATCH", body: JSON.stringify({ flag, reason }) }),
+      adminFetch(`/wallet/transactions/${id}/flag`, { method: "PATCH", body: JSON.stringify({ flag, reason }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-p2p-txns"] });
       qc.invalidateQueries({ queryKey: ["admin-wallet-stats"] });
@@ -202,7 +202,7 @@ function TransactionsPanel() {
 
   const freezeMutation = useMutation({
     mutationFn: (uid: string) =>
-      apiFetch(`/wallet/freeze-p2p/${uid}`, { method: "PATCH" }),
+      adminFetch(`/wallet/freeze-p2p/${uid}`, { method: "PATCH" }),
     onSuccess: (d: any) => {
       setFreezeModal(null);
       qc.invalidateQueries({ queryKey: ["admin-p2p-txns"] });
@@ -534,7 +534,7 @@ function FlagModal({ tx, onClose, onSubmit, loading }: {
 function SettingsPanel() {
   const { data, isLoading, refetch } = useQuery<PlatformSettingsResponse>({
     queryKey: ["admin-platform-settings"],
-    queryFn: () => fetcher("/platform-settings"),
+    queryFn: () => adminFetch("/platform-settings"),
     staleTime: 30_000,
   });
   const { toast } = useToast();
@@ -555,7 +555,7 @@ function SettingsPanel() {
     setSaving(true);
     try {
       const payload = Object.entries(fields).map(([key, value]) => ({ key, value }));
-      await apiFetch("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: payload }) });
+      await adminFetch("/platform-settings", { method: "PUT", body: JSON.stringify({ settings: payload }) });
       qc.invalidateQueries({ queryKey: ["admin-platform-settings"] });
       setFields({});
       toast({ title: "Settings saved" });

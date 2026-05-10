@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { adminAbsoluteFetch, adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -15,11 +16,10 @@ import {
   Cell, CartesianGrid, LineChart, Line, Legend, AreaChart, Area,
 } from "recharts";
 
-import { apiAbsoluteFetch, fetcher } from "@/lib/api";
 import { SafeImage } from "@/components/ui/SafeImage";
 
 async function apiFetch(path: string) {
-  return apiAbsoluteFetch(`/api${path}`);
+  return adminAbsoluteFetch(`/api${path}`);
 }
 
 type TrendingProduct = {
@@ -151,14 +151,14 @@ export default function SearchAnalyticsPage() {
   const [termsDays, setTermsDays] = useState("30");
   const { data: topTermsData, isLoading: topTermsLoading } = useQuery<{ terms: TopTerm[] }>({
     queryKey: ["admin-search-top-terms", termsDays],
-    queryFn: () => fetcher(`/search-analytics/top-terms?days=${termsDays}&limit=30`),
+    queryFn: () => adminFetch(`/search-analytics/top-terms?days=${termsDays}&limit=30`),
     staleTime: 2 * 60_000,
   });
 
   const [zeroDays, setZeroDays] = useState("30");
   const { data: zeroResultsData, isLoading: zeroResultsLoading } = useQuery<{ queries: ZeroResultQuery[] }>({
     queryKey: ["admin-search-zero-results", zeroDays],
-    queryFn: () => fetcher(`/search-analytics/zero-results?days=${zeroDays}&limit=50`),
+    queryFn: () => adminFetch(`/search-analytics/zero-results?days=${zeroDays}&limit=50`),
     staleTime: 2 * 60_000,
   });
 
@@ -170,13 +170,13 @@ export default function SearchAnalyticsPage() {
 
   const { data: timelineData, isLoading: timelineLoading } = useQuery<{ timeline: InteractionTimelineEntry[] }>({
     queryKey: ["admin-interaction-timeline", timelineDays],
-    queryFn: () => fetcher(`/search-analytics/interaction-timeline?days=${timelineDays}`),
+    queryFn: () => adminFetch(`/search-analytics/interaction-timeline?days=${timelineDays}`),
     staleTime: 5 * 60_000,
   });
 
   const { data: statsInteraction, isLoading: interactionStatsLoading } = useQuery<InteractionStats>({
     queryKey: ["admin-interaction-stats", timelineDays],
-    queryFn: () => fetcher(`/search-analytics/interaction-stats?days=${timelineDays}`),
+    queryFn: () => adminFetch(`/search-analytics/interaction-stats?days=${timelineDays}`),
     staleTime: 5 * 60_000,
   });
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { adminAbsoluteFetch } from "@/lib/adminFetcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   MessageCircle, Send, CheckCircle2, Clock, User, RefreshCw,
@@ -12,10 +13,9 @@ import { io, type Socket } from "socket.io-client";
 import { PageHeader } from "@/components/shared";
 import { LastUpdated } from "@/components/ui/LastUpdated";
 
-import { apiAbsoluteFetch } from "@/lib/api";
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
-  return apiAbsoluteFetch(`/api${path}`, opts);
+  return adminAbsoluteFetch(`/api${path}`, opts);
 }
 
 type Conversation = {
@@ -123,7 +123,7 @@ export default function SupportChatPage() {
     if (!selectedUserId || !reply.trim() || sending) return;
     setSending(true);
     try {
-      const json = await apiAbsoluteFetch(`/api/admin/support-chat/conversations/${selectedUserId}/reply`, {
+      const json = await adminAbsoluteFetch(`/api/admin/support-chat/conversations/${selectedUserId}/reply`, {
         method: "POST",
         body: JSON.stringify({ message: reply.trim() }),
       }).then((d: any) => ({ data: d })).catch((e: any) => ({ error: e?.message || "Failed" }));

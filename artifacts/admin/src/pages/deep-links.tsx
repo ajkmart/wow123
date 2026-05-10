@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetcher } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,13 +65,13 @@ export default function DeepLinksPage() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-deep-links"],
-    queryFn: () => fetcher("/deep-links"),
+    queryFn: () => adminFetch("/deep-links"),
     refetchInterval: 30_000,
   });
   const links: DeepLink[] = data?.links || [];
 
   const createMutation = useMutation({
-    mutationFn: (body: any) => fetcher("/deep-links", { method: "POST", body: JSON.stringify(body) }),
+    mutationFn: (body: any) => adminFetch("/deep-links", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-deep-links"] });
       toast({ title: "Deep link created" });
@@ -81,7 +81,7 @@ export default function DeepLinksPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/deep-links/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/deep-links/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-deep-links"] }); toast({ title: "Link deleted" }); },
     onError: (e: any) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });

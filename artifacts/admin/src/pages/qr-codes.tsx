@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetcher } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ function QrPreviewCard({ code }: { code: QrCode }) {
 function useQrCodes() {
   return useQuery({
     queryKey: ["admin-qr-codes"],
-    queryFn: () => fetcher("/qr-codes"),
+    queryFn: () => adminFetch("/qr-codes"),
     refetchInterval: 30_000,
   });
 }
@@ -82,7 +82,7 @@ export default function QrCodesPage() {
 
   const createMutation = useMutation({
     mutationFn: (body: { label: string; type: string }) =>
-      fetcher("/qr-codes", { method: "POST", body: JSON.stringify(body) }) as Promise<{ qrCode?: { code?: string } }>,
+      adminFetch("/qr-codes", { method: "POST", body: JSON.stringify(body) }) as Promise<{ qrCode?: { code?: string } }>,
     onSuccess: (data: { qrCode?: { code?: string } }) => {
       qc.invalidateQueries({ queryKey: ["admin-qr-codes"] });
       toast({ title: "QR Code generated", description: `Code: ${data?.qrCode?.code || "created"}` });
@@ -95,7 +95,7 @@ export default function QrCodesPage() {
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, activate }: { id: string; activate: boolean }) =>
-      fetcher(`/qr-codes/${id}/${activate ? "activate" : "deactivate"}`, { method: "PATCH", body: "{}" }),
+      adminFetch(`/qr-codes/${id}/${activate ? "activate" : "deactivate"}`, { method: "PATCH", body: "{}" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-qr-codes"] }); toast({ title: "QR Code updated" }); },
     onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });

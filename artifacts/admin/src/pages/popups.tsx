@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { adminFetch } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -7,7 +8,6 @@ import {
   ToggleLeft, ToggleRight, Calendar, Target, Zap, Bell,
   Loader2, Check, ArrowLeft, ArrowRight, Monitor,
 } from "lucide-react";
-import { fetcher } from "@/lib/api";
 import { useAdminAuth } from "@/lib/adminAuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -232,20 +232,20 @@ export default function PopupsPage() {
 
   const { data: campaignsData, isLoading } = useQuery({
     queryKey: ["admin-popups"],
-    queryFn: () => fetcher("/popups"),
+    queryFn: () => adminFetch("/popups"),
     refetchInterval: 30000,
   });
   const campaigns: Campaign[] = campaignsData?.campaigns || [];
 
   const { data: templatesData } = useQuery({
     queryKey: ["admin-popup-templates"],
-    queryFn: () => fetcher("/popups/templates"),
+    queryFn: () => adminFetch("/popups/templates"),
   });
   const templates: Template[] = templatesData?.templates || [];
 
   const { data: analyticsData } = useQuery({
     queryKey: ["admin-popup-analytics", analyticsId],
-    queryFn: () => fetcher(`/popups/${analyticsId}/analytics`),
+    queryFn: () => adminFetch(`/popups/${analyticsId}/analytics`),
     enabled: !!analyticsId,
   });
 
@@ -254,8 +254,8 @@ export default function PopupsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      if (editingId) return fetcher(`/popups/${editingId}`, { method: "PATCH", body: JSON.stringify(body) });
-      return fetcher("/popups", { method: "POST", body: JSON.stringify(body) });
+      if (editingId) return adminFetch(`/popups/${editingId}`, { method: "PATCH", body: JSON.stringify(body) });
+      return adminFetch("/popups", { method: "POST", body: JSON.stringify(body) });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-popups"] });
@@ -267,25 +267,25 @@ export default function PopupsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/popups/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/popups/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-popups"] }); toast({ title: "Campaign deleted" }); },
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      fetcher(`/popups/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+      adminFetch(`/popups/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-popups"] }),
   });
 
   const cloneMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/popups/clone/${id}`, { method: "POST", body: "{}" }),
+    mutationFn: (id: string) => adminFetch(`/popups/clone/${id}`, { method: "POST", body: "{}" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-popups"] }); toast({ title: "Campaign cloned" }); },
   });
 
   const saveTplMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      if (editingTplId) return fetcher(`/popups/templates/${editingTplId}`, { method: "PATCH", body: JSON.stringify(body) });
-      return fetcher("/popups/templates", { method: "POST", body: JSON.stringify(body) });
+      if (editingTplId) return adminFetch(`/popups/templates/${editingTplId}`, { method: "PATCH", body: JSON.stringify(body) });
+      return adminFetch("/popups/templates", { method: "POST", body: JSON.stringify(body) });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-popup-templates"] });
@@ -297,7 +297,7 @@ export default function PopupsPage() {
   });
 
   const deleteTplMutation = useMutation({
-    mutationFn: (id: string) => fetcher(`/popups/templates/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => adminFetch(`/popups/templates/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-popup-templates"] }); toast({ title: "Template deleted" }); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -414,7 +414,7 @@ export default function PopupsPage() {
     if (!aiGoal.trim()) return;
     setAiLoading(true);
     try {
-      const result = await fetcher("/popups/ai-generate", { method: "POST", body: JSON.stringify({ goal: aiGoal }) });
+      const result = await adminFetch("/popups/ai-generate", { method: "POST", body: JSON.stringify({ goal: aiGoal }) });
       setForm(p => ({
         ...p,
         title: result.title || p.title,
