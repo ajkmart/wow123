@@ -7,6 +7,7 @@ import { customerAuth } from "../middleware/security.js";
 import { getCachedSettings } from "./admin-shared.js";
 import { sendSuccess, sendError, sendNotFound, sendValidationError } from "../lib/response.js";
 import { logger } from "../lib/logger.js";
+import { redeemLimiter } from "../middleware/rate-limit.js";
 
 const router: IRouter = Router();
 
@@ -70,7 +71,7 @@ router.get("/balance", customerAuth, async (req, res) => {
 });
 
 /* POST /loyalty/redeem — redeem points against a pending order */
-router.post("/redeem", customerAuth, async (req, res) => {
+router.post("/redeem", customerAuth, redeemLimiter, async (req, res) => {
   const userId = req.customerId!;
   const { points, orderId } = req.body as { points?: number; orderId?: string };
 

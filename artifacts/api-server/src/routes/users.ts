@@ -11,7 +11,7 @@ import multer from "multer";
 import { generateId } from "../lib/id.js";
 import { z } from "zod";
 import { sendSuccess, sendCreated, sendError, sendNotFound, sendForbidden, sendValidationError } from "../lib/response.js";
-import { paymentLimiter, globalLimiter } from "../middleware/rate-limit.js";
+import { paymentLimiter, exportDataLimiter } from "../middleware/rate-limit.js";
 import { sendAdminAlert } from "../services/email.js";
 import { logger } from "../lib/logger.js";
 
@@ -157,7 +157,7 @@ router.get("/:id/debt", async (req, res) => {
   sendSuccess(res, { debtBalance: parseFloat(user.cancellationDebt ?? "0") });
 });
 
-router.post("/export-data", globalLimiter, async (req, res) => {
+router.post("/export-data", exportDataLimiter, async (req, res) => {
   const userId = req.customerId!;
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!user) {

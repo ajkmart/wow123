@@ -7,14 +7,16 @@
  * ever blocked by a Redis outage.
  *
  * Tiers:
- *   globalLimiter     300 req / 15 min  — all /api traffic
- *   loginLimiter        5 req / 60 s   / IP            — POST /api/auth/login
- *   otpLimiter          3 req / 60 s   / phone (or IP) — OTP send/verify
- *   userApiLimiter    100 req / 60 s   / authenticated user ID
- *   authLimiter        20 req / 15 min  — OTP / login / social-auth (legacy guard)
- *   adminAuthLimiter   10 req / 15 min  — admin login & password-reset
- *   paymentLimiter     30 req / 15 min  — wallet & payment routes
- *   publicLimiter      60 req / 15 min  — public scraping-prone endpoints
+ *   globalLimiter      300 req / 15 min  — all /api traffic
+ *   loginLimiter         5 req / 60 s   / IP            — POST /api/auth/login
+ *   otpLimiter           3 req / 60 s   / phone (or IP) — OTP send/verify
+ *   userApiLimiter     100 req / 60 s   / authenticated user ID
+ *   authLimiter         20 req / 15 min  — OTP / login / social-auth (legacy guard)
+ *   adminAuthLimiter    10 req / 15 min  — admin login & password-reset
+ *   paymentLimiter      30 req / 15 min  — wallet & payment routes
+ *   publicLimiter       60 req / 15 min  — public scraping-prone endpoints
+ *   redeemLimiter        5 req / 15 min / user — POST /api/loyalty/redeem
+ *   exportDataLimiter    3 req / 15 min / user — POST /api/users/export-data
  */
 import rateLimit, { type Options, type Store } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
@@ -102,6 +104,46 @@ export const otpLimiter = rateLimit(makeOptions("otp", 3, WINDOW_1_MIN, {
     if (phone && typeof phone === "string" && phone.length > 0) {
       return `phone:${phone.replace(/\s/g, "")}`;
     }
+    return (
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      "unknown"
+    );
+  },
+}));
+
+/**
+ * redeemLimiter — 5 redemptions / 15 min / authenticated user ID (fallback to IP).
+ * Apply to POST /api/loyalty/redeem to prevent rapid point farming.
+ */
+export const redeemLimiter = rateLimit(makeOptions("redeem", 5, WINDOW_15_MIN, {
+  keyGenerator: (req: Request) => {
+    const userId =
+      req.userId ??
+      req.customerId ??
+      req.riderId ??
+      req.vendorId;
+    if (userId) return `user:${userId}`;
+    return (
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      "unknown"
+    );
+  },
+}));
+
+/**
+ * exportDataLimiter — 3 exports / 15 min / authenticated user ID (fallback to IP).
+ * Apply to POST /api/users/export-data to prevent bulk personal data extraction.
+ */
+export const exportDataLimiter = rateLimit(makeOptions("export-data", 3, WINDOW_15_MIN, {
+  keyGenerator: (req: Request) => {
+    const userId =
+      req.userId ??
+      req.customerId ??
+      req.riderId ??
+      req.vendorId;
+    if (userId) return `user:${userId}`;
     return (
       (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
       req.socket?.remoteAddress ||

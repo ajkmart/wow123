@@ -13,7 +13,7 @@ import { calcDeliveryFee, calcGst, calcCodFee } from "../lib/fees.js";
 import { isInServiceZone } from "../lib/geofence.js";
 import { sendSuccess, sendCreated, sendError, sendNotFound, sendForbidden, sendValidationError } from "../lib/response.js";
 import { z } from "zod";
-import { globalLimiter } from "../middleware/rate-limit.js";
+import { publicLimiter } from "../middleware/rate-limit.js";
 
 const stripHtml = (s: string) => s.replace(/<[^>]*>/g, "").trim();
 
@@ -72,7 +72,7 @@ function mapBooking(b: typeof parcelBookingsTable.$inferSelect) {
   };
 }
 
-router.post("/estimate", globalLimiter, async (req, res) => {
+router.post("/estimate", publicLimiter, async (req, res) => {
   const { parcelType, weight } = req.body;
   const cappedWeight = typeof weight === "number" ? Math.min(Math.max(weight, 0), 500) : undefined;
   const s = await getCachedSettings();
