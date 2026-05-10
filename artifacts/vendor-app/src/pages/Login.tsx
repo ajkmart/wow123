@@ -413,13 +413,13 @@ export default function Login() {
     requires2FA?: boolean;
     tempToken?: string;
     userId?: string;
-    user?: { roles?: string; role?: string; status?: string };
+    user?: { roles?: string[] | string; role?: string; status?: string };
   }
 
   const checkVendorRole = (res: AuthResponse): boolean => {
     if (res.requires2FA) return true;
     const raw = res.user?.roles ?? res.user?.role ?? "";
-    const roles = Array.isArray(raw) ? raw : String(raw).split(",").map((r: string) => r.trim());
+    const roles: string[] = Array.isArray(raw) ? raw : String(raw).split(",").map((r: string) => r.trim());
     if (!roles.includes("vendor")) {
       setError(T("accessDeniedVendor"));
       return false;

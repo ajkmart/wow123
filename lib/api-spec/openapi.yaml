@@ -1031,7 +1031,7 @@ paths:
                   message:
                     type: string
                   newBalance:
-                    type: number
+                    type: string
 
   /wallet/pin/setup:
     post:
@@ -1291,7 +1291,7 @@ paths:
               type: object
               properties:
                 offeredFare:
-                  type: number
+                  type: string
       responses:
         "200":
           description: Counter offer sent
@@ -1598,7 +1598,7 @@ paths:
                   message:
                     type: string
                   bonus:
-                    type: number
+                    type: string
 
   # ── Loyalty ────────────────────────────────────────────────────────────────
 
@@ -1637,9 +1637,9 @@ paths:
                   message:
                     type: string
                   pointsUsed:
-                    type: number
+                    type: integer
                   walletCredit:
-                    type: number
+                    type: string
 
   # ── KYC ───────────────────────────────────────────────────────────────────
 
@@ -2805,7 +2805,7 @@ paths:
               type: object
               properties:
                 fare:
-                  type: number
+                  type: string
       responses:
         "200":
           description: Ride accepted
@@ -2892,7 +2892,7 @@ paths:
               type: object
               properties:
                 fare:
-                  type: number
+                  type: string
               required: [fare]
       responses:
         "200":
@@ -3081,7 +3081,7 @@ components:
         isLocked:
           type: boolean
         lockedMinutes:
-          type: number
+          type: integer
       required: [action, availableMethods]
 
     SendOtpRequest:
@@ -3386,7 +3386,7 @@ components:
         rating:
           type: number
         reviewCount:
-          type: number
+          type: integer
         inStock:
           type: boolean
         unit:
@@ -3403,7 +3403,7 @@ components:
           items:
             $ref: "#/components/schemas/Product"
         total:
-          type: number
+          type: integer
       required: [products, total]
 
     CreateProductRequest:
@@ -3414,7 +3414,7 @@ components:
         description:
           type: string
         price:
-          type: number
+          type: string
         category:
           type: string
         type:
@@ -3436,9 +3436,9 @@ components:
         name:
           type: string
         price:
-          type: number
+          type: string
         quantity:
-          type: number
+          type: integer
         image:
           type: string
       required: [productId, name, price, quantity]
@@ -3519,7 +3519,7 @@ components:
           items:
             $ref: "#/components/schemas/Order"
         total:
-          type: number
+          type: integer
       required: [orders, total]
 
     CreateOrderRequest:
@@ -3562,7 +3562,7 @@ components:
           type: string
           enum: [credit, debit]
         amount:
-          type: number
+          type: string
         description:
           type: string
         createdAt:
@@ -3573,7 +3573,7 @@ components:
       type: object
       properties:
         balance:
-          type: number
+          type: string
         transactions:
           type: array
           items:
@@ -3588,7 +3588,7 @@ components:
           items:
             $ref: "#/components/schemas/WalletTransaction"
         total:
-          type: number
+          type: integer
       required: [transactions, total]
 
     TopUpRequest:
@@ -3597,14 +3597,14 @@ components:
         userId:
           type: string
         amount:
-          type: number
+          type: string
       required: [userId, amount]
 
     WalletDepositRequest:
       type: object
       properties:
         amount:
-          type: number
+          type: string
         paymentMethod:
           type: string
         transactionId:
@@ -3634,7 +3634,7 @@ components:
         id:
           type: string
         amount:
-          type: number
+          type: string
         paymentMethod:
           type: string
         status:
@@ -3654,7 +3654,7 @@ components:
           items:
             $ref: "#/components/schemas/WalletDeposit"
         total:
-          type: number
+          type: integer
       required: [deposits, total]
 
     WalletMethod:
@@ -3667,11 +3667,11 @@ components:
         description:
           type: string
         minAmount:
-          type: number
+          type: string
         maxAmount:
-          type: number
+          type: string
         fee:
-          type: number
+          type: string
         logo:
           type: string
         available:
@@ -3691,7 +3691,7 @@ components:
       type: object
       properties:
         amount:
-          type: number
+          type: string
         method:
           type: string
         accountNumber:
@@ -3710,7 +3710,7 @@ components:
         ajkId:
           type: string
         amount:
-          type: number
+          type: string
         note:
           type: string
       required: [amount]
@@ -3779,13 +3779,13 @@ components:
         color:
           type: string
         baseFare:
-          type: number
+          type: string
         perKm:
-          type: number
+          type: string
         minFare:
-          type: number
+          type: string
         maxPassengers:
-          type: number
+          type: integer
         allowBargaining:
           type: boolean
       required: [key, name, icon, color, baseFare, perKm, minFare, maxPassengers, allowBargaining]
@@ -3814,7 +3814,7 @@ components:
           type: string
           nullable: true
         fare:
-          type: number
+          type: string
         note:
           type: string
           nullable: true
@@ -3830,7 +3830,7 @@ components:
           type: number
           nullable: true
         totalRides:
-          type: number
+          type: integer
         expiresAt:
           type: string
         createdAt:
@@ -3865,7 +3865,7 @@ components:
         dropLng:
           type: number
         fare:
-          type: number
+          type: string
         distance:
           type: number
         riderId:
@@ -3954,7 +3954,7 @@ components:
         distance:
           type: number
         fare:
-          type: number
+          type: string
         duration:
           type: string
         type:
@@ -3969,7 +3969,7 @@ components:
           items:
             $ref: "#/components/schemas/Ride"
         total:
-          type: number
+          type: integer
       required: [rides, total]
 
     # ── Notification schemas ───────────────────────────────────────────────────
@@ -4002,9 +4002,9 @@ components:
           items:
             $ref: "#/components/schemas/Notification"
         unreadCount:
-          type: number
+          type: integer
         total:
-          type: number
+          type: integer
       required: [notifications, unreadCount, total]
 
     # ── Address schemas ────────────────────────────────────────────────────────
@@ -4089,7 +4089,7 @@ components:
           items:
             $ref: "#/components/schemas/Review"
         total:
-          type: number
+          type: integer
       required: [reviews, total]
 
     ReviewSummary:
@@ -4098,7 +4098,7 @@ components:
         averageRating:
           type: number
         totalReviews:
-          type: number
+          type: integer
         ratingBreakdown:
           type: object
           additionalProperties:
@@ -4435,9 +4435,9 @@ components:
               name:
                 type: string
               quantity:
-                type: number
+                type: integer
               price:
-                type: number
+                type: string
             required: [name, quantity]
         prescriptionUrl:
           type: string
@@ -4445,7 +4445,7 @@ components:
           type: string
           enum: [pending, confirmed, preparing, out_for_delivery, delivered, cancelled]
         total:
-          type: number
+          type: string
         deliveryAddress:
           type: string
         paymentMethod:
@@ -4506,15 +4506,15 @@ components:
       type: object
       properties:
         fare:
-          type: number
+          type: string
         estimatedTime:
           type: string
         parcelType:
           type: string
         baseFee:
-          type: number
+          type: string
         perKgRate:
-          type: number
+          type: string
         weightKg:
           type: number
       required: [fare, estimatedTime]
@@ -4545,7 +4545,7 @@ components:
         description:
           type: string
         fare:
-          type: number
+          type: string
         paymentMethod:
           type: string
         status:
@@ -4567,7 +4567,7 @@ components:
           items:
             $ref: "#/components/schemas/ParcelBooking"
         total:
-          type: number
+          type: integer
       required: [bookings, total]
 
     CreateParcelBookingRequest:
@@ -4622,11 +4622,11 @@ components:
         description:
           type: string
         maxAmount:
-          type: number
+          type: string
         fee:
-          type: number
+          type: string
         freeAbove:
-          type: number
+          type: string
       required: [id, label, available]
 
     PaymentMethodsResponse:
@@ -4862,7 +4862,7 @@ components:
           items:
             $ref: "#/components/schemas/VendorOrder"
         total:
-          type: number
+          type: integer
       required: [orders, total]
 
     VendorCreateProductRequest:
@@ -4873,7 +4873,7 @@ components:
         description:
           type: string
         price:
-          type: number
+          type: string
         categoryId:
           type: string
         stock:
@@ -4903,7 +4903,7 @@ components:
               date:
                 type: string
               amount:
-                type: number
+                type: string
         orders:
           type: array
           items:
@@ -4912,7 +4912,7 @@ components:
               date:
                 type: string
               count:
-                type: number
+                type: integer
         topProducts:
           type: array
           items:
@@ -5034,12 +5034,12 @@ components:
               status:
                 type: string
               fare:
-                type: number
+                type: string
               createdAt:
                 type: string
             required: [id, type, status, createdAt]
         total:
-          type: number
+          type: integer
       required: [entries, total]
 
     RiderEarnings:
@@ -5048,15 +5048,15 @@ components:
         period:
           type: string
         totalEarnings:
-          type: number
+          type: string
         totalRides:
-          type: number
+          type: integer
         totalOrders:
-          type: number
+          type: integer
         cashCollected:
-          type: number
+          type: string
         walletBalance:
-          type: number
+          type: string
         breakdown:
           type: array
           items:
@@ -5065,6 +5065,6 @@ components:
               date:
                 type: string
               amount:
-                type: number
+                type: string
       required: [period, totalEarnings, totalRides, totalOrders]
 

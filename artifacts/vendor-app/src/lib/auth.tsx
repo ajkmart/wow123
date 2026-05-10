@@ -8,7 +8,7 @@ export interface StoreHours { [day: string]: { open: string; close: string; clos
 export interface AuthUser {
   id: string; phone: string; name?: string; email?: string; avatar?: string;
   walletBalance: number;
-  role?: string; roles?: string;
+  roles: string[];
   storeName?: string; storeCategory?: string;
   storeBanner?: string; storeDescription?: string;
   storeHours?: StoreHours | null;
@@ -120,8 +120,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(activeToken);
       try {
         const u: AuthUser = await api.getMe(controller.signal);
-        const roles = (u.roles || u.role || "").split(",").map((r) => r.trim());
-        if ((u.roles || u.role) && !roles.includes("vendor")) {
+        const rawRoles = u.roles;
+        const roles: string[] = Array.isArray(rawRoles)
+          ? rawRoles
+          : typeof (u as unknown as { role?: string }).role === "string"
+            ? [(u as unknown as { role: string }).role]
+            : [];
+        u.roles = roles;
+        if (roles.length > 0 && !roles.includes("vendor")) {
           api.clearTokens();
           setToken(null);
           return;
@@ -157,8 +163,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (t: string, u: AuthUser, refreshToken?: string) => {
-    const roles = (u.roles || u.role || "").split(",").map((r) => r.trim());
-    if ((u.roles || u.role) && !roles.includes("vendor")) {
+    const rawRoles = u.roles;
+    const roles: string[] = Array.isArray(rawRoles)
+      ? rawRoles
+      : typeof (u as unknown as { role?: string }).role === "string"
+        ? [(u as unknown as { role: string }).role]
+        : [];
+    u.roles = roles;
+    if (roles.length > 0 && !roles.includes("vendor")) {
       throw new Error("This app is for vendors only");
     }
     queryClient.clear();

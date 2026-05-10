@@ -23,7 +23,7 @@ export interface AuthUser {
   isRestricted?: boolean;
   approvalStatus?: string;
   rejectionReason?: string | null;
-  role?: string; roles?: string;
+  roles: string[];
   createdAt?: string; lastLoginAt?: string;
   stats: { deliveriesToday: number; earningsToday: number; totalDeliveries: number; totalEarnings: number; rating?: number };
   cnic?: string; city?: string; address?: string; emergencyContact?: string;
@@ -161,12 +161,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const u = await api.getMe(controller.signal);
         if (controller.signal.aborted) return;
-        const roles = (u.roles || u.role || "").split(",").map((r: string) => r.trim());
-        if ((u.roles || u.role) && !roles.includes("rider")) {
+        const rawUser = u as unknown as { role?: string };
+        const roles: string[] = Array.isArray(u.roles)
+          ? u.roles
+          : typeof rawUser.role === "string"
+            ? [rawUser.role]
+            : [];
+        if (roles.length > 0 && !roles.includes("rider")) {
           api.clearTokens();
           setToken(null);
           return;
         }
+        u.roles = roles;
         setUser(u);
         refreshFailCountRef.current = 0;
         scheduleProactiveRefresh(t);
@@ -174,11 +180,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (err instanceof Error && err.name === "AbortError") return;
         const errAny = err as Record<string, unknown>;
         if (errAny.code === "APPROVAL_PENDING") {
-          setUser({ id: "", phone: "", isOnline: false, walletBalance: 0, approvalStatus: "pending", stats: { deliveriesToday: 0, earningsToday: 0, totalDeliveries: 0, totalEarnings: 0 } });
+          setUser({ id: "", phone: "", isOnline: false, walletBalance: 0, roles: [], approvalStatus: "pending", stats: { deliveriesToday: 0, earningsToday: 0, totalDeliveries: 0, totalEarnings: 0 } });
           return;
         }
         if (errAny.code === "APPROVAL_REJECTED") {
-          setUser({ id: "", phone: "", isOnline: false, walletBalance: 0, approvalStatus: "rejected", rejectionReason: (errAny.rejectionReason as string | undefined) ?? null, stats: { deliveriesToday: 0, earningsToday: 0, totalDeliveries: 0, totalEarnings: 0 } });
+          setUser({ id: "", phone: "", isOnline: false, walletBalance: 0, roles: [], approvalStatus: "rejected", rejectionReason: (errAny.rejectionReason as string | undefined) ?? null, stats: { deliveriesToday: 0, earningsToday: 0, totalDeliveries: 0, totalEarnings: 0 } });
           return;
         }
         api.clearTokens();
@@ -208,10 +214,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (t: string, u: AuthUser, refreshToken?: string) => {
-    const roles = (u.roles || u.role || "").split(",").map((r: string) => r.trim());
-    if ((u.roles || u.role) && !roles.includes("rider")) {
+    const rawUser = u as unknown as { role?: string };
+    const roles: string[] = Array.isArray(u.roles)
+      ? u.roles
+      : typeof rawUser.role === "string"
+        ? [rawUser.role]
+        : [];
+    if (roles.length > 0 && !roles.includes("rider")) {
       throw new Error("This app is for riders only");
     }
+    u.roles = roles;
     queryClient.clear();
     api.storeTokens(t, refreshToken);
     setToken(t);

@@ -187,15 +187,13 @@ export default function AuthScreen() {
     }
   };
 
-  const navigateAfterLogin = async (userOrRole: AppUser | { roles?: string[] | string } | string | null | undefined) => {
+  const navigateAfterLogin = async (userOrRole: AppUser | string | null | undefined) => {
     /* Normalise: biometric path returns role string; other paths pass user object */
     let rolesArr: string[];
     if (typeof userOrRole === "string") {
       rolesArr = [userOrRole];
-    } else if (Array.isArray((userOrRole as any)?.roles)) {
-      rolesArr = (userOrRole as AppUser).roles;
-    } else if (typeof (userOrRole as any)?.roles === "string") {
-      rolesArr = [(userOrRole as any).roles as string];
+    } else if (userOrRole != null && Array.isArray(userOrRole.roles)) {
+      rolesArr = userOrRole.roles;
     } else {
       rolesArr = [];
     }
