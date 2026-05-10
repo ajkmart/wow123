@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Bell, Package, AlertTriangle, TrendingDown, X, RefreshCw, ExternalLink } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import { useAdminAuth } from "@/lib/adminAuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { adminFetch } from "@/lib/adminFetcher";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "wouter";
@@ -83,6 +84,8 @@ function NotificationRow({ n }: { n: StockNotification }) {
 
 export function StockNotificationBell() {
   const { state } = useAdminAuth();
+  const { has, isSuper, legacyToken } = usePermissions();
+
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<StockNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -97,17 +100,18 @@ export function StockNotificationBell() {
     setLoading(true);
     try {
       const data = await adminFetch("/stock-notifications") as { notifications: StockNotification[] };
-      setNotifications(data.notifications ?? []);
-      const newUnread = (data.notifications ?? []).filter(
-        n => new Date(n.changedAt).getTime() > lastRead && (n.isLow || n.isOutOfStock)
-      ).length;
-      setUnreadCount(newUnread);
+      const list = data.notifications ?? [];
+      setNotifications(list);
+      // Badge = ALL currently low/out-of-stock items from DB so the count
+      // persists across page refreshes, not just items since last read.
+      const alertCount = list.filter(n => n.isLow || n.isOutOfStock).length;
+      setUnreadCount(alertCount);
     } catch {
       /* silent — badge just won't show */
     } finally {
       setLoading(false);
     }
-  }, [lastRead]);
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
@@ -210,6 +214,10 @@ export function StockNotificationBell() {
   const displayList = open
     ? (lowAndOut.length > 0 ? lowAndOut : notifications).slice(0, 20)
     : [];
+
+  // Only render for admins with inventory.view permission.
+  // Legacy tokens (no perms claim) and super-admins always see the bell.
+  if (!legacyToken && !isSuper && !has("inventory.view")) return null;
 
   return (
     <div className="relative" ref={dropdownRef}>

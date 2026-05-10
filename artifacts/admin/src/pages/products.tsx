@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { adminFetch } from "@/lib/adminFetcher";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PageHeader } from "@/components/shared";
-import { PackageSearch, Plus, Search, Edit, Trash2, ToggleLeft, ToggleRight, Download, Filter, CheckCircle, XCircle, Clock, Upload, X, ImageIcon, ArrowUpDown, ArrowUp, ArrowDown, History, Tag, Percent, ChevronDown } from "lucide-react";
+import { PackageSearch, Plus, Search, Edit, Trash2, ToggleLeft, ToggleRight, Download, Filter, CheckCircle, XCircle, Clock, Upload, X, ImageIcon, ArrowUpDown, ArrowUp, ArrowDown, History, Tag, Percent, ChevronDown, AlertTriangle } from "lucide-react";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, usePendingProducts, useApproveProduct, useRejectProduct, useCategories, useProductStockHistory } from "@/hooks/use-admin";
 import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
@@ -1256,8 +1256,18 @@ export default function Products() {
                   ) : filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">No products found.</TableCell></TableRow>
                   ) : (
-                    filtered.map((p: ProductRow) => (
-                      <TableRow key={p.id} className={`hover:bg-muted/30 ${selectedProductIds.has(p.id) ? "bg-violet-50/60" : ""}`}>
+                    filtered.map((p: ProductRow) => {
+                      const isOutOfStock = !p.inStock || (p.stock !== undefined && p.stock <= 0);
+                      const isLowStock   = !isOutOfStock && p.stock !== undefined && p.stock > 0 && p.stock < 5;
+                      const rowBg = selectedProductIds.has(p.id)
+                        ? "bg-violet-50/60"
+                        : isOutOfStock
+                        ? "bg-red-50/60 border-l-2 border-l-red-300"
+                        : isLowStock
+                        ? "bg-amber-50/60 border-l-2 border-l-amber-300"
+                        : "";
+                      return (
+                      <TableRow key={p.id} className={`hover:bg-muted/30 ${rowBg}`}>
                         <TableCell>
                           <input
                             type="checkbox"
@@ -1285,24 +1295,36 @@ export default function Products() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{p.vendorName || "—"}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            <StatusBadge
-                              status={p.inStock ? "active" : "inactive"}
-                              label={p.inStock ? "In Stock" : "Out of Stock"}
-                              size="xs"
-                            />
-                            {canWrite && (
-                              <button
-                                onClick={() => toggleStock(p)}
-                                disabled={updateMutation.isPending}
-                                className="ml-1 opacity-50 hover:opacity-100 transition-opacity"
-                                title={p.inStock ? "Mark out of stock" : "Mark in stock"}
-                              >
-                                {p.inStock
-                                  ? <ToggleRight className="w-4 h-4 text-green-600" />
-                                  : <ToggleLeft  className="w-4 h-4 text-red-600" />
-                                }
-                              </button>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <StatusBadge
+                                status={p.inStock ? "active" : "inactive"}
+                                label={p.inStock ? "In Stock" : "Out of Stock"}
+                                size="xs"
+                              />
+                              {canWrite && (
+                                <button
+                                  onClick={() => toggleStock(p)}
+                                  disabled={updateMutation.isPending}
+                                  className="ml-1 opacity-50 hover:opacity-100 transition-opacity"
+                                  title={p.inStock ? "Mark out of stock" : "Mark in stock"}
+                                >
+                                  {p.inStock
+                                    ? <ToggleRight className="w-4 h-4 text-green-600" />
+                                    : <ToggleLeft  className="w-4 h-4 text-red-600" />
+                                  }
+                                </button>
+                              )}
+                            </div>
+                            {p.stock !== undefined && isLowStock && (
+                              <span className="text-[10px] font-bold text-amber-600 flex items-center gap-0.5">
+                                <AlertTriangle className="w-2.5 h-2.5" /> {p.stock} left
+                              </span>
+                            )}
+                            {p.stock !== undefined && isOutOfStock && p.stock === 0 && (
+                              <span className="text-[10px] font-bold text-red-500">
+                                0 units
+                              </span>
                             )}
                           </div>
                         </TableCell>
@@ -1326,7 +1348,8 @@ export default function Products() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
