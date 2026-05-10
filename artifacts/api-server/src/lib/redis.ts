@@ -134,8 +134,10 @@ if (rawUrl) {
  *     degrading (JWT blacklisting disabled, rate limits per-instance only).
  *
  * Development:
- *   - Logs a warning if unreachable and sets redisClient to null so the
- *     rest of the application treats Redis as unavailable.
+ *   - Logs a warning if unreachable; does NOT null redisClient so existing
+ *     RedisStore sendCommand closures keep a valid (if closed) reference.
+ *     The health endpoint will report redis:"error" while the ioredis
+ *     retryStrategy drains; rate limiters degrade to in-memory automatically.
  *   - Server startup continues normally.
  */
 export async function waitForRedisReady(): Promise<void> {
