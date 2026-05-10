@@ -588,36 +588,6 @@ export default function Chat() {
       showError(isPermission ? "Microphone access denied. Please allow microphone access to answer calls." : "Could not answer call. Please try again.");
       showCallFallback(selectedConv?.otherUser?.phone);
     }
-    const answerData = await apiFetch(`/communication/calls/${incomingCall.callId}/answer`, { method: "POST" });
-    setCallId(incomingCall.callId);
-    setCallActive(true);
-    setCallTimer(0);
-    timerRef.current = setInterval(() => setCallTimer(t => t + 1), 1000);
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      localStreamRef.current = stream;
-
-      const iceServers = [...(answerData.iceServers || [{ urls: "stun:stun.l.google.com:19302" }]), ...getTurnIceServers()];
-      const pc = new RTCPeerConnection({ iceServers });
-      pcRef.current = pc;
-      stream.getTracks().forEach(t => pc.addTrack(t, stream));
-
-      pc.onicecandidate = (e) => {
-        if (e.candidate) socketRef.current?.emit("comm:call:ice-candidate", { callId: incomingCall.callId, targetUserId: incomingCall.callerId, candidate: e.candidate });
-      };
-      pc.ontrack = (e) => {
-        const audio = new Audio();
-        audio.srcObject = e.streams[0];
-        audio.play();
-      };
-
-      setIncomingCall(null);
-    } catch (err) {
-      endCall();
-      const isPermission = err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError");
-      showError(isPermission ? "Microphone access denied. Please allow microphone access to answer calls." : "Could not answer call. Please try again.");
-      showCallFallback(selectedConv?.otherUser?.phone);
-    }
   };
 
   const endCall = useCallback(() => {

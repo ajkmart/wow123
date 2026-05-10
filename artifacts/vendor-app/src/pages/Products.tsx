@@ -540,9 +540,6 @@ export default function Products() {
 
   const runBulkImport = useCallback(async () => {
     const valid = bulkRows.filter(r => r.name.trim() && r.price && !Number.isNaN(Number(r.price)) && Number(r.price) > 0);
-
-  const runBulkImport = useCallback(async () => {
-    const valid = bulkRows.filter(r => r.name.trim() && r.price && !Number.isNaN(Number(r.price)) && Number(r.price) > 0);
     if (totalProductCount === null) { showToast("Cannot verify product count — please wait and try again."); return; }
     if (totalProductCount + valid.length > maxItems) { showToast(`Product limit reached. You can add at most ${maxItems - totalProductCount} more product(s).`); return; }
     if (valid.length === 0) return;
@@ -550,37 +547,6 @@ export default function Products() {
     setBulkImportResults(initial);
     setBulkImporting(true);
     setBulkImportProgress({ done: 0, total: valid.length });
-    let successCount = 0;
-    let doneCount = 0;
-    const results: Array<{ name: string; status: "pending" | "success" | "error"; message?: string }> = [...initial];
-
-    /* Send in batches of 50 to match server limit */
-    const BATCH = 50;
-    for (let batchStart = 0; batchStart < valid.length; batchStart += BATCH) {
-      const batch = valid.slice(batchStart, batchStart + BATCH);
-      for (let j = 0; j < batch.length; j++) {
-        const i = batchStart + j;
-        const r = batch[j]!;
-        try {
-          await api.createProduct({
-            name:        r.name.trim(),
-            price:       Number(r.price),
-            description: r.description.trim() || null,
-            image:       r.image.trim() || null,
-            category:    r.category.trim() || bulkCat || "general",
-            unit:        r.unit.trim() || null,
-            stock:       r.stock ? Number(r.stock) : null,
-            type:        r.type || "mart",
-          });
-          results[i] = { ...results[i]!, status: "success" };
-          successCount++;
-        } catch (e) {
-          results[i] = { ...results[i]!, status: "error", message: e instanceof Error ? e.message : "Failed" };
-        }
-        doneCount++;
-        setBulkImportProgress({ done: doneCount, total: valid.length });
-        setBulkImportResults([...results]);
-      }
     let successCount = 0;
     let doneCount = 0;
     const results: Array<{ name: string; status: "pending" | "success" | "error"; message?: string }> = [...initial];
@@ -829,7 +795,6 @@ export default function Products() {
             <button onClick={() => setView("list")} className="h-10 px-4 bg-white/20 md:bg-gray-100 md:text-gray-700 text-white font-bold rounded-xl text-sm android-press min-h-0">← Back</button>
           </div>
         }
-        actions={<button onClick={() => setView("list")} className="h-10 px-4 bg-white/20 md:bg-gray-100 md:text-gray-700 text-white font-bold rounded-xl text-sm android-press min-h-0">← Back</button>}
       />
       <div className="px-4 py-4 space-y-4 md:px-0 md:py-4">
 
@@ -1111,35 +1076,6 @@ export default function Products() {
               {!bulkImporting && (
                 <button onClick={() => { setBulkImportResults(null); setBulkImportProgress(null); setDuplicateWarning([]); setParseErrors([]); setView("list"); setBulkRows([{...EMPTY_ROW},{...EMPTY_ROW},{...EMPTY_ROW}]); setBulkCat(""); }} className={`mt-3 ${BTN_PRIMARY}`}>
                   ✓ Done — View Products
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Import Progress</p>
-              {bulkImportResults.map((r, i) => (
-                <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${r.status === "success" ? "bg-green-50" : r.status === "error" ? "bg-red-50" : "bg-gray-50"}`}>
-                  <span className="text-base flex-shrink-0">
-                    {r.status === "success" ? "✅" : r.status === "error" ? "❌" : <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin inline-block"/>}
-                  </span>
-                  <span className="flex-1 font-medium text-gray-800 truncate">{r.name}</span>
-                  {r.status === "error" && r.message && <span className="text-xs text-red-500 truncate max-w-[120px]">{r.message}</span>}
-                  {r.status === "success" && <span className="text-xs text-green-600 font-bold">Added</span>}
-                  {r.status === "pending" && <span className="text-xs text-gray-400">Waiting...</span>}
-                </div>
-              )}
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Row details</p>
-              <div className="max-h-64 overflow-y-auto space-y-1">
-                {bulkImportResults.map((r, i) => (
-                  <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${r.status === "success" ? "bg-green-50" : r.status === "error" ? "bg-red-50" : "bg-gray-50"}`}>
-                    <span className="text-base flex-shrink-0">
-                      {r.status === "success" ? "✅" : r.status === "error" ? "❌" : <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin inline-block"/>}
-                    </span>
-                    <span className="flex-1 font-medium text-gray-800 truncate">{r.name}</span>
-                    {r.status === "error" && r.message && <span className="text-xs text-red-500 truncate max-w-[140px]" title={r.message}>{r.message}</span>}
-                    {r.status === "success" && <span className="text-xs text-green-600 font-bold">Added</span>}
-                    {r.status === "pending" && <span className="text-xs text-gray-400">Waiting…</span>}
-                  </div>
-                ))}
-              </div>
-              {!bulkImporting && (
-                <button onClick={() => { setBulkImportResults(null); setBulkImportProgress(null); setDuplicateWarning([]); setParseErrors([]); setView("list"); setBulkRows([{...EMPTY_ROW},{...EMPTY_ROW},{...EMPTY_ROW}]); setBulkCat(""); }} className={`mt-3 ${BTN_PRIMARY}`}>
-                  ✓ Done — View Products
                 </button>
               )}
             </div>
@@ -1190,6 +1126,7 @@ export default function Products() {
             </label>
             <button onClick={() => setView("bulk")} disabled={allDataLoading || totalProductCount === null || totalProductCount >= maxItems} className={`h-9 px-3.5 text-xs font-bold rounded-xl android-press min-h-0 ${(allDataLoading || totalProductCount === null || totalProductCount >= maxItems) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-white/20 md:bg-gray-100 md:text-gray-700 text-white"}`}>Bulk Add</button>
             <button onClick={() => setShowAdd(true)} disabled={allDataLoading || totalProductCount === null || totalProductCount >= maxItems} className={`h-9 px-3.5 text-sm font-bold rounded-xl android-press min-h-0 ${(allDataLoading || totalProductCount === null || totalProductCount >= maxItems) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-white text-orange-500 md:bg-orange-500 md:text-white"}`}>+ Add</button>
+          </div>
           </div>
         }
         mobileContent={

@@ -214,6 +214,7 @@ export default function VanDriver() {
         setError(e.message);
       }
     },
+  });
 
   /* When the offline queue replays complete_trip successfully, reset the
      optimistic state and refresh the schedule/passenger data. */
