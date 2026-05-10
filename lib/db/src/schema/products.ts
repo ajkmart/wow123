@@ -40,6 +40,10 @@ export const productsTable = pgTable("products", {
   index("products_type_idx").on(t.type),
   index("products_name_idx").on(t.name),
   index("products_price_idx").on(t.price),
+  index("products_fts_gin_idx").using(
+    "gin",
+    sql`to_tsvector('english', coalesce(${t.name}, '') || ' ' || coalesce(${t.description}, ''))`
+  ),
   /* Product price must be positive */
   check("products_price_positive", sql`${t.price} > 0`),
 ]);
