@@ -375,7 +375,10 @@ router.post("/reset-demo", async (_req, res) => {
     "products", "users",
   ]);
 
-  await db.update(ordersTable).set({ deletedAt: new Date() }).where(isNull(ordersTable.deletedAt));
+  /* SOFT-DELETE EXEMPTION: demo reset — hard deletes required before re-seed.
+     Demo users/orders use deterministic IDs; soft-delete + re-insert would
+     cause PK conflicts. Admin-only dev endpoint, not user lifecycle. */
+  await db.delete(ordersTable);
   await db.delete(ridesTable);
   await db.delete(pharmacyOrdersTable);
   await db.delete(parcelBookingsTable);
@@ -405,7 +408,8 @@ router.post("/reset-transactional", async (_req, res) => {
     "wallet_transactions", "reviews", "notifications", "flash_deals",
   ]);
 
-  await db.update(ordersTable).set({ deletedAt: new Date() }).where(isNull(ordersTable.deletedAt));
+  /* SOFT-DELETE EXEMPTION: transactional reset — admin-only dev wipe. */
+  await db.delete(ordersTable);
   await db.delete(ridesTable);
   await db.delete(pharmacyOrdersTable);
   await db.delete(parcelBookingsTable);
@@ -445,7 +449,10 @@ router.post("/reset-all", async (_req, res) => {
     "promo_codes", "saved_addresses", "user_settings", "products",
   ]);
 
-  await db.update(ordersTable).set({ deletedAt: new Date() }).where(isNull(ordersTable.deletedAt));
+  /* SOFT-DELETE EXEMPTION: demo reset wipes all rows before fresh re-seed.
+     Demo users use deterministic IDs (demo_cust_1 etc.) that would conflict
+     on re-insert if rows were only soft-deleted. Hard delete is intentional. */
+  await db.delete(ordersTable);
   await db.delete(ridesTable);
   await db.delete(pharmacyOrdersTable);
   await db.delete(parcelBookingsTable);
@@ -457,7 +464,7 @@ router.post("/reset-all", async (_req, res) => {
   await db.delete(promoCodesTable);
   await db.delete(savedAddressesTable);
   await db.delete(userSettingsTable);
-  await db.update(usersTable).set({ deletedAt: new Date() }).where(isNull(usersTable.deletedAt));
+  await db.delete(usersTable);
   const { mart, food } = await reseedProducts();
 
   res.json({
@@ -499,7 +506,9 @@ router.post("/remove-all", async (_req, res) => {
     const snap = await snapshotBefore("Remove All Data", "remove-all", REMOVABLE_TABLES);
 
     await db.transaction(async (tx) => {
-      await tx.update(ordersTable).set({ deletedAt: new Date() }).where(isNull(ordersTable.deletedAt));
+      /* SOFT-DELETE EXEMPTION: remove-all is an admin dev wipe endpoint.
+         Hard deletes are required to fully purge all rows. */
+      await tx.delete(ordersTable);
       await tx.delete(ridesTable);
       await tx.delete(pharmacyOrdersTable);
       await tx.delete(parcelBookingsTable);
@@ -516,7 +525,7 @@ router.post("/remove-all", async (_req, res) => {
       await tx.delete(vendorProfilesTable);
       await tx.delete(riderProfilesTable);
       await tx.delete(serviceZonesTable);
-      await tx.update(usersTable).set({ deletedAt: new Date() }).where(isNull(usersTable.deletedAt));
+      await tx.delete(usersTable);
     });
 
     res.json({
@@ -622,7 +631,9 @@ router.post("/seed-demo", async (_req, res) => {
 
   const counts: Record<string, number> = {};
   try {
-    await db.update(ordersTable).set({ deletedAt: new Date() }).where(isNull(ordersTable.deletedAt));
+    /* SOFT-DELETE EXEMPTION: seed-demo re-inserts deterministic IDs (demo_cust_1 etc).
+       Hard deletes required to avoid PK conflicts on subsequent re-seed runs. */
+    await db.delete(ordersTable);
     await db.delete(ridesTable);
     await db.delete(pharmacyOrdersTable);
     await db.delete(parcelBookingsTable);
@@ -639,7 +650,7 @@ router.post("/seed-demo", async (_req, res) => {
     await db.delete(vendorProfilesTable);
     await db.delete(riderProfilesTable);
     await db.delete(serviceZonesTable);
-    await db.update(usersTable).set({ deletedAt: new Date() }).where(isNull(usersTable.deletedAt));
+    await db.delete(usersTable);
 
     for (const u of DEMO_USERS) {
       await db.insert(usersTable).values({
