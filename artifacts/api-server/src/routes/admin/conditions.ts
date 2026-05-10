@@ -277,7 +277,7 @@ router.get("/conditions", async (req, res) => {
     const where: any[] = [];
     if (userId) where.push(eq(accountConditionsTable.userId, userId));
     if (role && role !== "all") where.push(eq(accountConditionsTable.userRole, role));
-    if (severity && severity !== "all") where.push(eq(accountConditionsTable.severity, severity as any));
+    if (severity && severity !== "all") where.push(eq(accountConditionsTable.severity, severity as typeof accountConditionsTable.severity._.data));
     if (status === "active") where.push(eq(accountConditionsTable.isActive, true));
     if (status === "lifted") where.push(eq(accountConditionsTable.isActive, false));
     if (dateFrom) where.push(gte(accountConditionsTable.appliedAt, new Date(dateFrom)));
@@ -389,7 +389,7 @@ router.post("/conditions", async (req, res) => {
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         isActive: true,
         metadata: metadata ?? null,
-      } as any)
+      })
       .returning();
 
     res.json({ success: true, data: created });
@@ -573,7 +573,7 @@ router.post("/condition-rules", async (req, res) => {
         cooldownHours: cooldownHours != null ? Number(cooldownHours) : 24,
         modeApplicability: modeApplicability ?? "default,ai_recommended,custom",
         isActive: isActive ?? true,
-      } as any)
+      })
       .returning();
     return res.json({ success: true, data: created });
   } catch (error) {
@@ -659,7 +659,7 @@ router.post("/condition-rules/seed-defaults", async (_req, res) => {
       modeApplicability: "default,ai_recommended,custom",
       isActive: true,
     }));
-    await db.insert(conditionRulesTable).values(rows as any);
+    await db.insert(conditionRulesTable).values(rows as Array<typeof conditionRulesTable.$inferInsert>);
     return res.json({ success: true, message: `Seeded ${rows.length} default rules`, inserted: rows.length });
   } catch (error) {
     logger.error("[admin/condition-rules] seed error:", error);

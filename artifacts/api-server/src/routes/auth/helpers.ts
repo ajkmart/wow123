@@ -350,14 +350,14 @@ export async function issueTokensForUser(user: any, ip: string, method: string, 
       emailVerified: user.emailVerified ?? false, phoneVerified: user.phoneVerified ?? false,
       totpEnabled: user.totpEnabled ?? false,
       needsProfileCompletion: !user.cnic || !user.name,
-      acceptedTermsVersion: (user as any).acceptedTermsVersion ?? null,
+      acceptedTermsVersion: user.acceptedTermsVersion ?? null,
     },
     requiresTermsAcceptance: await (async () => {
       try {
         const s = await getCachedSettings();
         const currentTermsVersion = s["terms_version"] ?? "";
         if (!currentTermsVersion) return false;
-        const userAccepted = (user as any).acceptedTermsVersion ?? null;
+        const userAccepted = user.acceptedTermsVersion ?? null;
         return userAccepted !== currentTermsVersion;
       } catch { return false; }
     })(),

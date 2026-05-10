@@ -469,7 +469,7 @@ router.get("/", async (req, res) => {
           ORDER BY sort_order DESC, created_at DESC
           LIMIT 20
         `);
-        return (rows.rows as any[]).map(r => ({
+        return (rows.rows as Array<Record<string, unknown>>).map(r => ({
           id:          r.id,
           version:     r.version,
           releaseDate: r.release_date,
@@ -486,7 +486,7 @@ router.get("/", async (req, res) => {
           .where(eq(abExperimentsTable.status, "active"));
         const assignments: { experimentId: string; experimentName: string; variant: string }[] = [];
         for (const exp of activeExperiments) {
-          const variants = (exp.variants as any[]) || [];
+          const variants = (exp.variants as unknown[]) || [];
           if (variants.length < 2) continue;
           const trafficHash = crypto.createHash("md5").update(`${userId}:${exp.id}:traffic`).digest("hex");
           const trafficBucket = parseInt(trafficHash.slice(0, 8), 16) % 100;
@@ -533,7 +533,7 @@ router.get("/experiments", async (req, res) => {
     const assignments: { experimentId: string; experimentName: string; variant: string }[] = [];
 
     for (const exp of activeExperiments) {
-      const variants = (exp.variants as any[]) || [];
+      const variants = (exp.variants as unknown[]) || [];
       if (variants.length < 2) continue;
 
       const trafficHash = crypto.createHash("md5").update(`${userId}:${exp.id}:traffic`).digest("hex");
@@ -663,7 +663,7 @@ router.get("/compliance-status", customerAuth, async (req, res) => {
   const userId = req.customerId!;
   try {
     const rows = await db.execute(sql`SELECT accepted_terms_version FROM users WHERE id = ${userId}`);
-    const user = (rows as any).rows?.[0] ?? (Array.isArray(rows) ? rows[0] : null);
+    const user = (rows.rows as Array<Record<string, unknown>>)?.[0] ?? (Array.isArray(rows) ? (rows as Array<Record<string, unknown>>)[0] : null);
     sendSuccess(res, { acceptedTermsVersion: user?.accepted_terms_version ?? null });
   } catch {
     sendSuccess(res, { acceptedTermsVersion: null });

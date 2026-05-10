@@ -15,7 +15,7 @@ router.get("/release-notes", async (_req, res) => {
       ORDER BY sort_order ASC, created_at DESC
     `);
     sendSuccess(res, {
-      releaseNotes: (rows.rows as any[]).map(r => ({
+      releaseNotes: (rows.rows as Array<Record<string, unknown>>).map(r => ({
         id:          r.id,
         version:     r.version,
         releaseDate: r.release_date,
@@ -70,7 +70,7 @@ router.patch("/release-notes/:id", async (req, res) => {
 
   try {
     const existing = await db.execute(sql`SELECT id FROM release_notes WHERE id = ${id}`);
-    if ((existing.rows as any[]).length === 0) {
+    if ((existing.rows as unknown[]).length === 0) {
       sendNotFound(res, "Release note not found");
       return;
     }
@@ -116,7 +116,7 @@ router.get("/consent-log", async (req, res) => {
     const countResult = userId
       ? await db.execute(sql`SELECT COUNT(*)::int as total FROM consent_log WHERE user_id = ${userId}`)
       : await db.execute(sql`SELECT COUNT(*)::int as total FROM consent_log`);
-    const total = parseInt(String((countResult.rows[0] as any)?.total ?? "0"), 10);
+    const total = parseInt(String((countResult.rows[0] as Record<string, unknown>)?.total ?? "0"), 10);
 
     const rows = userId
       ? await db.execute(sql`
@@ -134,7 +134,7 @@ router.get("/consent-log", async (req, res) => {
         `);
 
     sendSuccess(res, {
-      logs: (rows.rows as any[]).map(r => ({
+      logs: (rows.rows as Array<Record<string, unknown>>).map(r => ({
         id:             r.id,
         userId:         r.user_id,
         consentType:    r.consent_type,

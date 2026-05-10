@@ -5,6 +5,14 @@ import { eq, asc, and, sql } from "drizzle-orm";
 import { getCachedSettings, adminAuth } from "./admin.js";
 import { sendSuccess, sendError, sendNotFound, sendValidationError } from "../lib/response.js";
 import { verifyUserJwt } from "../middleware/security.js";
+import type {
+  NominatimResult,
+  LocationIQAutocompleteResult,
+  GoogleAutocompleteResponse,
+  GoogleGeocodeResponse,
+  GoogleDirectionsResponse,
+  GoogleMapsDistanceMatrixResponse,
+} from "../types/external-apis.js";
 
 const router: IRouter = Router();
 
@@ -202,8 +210,8 @@ router.get("/autocomplete", async (req, res) => {
         res.status(503).json({ predictions: filtered, source: "fallback", approximate: true, warning: "Maps service temporarily unavailable. Results are limited to pre-defined AJK locations." });
         return;
       }
-      const results = await liqRaw.json() as any[];
-      const predictions = (Array.isArray(results) ? results : []).map((r: any) => ({
+      const results = await liqRaw.json() as LocationIQAutocompleteResult[];
+      const predictions = (Array.isArray(results) ? results : []).map((r) => ({
         placeId:       r.place_id ?? r.osm_id ?? "",
         description:   r.display_name ?? "",
         mainText:      r.display_name?.split(",")[0] ?? "",
@@ -222,7 +230,7 @@ router.get("/autocomplete", async (req, res) => {
     const lat = req.query.lat ? `&location=${req.query.lat},${req.query.lng}&radius=50000` : "";
     const url = `${GOOGLE_BASE}/place/autocomplete/json?input=${encodeURIComponent(input)}${lat}&components=country:pk&language=en&key=${key}`;
     const raw = await fetch(url);
-    const data = await raw.json() as any;
+    const data = await raw.json() as GoogleAutocompleteResponse;
 
     if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
       const filtered = AJK_FALLBACK.filter(l => l.description.toLowerCase().includes(input.toLowerCase()));
@@ -230,7 +238,7 @@ router.get("/autocomplete", async (req, res) => {
       return;
     }
 
-    const predictions = (data.predictions ?? []).map((p: Record<string, unknown>) => {
+    const predictions = (data.predictions ?? []).map((p) => {
       const sf = p["structured_formatting"] as Record<string, string> | undefined;
       return {
         placeId:       p["place_id"],
@@ -286,7 +294,7 @@ router.get("/geocode", async (req, res) => {
     const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=1`;
     const nomRaw = await fetch(nomUrl, { headers: { "User-Agent": "AJKMart-Server/1.0" } });
     if (!nomRaw.ok) return null;
-    const results = await nomRaw.json() as any[];
+    const results = await nomRaw.json() as NominatimResult[];
     if (!Array.isArray(results) || !results.length) return null;
     const r = results[0];
     return { lat: parseFloat(r.lat), lng: parseFloat(r.lon), formattedAddress: r.display_name as string };
@@ -297,7 +305,7 @@ router.get("/geocode", async (req, res) => {
     const liqUrl = `https://us1.locationiq.com/v1/search?key=${liqKey}&q=${encodeURIComponent(query)}&format=json&limit=1`;
     const liqRaw = await fetch(liqUrl, { signal: AbortSignal.timeout(8000) });
     if (!liqRaw.ok) return null;
-    const results = await liqRaw.json() as any[];
+    const results = await liqRaw.json() as NominatimResult[];
     if (!Array.isArray(results) || !results.length) return null;
     const r = results[0];
     return { lat: parseFloat(r.lat), lng: parseFloat(r.lon), formattedAddress: r.display_name as string };
@@ -356,7 +364,7 @@ router.get("/geocode", async (req, res) => {
     const param = placeId ? `place_id=${encodeURIComponent(placeId)}` : `address=${encodeURIComponent(address)}`;
     const url   = `${GOOGLE_BASE}/geocode/json?${param}&key=${key}`;
     const raw   = await fetch(url);
-    const data  = await raw.json() as any;
+    const data  = await raw.json() as GoogleGeocodeResponse;
 
     if (data.status !== "OK" || !data.results?.length) {
       if (address) {
@@ -415,14 +423,14 @@ router.get("/reverse-geocode", async (req, res) => {
     const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${rlat}&lon=${rlng}&format=json&addressdetails=1`;
     const nomRaw = await fetch(nomUrl, { headers: { "User-Agent": "AJKMart-Server/1.0" } });
     if (!nomRaw.ok) return null;
-    const nomData = await nomRaw.json() as any;
+    const nomData = await nomRaw.json() as NominatimResult;
     if (!nomData?.display_name) return null;
     const addr = nomData.address;
     const parts: string[] = [];
     if (addr?.road) parts.push(addr.road);
     else if (addr?.suburb) parts.push(addr.suburb);
     else if (addr?.village) parts.push(addr.village);
-    if (addr?.city || addr?.town || addr?.county) parts.push(addr.city ?? addr.town ?? addr.county);
+    if (addr?.city || addr?.town || addr?.county) parts.push(addr.city ?? addr.town ?? addr.county ?? "");
     return parts.length ? parts.join(", ") : nomData.display_name;
   }
 
@@ -431,14 +439,14 @@ router.get("/reverse-geocode", async (req, res) => {
     const liqUrl = `https://us1.locationiq.com/v1/reverse?key=${liqKey}&lat=${rlat}&lon=${rlng}&format=json&addressdetails=1`;
     const liqRaw = await fetch(liqUrl, { signal: AbortSignal.timeout(8000) });
     if (!liqRaw.ok) return null;
-    const liqData = await liqRaw.json() as any;
+    const liqData = await liqRaw.json() as NominatimResult;
     if (!liqData?.display_name) return null;
     const addr = liqData.address;
     const parts: string[] = [];
     if (addr?.road) parts.push(addr.road);
     else if (addr?.suburb) parts.push(addr.suburb);
     else if (addr?.village) parts.push(addr.village);
-    if (addr?.city || addr?.town || addr?.county) parts.push(addr.city ?? addr.town ?? addr.county);
+    if (addr?.city || addr?.town || addr?.county) parts.push(addr.city ?? addr.town ?? addr.county ?? "");
     const address = parts.length ? parts.join(", ") : liqData.display_name;
     return { address, formattedAddress: liqData.display_name };
   }
@@ -462,14 +470,14 @@ router.get("/reverse-geocode", async (req, res) => {
       const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`;
       const nomRaw = await fetch(nomUrl, { headers: { "User-Agent": "AJKMart-Server/1.0" } });
       if (nomRaw.ok) {
-        const nomData = await nomRaw.json() as any;
+        const nomData = await nomRaw.json() as NominatimResult;
         if (nomData?.display_name) {
           const addr = nomData.address;
           const parts: string[] = [];
           if (addr?.road) parts.push(addr.road);
           else if (addr?.suburb) parts.push(addr.suburb);
           else if (addr?.village) parts.push(addr.village);
-          if (addr?.city || addr?.town || addr?.county) parts.push(addr.city ?? addr.town ?? addr.county);
+          if (addr?.city || addr?.town || addr?.county) parts.push(addr.city ?? addr.town ?? addr.county ?? "");
           const address = parts.length ? parts.join(", ") : nomData.display_name;
           await revGeoCacheSet(lat, lng, address);
           void trackMapUsage("osm", "reverse-geocode");
@@ -522,7 +530,7 @@ router.get("/reverse-geocode", async (req, res) => {
   try {
     const url  = `${GOOGLE_BASE}/geocode/json?latlng=${lat},${lng}&language=en&key=${key}`;
     const raw  = await fetch(url);
-    const data = await raw.json() as any;
+    const data = await raw.json() as GoogleGeocodeResponse;
 
     if (data.status !== "OK" || !data.results?.length) {
       try {
@@ -594,7 +602,7 @@ router.get("/directions", async (req, res) => {
       const osrmMode = mode === "bicycling" ? "cycling" : "driving";
       const url = `https://router.project-osrm.org/route/v1/${osrmMode}/${oLng},${oLat};${dLng},${dLat}?overview=full&geometries=geojson`;
       const raw  = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      const data = await raw.json() as any;
+      const data = await raw.json() as { code?: string; routes?: Array<{ distance: number; duration: number; geometry?: unknown }> };
       if (data?.code !== "Ok" || !data?.routes?.length) {
         res.json(haversineFallback("fallback")); return;
       }
@@ -625,7 +633,7 @@ router.get("/directions", async (req, res) => {
       const mbMode = mode === "bicycling" ? "cycling" : "driving";
       const url = `https://api.mapbox.com/directions/v5/mapbox/${mbMode}/${oLng},${oLat};${dLng},${dLat}?overview=full&geometries=geojson&access_token=${mapboxToken}`;
       const raw  = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      const data = await raw.json() as any;
+      const data = await raw.json() as { routes?: Array<{ distance: number; duration: number; geometry?: unknown }> };
       if (!data?.routes?.length) { res.json(haversineFallback("fallback")); return; }
       const route  = data.routes[0];
       const distKm = Math.round(route.distance / 100) / 10;
@@ -656,7 +664,7 @@ router.get("/directions", async (req, res) => {
   try {
     const url = `${GOOGLE_BASE}/directions/json?origin=${oLat},${oLng}&destination=${dLat},${dLng}&mode=${mode}&key=${key}`;
     const raw  = await fetch(url);
-    const data = await raw.json() as any;
+    const data = await raw.json() as GoogleDirectionsResponse;
 
     if (data.status !== "OK" || !data.routes?.length) {
       res.json({ ...haversineFallback("fallback"), googleStatus: data.status }); return;
@@ -1134,7 +1142,7 @@ async function handleMapsTest(req: import("express").Request, res: import("expre
       );
       ok = r.ok;
       if (!r.ok) {
-        const body = await r.json().catch(() => ({})) as any;
+        const body = await r.json().catch(() => ({})) as { message?: string };
         error = body?.message ?? `HTTP ${r.status}`;
       }
 
@@ -1145,7 +1153,7 @@ async function handleMapsTest(req: import("express").Request, res: import("expre
         `https://maps.googleapis.com/maps/api/geocode/json?address=Muzaffarabad&key=${googleKey}`,
         { signal: AbortSignal.timeout(8000) }
       );
-      const data = await r.json() as any;
+      const data = await r.json() as GoogleGeocodeResponse;
       ok = data?.status === "OK" || data?.status === "ZERO_RESULTS";
       if (!ok) error = data?.error_message ?? data?.status ?? `HTTP ${r.status}`;
 
@@ -1157,7 +1165,7 @@ async function handleMapsTest(req: import("express").Request, res: import("expre
       );
       ok = r.ok;
       if (!r.ok) {
-        const body = await r.json().catch(() => ({})) as any;
+        const body = await r.json().catch(() => ({})) as { error?: string };
         error = body?.error ?? `HTTP ${r.status}`;
       }
     }

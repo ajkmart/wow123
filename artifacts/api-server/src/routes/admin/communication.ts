@@ -538,7 +538,7 @@ router.get("/communication/export/:type", async (req, res) => {
     const csv = [
       headers.join(","),
       ...rows.map(r => headers.map(h => {
-        const val = (r as any)[h];
+        const val = (r as Record<string, unknown>)[h];
         if (val === null || val === undefined) return "";
         const str = String(val);
         return str.includes(",") || str.includes('"') || str.includes("\n") ? `"${str.replace(/"/g, '""')}"` : str;

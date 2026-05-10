@@ -584,8 +584,8 @@ router.post("/conversations/:id/messages", async (req: any, res) => {
     const otherId = conv.participant1Id === req.user.userId ? conv.participant2Id : conv.participant1Id;
     const settings = await getCachedSettings();
 
-    const action = parsed.data.messageType === "voice_note" ? "voiceNote" : "chat";
-    const check = await canCommunicate(req.user.userId, otherId, action as any, settings);
+    const action: "chat" | "voiceNote" = parsed.data.messageType === "voice_note" ? "voiceNote" : "chat";
+    const check = await canCommunicate(req.user.userId, otherId, action, settings);
     if (!check.allowed) return res.status(403).json({ error: check.reason });
 
     const maxLen = parseInt(settings["comm_max_message_length"] || "2000", 10);

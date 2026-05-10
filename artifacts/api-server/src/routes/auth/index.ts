@@ -2500,12 +2500,12 @@ router.post("/complete-profile", async (req, res) => {
 
   const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, userId)).returning();
 
-  if ((updates as any).acceptedTermsVersion) {
+  if (updates.acceptedTermsVersion) {
     try {
       const ip = getClientIp(req);
       await db.execute(sql`
         INSERT INTO consent_log (id, user_id, consent_type, consent_version, ip_address, created_at)
-        VALUES (${generateId()}, ${userId}, 'terms_acceptance', ${(updates as any).acceptedTermsVersion}, ${ip}, NOW())
+        VALUES (${generateId()}, ${userId}, 'terms_acceptance', ${updates.acceptedTermsVersion as string}, ${ip}, NOW())
       `);
     } catch {}
   }
@@ -3481,14 +3481,14 @@ async function issueTokensForUser(user: any, ip: string, method: string, userAge
       emailVerified: user.emailVerified ?? false, phoneVerified: user.phoneVerified ?? false,
       totpEnabled: user.totpEnabled ?? false,
       needsProfileCompletion: !user.cnic || !user.name,
-      acceptedTermsVersion: (user as any).acceptedTermsVersion ?? null,
+      acceptedTermsVersion: user.acceptedTermsVersion ?? null,
     },
     requiresTermsAcceptance: await (async () => {
       try {
         const s = await getCachedSettings();
         const currentTermsVersion = s["terms_version"] ?? "";
         if (!currentTermsVersion) return false;
-        const userAccepted = (user as any).acceptedTermsVersion ?? null;
+        const userAccepted = user.acceptedTermsVersion ?? null;
         return userAccepted !== currentTermsVersion;
       } catch { return false; }
     })(),

@@ -379,9 +379,9 @@ export function createServer() {
             : {}),
           on: {
             error: (err, _req, res) => {
-              if (res && "writeHead" in res && !(res as any).headersSent) {
-                (res as any).writeHead(502, { "Content-Type": "text/plain" });
-                (res as any).end(
+              if (res && "writeHead" in res && !(res as unknown as { headersSent?: boolean }).headersSent) {
+                (res as unknown as { writeHead: (code: number, headers: Record<string, string>) => void }).writeHead(502, { "Content-Type": "text/plain" });
+                (res as unknown as { end: (body: string) => void }).end(
                   `Dev proxy error for ${p.prefix} → ${p.target}\n${(err as Error).message}\n` +
                   `Make sure the corresponding workflow is running.`
                 );
@@ -580,9 +580,9 @@ export function createServer() {
         !pathname.startsWith("/__mockup"),
       on: {
         error: (err, _req, res) => {
-          if (res && "writeHead" in res && !(res as any).headersSent) {
-            (res as any).writeHead(502, { "Content-Type": "text/plain" });
-            (res as any).end(
+          if (res && "writeHead" in res && !(res as unknown as { headersSent?: boolean }).headersSent) {
+            (res as unknown as { writeHead: (code: number, headers: Record<string, string>) => void }).writeHead(502, { "Content-Type": "text/plain" });
+            (res as unknown as { end: (body: string) => void }).end(
               `Dev proxy error for EXPO → ${expoTarget}\n${(err as Error).message}\n` +
               `Make sure the ajkmart (expo) workflow is running.`
             );

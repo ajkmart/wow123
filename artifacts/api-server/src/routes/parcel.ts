@@ -512,7 +512,7 @@ router.patch("/:id/location", riderAuth, gpsAntiSpoofMiddleware, async (req, res
   }
 
   /* Broadcast live position via Socket.IO so customers/admins can track the parcel */
-  const io = (req.app as any).get?.("io");
+  const io = (req.app as unknown as { get?: (key: string) => { to: (room: string) => { emit: (event: string, data: unknown) => void } } | null }).get?.("io");
   if (io) {
     io.to(`parcel:${bookingId}`).emit("parcel:location", {
       bookingId,

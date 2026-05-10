@@ -246,7 +246,7 @@ router.patch("/ride-services/:id", async (req: Request, res: Response) => {
   if (maxPassengers !== undefined) patch["maxPassengers"]  = Number(maxPassengers);
   if (allowBargaining !== undefined) patch["allowBargaining"] = Boolean(allowBargaining);
   if (sortOrder     !== undefined) patch["sortOrder"]      = Number(sortOrder);
-  const [updated] = await db.update(rideServiceTypesTable).set(patch as any).where(eq(rideServiceTypesTable.id, svcId)).returning();
+  const [updated] = await db.update(rideServiceTypesTable).set(patch as Partial<typeof rideServiceTypesTable.$inferInsert>).where(eq(rideServiceTypesTable.id, svcId)).returning();
   sendSuccess(res, { service: formatSvc(updated) });
 });
 
@@ -608,7 +608,7 @@ router.get("/customer-locations", async (_req: Request, res: Response) => {
 router.patch("/riders/:id/online", async (req: Request, res: Response) => {
   const { isOnline } = req.body as { isOnline: boolean };
   const [rider] = await db.update(usersTable)
-    .set({ isOnline, updatedAt: new Date() } as any)
+    .set({ isOnline, updatedAt: new Date() })
     .where(eq(usersTable.id, req.params["id"]!))
     .returning();
   if (!rider) { sendNotFound(res, "Rider not found"); return; }
@@ -879,7 +879,7 @@ router.post("/rides/:id/reassign", async (req: Request, res: Response) => {
 router.get("/rides/:id/audit-trail", async (req: Request, res: Response) => {
   const rideId = req.params["id"]!;
   const shortId = rideId.slice(-6).toUpperCase();
-  const trail = (auditLog as unknown as any[]).filter((e: any) => e.details?.includes(rideId) || e.details?.includes(shortId)).map((e: any) => ({
+  const trail = auditLog.filter((e) => e.details?.includes(rideId) || e.details?.includes(shortId)).map((e) => ({
     action: e.action,
     details: e.details,
     ip: e.ip,
@@ -887,7 +887,7 @@ router.get("/rides/:id/audit-trail", async (req: Request, res: Response) => {
     result: e.result,
     timestamp: e.timestamp,
   }));
-  trail.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  trail.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   sendSuccess(res, { trail, rideId });
 });
 

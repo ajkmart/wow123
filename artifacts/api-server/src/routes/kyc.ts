@@ -601,7 +601,7 @@ router.patch("/admin/:id", adminAuth, async (req, res) => {
   if (!record) { res.status(404).json({ error: "KYC record not found" }); return; }
 
   const now = new Date();
-  const adminId = (req as any).adminId;
+  const adminId = req.adminId;
 
   try {
     await db.transaction(async (tx) => {

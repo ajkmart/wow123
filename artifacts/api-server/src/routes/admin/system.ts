@@ -509,7 +509,7 @@ router.post("/test-integration/maps", async (req, res) => {
       provider = "google";
       const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(testQuery)}&key=${googleKey}`;
       const resp = await fetch(url);
-      const body = await resp.json() as any;
+      const body = await resp.json() as { status?: string; error_message?: string; results?: Array<{ geometry: { location: { lat: number; lng: number } } }> };
       if (body?.status !== "OK") { await fail(`Google Maps geocoding failed: ${body?.status} — ${body?.error_message ?? ""}`, 400); return; }
       result = body?.results?.[0]?.geometry?.location;
     } else if (mapsProvider === "mapbox") {
@@ -517,7 +517,7 @@ router.post("/test-integration/maps", async (req, res) => {
       provider = "mapbox";
       const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(testQuery)}.json?access_token=${mapboxKey}`;
       const resp = await fetch(url);
-      const body = await resp.json() as any;
+      const body = await resp.json() as { features?: Array<{ center?: [number, number] }>; message?: string };
       if (!resp.ok || !body?.features?.length) { await fail(`Mapbox geocoding failed: ${body?.message ?? `HTTP ${resp.status}`}`, 400); return; }
       result = body?.features?.[0]?.center;
     } else if (mapsProvider === "locationiq") {
@@ -525,7 +525,7 @@ router.post("/test-integration/maps", async (req, res) => {
       provider = "locationiq";
       const url = `https://us1.locationiq.com/v1/search.php?key=${locationIqKey}&q=${encodeURIComponent(testQuery)}&format=json&limit=1`;
       const resp = await fetch(url);
-      const body = await resp.json() as any;
+      const body = await resp.json() as Array<{ lat: string; lon: string }> & { error?: string };
       if (!resp.ok || (Array.isArray(body) && body.length === 0)) { await fail(`LocationIQ geocoding failed: ${body?.error ?? `HTTP ${resp.status}`}`, 400); return; }
       result = { lat: body?.[0]?.lat, lon: body?.[0]?.lon };
     } else {
@@ -776,7 +776,7 @@ router.get("/me/preferences", adminAuth, async (req, res) => {
       .limit(1);
     let prefs: Record<string, unknown> = {};
     if (row) {
-      const raw = (row as any).preferences;
+      const raw = row.preferences;
       if (raw !== null && raw !== undefined) {
         if (typeof raw === "object") {
           prefs = raw as Record<string, unknown>;
@@ -2233,9 +2233,9 @@ router.get("/wallet/stats", adminAuth, async (req, res) => {
       SELECT COUNT(*) as total_flagged FROM wallet_transactions WHERE flagged = true AND peer_id IS NOT NULL
     `);
 
-    const r = todayRes.rows?.[0] as any;
-    const m = monthRes.rows?.[0] as any;
-    const f = totalFlaggedRes.rows?.[0] as any;
+    const r = todayRes.rows?.[0] as Record<string, unknown>;
+    const m = monthRes.rows?.[0] as Record<string, unknown>;
+    const f = totalFlaggedRes.rows?.[0] as Record<string, unknown>;
 
     sendSuccess(res, {
       today: {
@@ -2299,7 +2299,7 @@ router.get("/wallet/p2p-transactions", adminAuth, async (req, res) => {
       WHERE ${whereClause}
     `);
 
-    const total = Number((countRowRes.rows?.[0] as any)?.total ?? 0);
+    const total = Number((countRowRes.rows?.[0] as Record<string, unknown>)?.total ?? 0);
     sendSuccess(res, {
       transactions: rows,
       total,
@@ -2697,7 +2697,7 @@ router.get("/export/vendors", adminAuth, async (req, res) => {
     const header = "ID,Name,Phone,Email,Store Name,City,Active,Banned,Wallet Balance,Created At";
     const rows = vendors.map(v => [
       escapeCSV(v.id), escapeCSV(v.name || ""), escapeCSV(v.phone || ""), escapeCSV(v.email || ""),
-      escapeCSV((v as any).storeName || ""), escapeCSV(v.city || ""),
+      escapeCSV((v as unknown as { storeName?: string }).storeName || ""), escapeCSV(v.city || ""),
       v.isActive ? "Yes" : "No", v.isBanned ? "Yes" : "No",
       String(v.walletBalance), escapeCSV(v.createdAt.toISOString().slice(0, 19)),
     ].join(","));
@@ -3017,7 +3017,7 @@ router.get("/system/health-dashboard", async (_req, res) => {
   try {
     const { redisClient } = await import("../../lib/redis.js");
     if (redisClient) {
-      const info = await (redisClient as any).info("stats");
+      const info = await (redisClient as unknown as { info: (section: string) => Promise<string> }).info("stats");
       const hitsMatch = String(info).match(/keyspace_hits:(\d+)/);
       const missesMatch = String(info).match(/keyspace_misses:(\d+)/);
       if (hitsMatch && missesMatch) {
@@ -3035,7 +3035,7 @@ router.get("/system/health-dashboard", async (_req, res) => {
   let queueDepth = 0;
   try {
     const socketMod = await import("../../lib/socketio.js");
-    const getCount = (socketMod as any).getConnectedClientCount;
+    const getCount = (socketMod as unknown as { getConnectedClientCount?: () => number }).getConnectedClientCount;
     if (typeof getCount === "function") queueDepth = getCount();
   } catch {
     queueDepth = 0;

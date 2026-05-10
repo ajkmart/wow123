@@ -68,7 +68,7 @@ async function sendTemplate(
       }
     );
 
-    const body = await resp.json() as any;
+    const body = await resp.json() as { messages?: Array<{ id: string }>; error?: { message: string } };
 
     if (!resp.ok) {
       return { sent: false, error: body?.error?.message ?? `HTTP ${resp.status}` };

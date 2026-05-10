@@ -164,7 +164,18 @@ router.post("/whatsapp", async (req, res) => {
     return;
   }
 
-  const body = req.body as any;
+  interface WhatsAppWebhookBody {
+    object?: string;
+    entry?: Array<{
+      changes?: Array<{
+        value?: {
+          messages?: Array<{ from?: string; type?: string }>;
+          statuses?: Array<Record<string, unknown>>;
+        };
+      }>;
+    }>;
+  }
+  const body = req.body as WhatsAppWebhookBody;
 
   if (body?.object !== "whatsapp_business_account") {
     res.status(400).send("Not a WhatsApp event");
@@ -174,7 +185,7 @@ router.post("/whatsapp", async (req, res) => {
   /* Respond to Meta immediately (they expect <20s) then process async. */
   res.status(200).json({ success: true });
 
-  const entries: any[] = body?.entry ?? [];
+  const entries = body?.entry ?? [];
 
   for (const entry of entries) {
     for (const change of entry?.changes ?? []) {

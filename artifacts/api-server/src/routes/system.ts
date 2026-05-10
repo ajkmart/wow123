@@ -1184,7 +1184,7 @@ router.get("/backup", async (_req, res) => {
 
 /* POST /admin/system/restore */
 router.post("/restore", async (req, res) => {
-  const body = req.body as any;
+  const body = req.body as { tables?: Record<string, unknown[]> };
   if (!body?.tables) {
     res.status(400).json({ error: "Invalid backup format. Expected { tables: { ... } }." });
     return;

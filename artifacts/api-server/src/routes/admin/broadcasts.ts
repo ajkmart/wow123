@@ -55,9 +55,9 @@ router.get("/broadcasts", async (req, res) => {
       LIMIT ${limit} OFFSET ${offset}
     `);
 
-    const [{ total }] = await db.execute(sql`SELECT COUNT(*)::int AS total FROM broadcasts`) as any;
+    const [{ total }] = (await db.execute(sql`SELECT COUNT(*)::int AS total FROM broadcasts`)).rows as Array<{ total: number }>;
 
-    const broadcasts = (rows as any[]).map((r: any) => ({
+    const broadcasts = (rows.rows as Array<Record<string, unknown>>).map((r) => ({
       id:             r.id,
       title:          r.title,
       body:           r.body,
@@ -132,7 +132,7 @@ router.patch("/broadcasts/:id/delivery-stats", async (req, res) => {
       RETURNING *
     `);
 
-    if (!(result as any[]).length) { sendNotFound(res, "Broadcast not found"); return; }
+    if (!(result.rows as unknown[]).length) { sendNotFound(res, "Broadcast not found"); return; }
 
     addAuditEntry({
       action: "broadcast_delivery_update",

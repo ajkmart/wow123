@@ -2,6 +2,7 @@ import { randomInt } from "crypto";
 import { logger } from "../../lib/logger.js";
 import { isInServiceZone } from "../../lib/geofence.js";
 import { verifyOwnership } from "../../middleware/verifyOwnership.js";
+import type { GoogleDirectionsResponse, MapboxDirectionsResponse } from "../../types/external-apis.js";
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
@@ -398,7 +399,7 @@ export async function getRoadDistanceKm(lat1: number, lng1: number, lat2: number
       if (!googleKey) return haversineFallback;
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${lat1},${lng1}&destination=${lat2},${lng2}&mode=driving&key=${googleKey}`;
       const raw  = await fetch(url, { signal: AbortSignal.timeout(4000) });
-      const data = await raw.json() as any;
+      const data = await raw.json() as GoogleDirectionsResponse;
       if (data.status === "OK" && data.routes?.length) {
         const leg = data.routes[0].legs[0];
         return {
@@ -414,7 +415,7 @@ export async function getRoadDistanceKm(lat1: number, lng1: number, lat2: number
       if (!mapboxKey) return haversineFallback;
       const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${lng1},${lat1};${lng2},${lat2}?access_token=${mapboxKey}&overview=false`;
       const raw  = await fetch(url, { signal: AbortSignal.timeout(4000) });
-      const data = await raw.json() as any;
+      const data = await raw.json() as MapboxDirectionsResponse;
       if (data.routes?.length) {
         return {
           distanceKm:      Math.round(data.routes[0].distance / 100) / 10,

@@ -297,7 +297,8 @@ router.post("/", customerAuth, async (req, res) => {
   }
 
   /* Per-item validation — prevents negative-price injection */
-  const badItem = (items as any[]).find(
+  type PharmacyItem = Record<string, unknown>;
+  const badItem = (items as PharmacyItem[]).find(
     (it) => !Number.isFinite(Number(it.price)) || Number(it.price) <= 0 ||
             !Number.isFinite(Number(it.quantity)) || Number(it.quantity) <= 0,
   );
@@ -314,7 +315,7 @@ router.post("/", customerAuth, async (req, res) => {
   let hasRxItem = alwaysRx;
 
   if (!hasRxItem) {
-    const itemIds = (items as any[]).map((it: any) => it.id).filter(Boolean);
+    const itemIds = (items as PharmacyItem[]).map((it) => it.id).filter(Boolean);
     if (itemIds.length > 0) {
       try {
         const dbProducts = await db
@@ -324,13 +325,13 @@ router.post("/", customerAuth, async (req, res) => {
         const RX_KEYWORDS = /\b(antibiotic|amoxicillin|azithromycin|ciprofloxacin|metformin|insulin|steroid|cortisone|opioid|codeine|tramadol|diazepam|alprazolam|morphine|fentanyl|prescription|rx only)\b/i;
         hasRxItem = dbProducts.some(p => RX_KEYWORDS.test(p.name ?? "") || p.category === "prescription");
         if (!hasRxItem) {
-          const unlistedRx = (items as any[]).some((it: any) => it.requires_prescription || it.requiresPrescription);
+          const unlistedRx = (items as PharmacyItem[]).some((it) => it.requires_prescription || it.requiresPrescription);
           hasRxItem = unlistedRx;
         }
       } catch { /* non-fatal: fall back to client flag on DB error */ }
     }
     if (!hasRxItem) {
-      hasRxItem = (items as any[]).some((it: any) => it.requires_prescription || it.requiresPrescription);
+      hasRxItem = (items as PharmacyItem[]).some((it) => it.requires_prescription || it.requiresPrescription);
     }
   }
 

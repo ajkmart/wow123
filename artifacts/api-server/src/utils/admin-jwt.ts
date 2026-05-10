@@ -73,7 +73,7 @@ export function signAccessToken(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _mustChangePassword: boolean = false,
 ): string {
-  const payload: Record<string, unknown> = { sub: adminId, role, name, perms, pv };
+  const payload: AccessTokenPayload = { sub: adminId, role, name, perms, pv };
   return jwt.sign(
     payload,
     ACCESS_TOKEN_SECRET,
@@ -156,7 +156,7 @@ export function verify2faChallengeToken(token: string): { sub: string; type: str
       issuer: JWT_ISSUER,
       algorithms: ['HS256'],
     });
-    const decoded = payload as any;
+    const decoded = payload as { sub: string; type: string };
     if (decoded.type !== '2fa-challenge') {
       throw new Error('Invalid challenge token type');
     }
