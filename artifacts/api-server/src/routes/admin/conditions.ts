@@ -1,6 +1,7 @@
 import { logger } from "../../lib/logger.js";
 import { Router } from "express";
 import { z } from "zod";
+import { sendValidationError } from "../../lib/response.js";
 import { db } from "@workspace/db";
 import {
   usersTable,
@@ -247,7 +248,7 @@ const patchConditionRuleSchema = z.object({
   cooldownHours:     z.number().int().min(0).optional(),
   modeApplicability: z.string().optional(),
   isActive:          z.boolean().optional(),
-});
+}).strict();
 
 const bulkConditionSchema = z.object({
   ids:    z.array(z.string().min(1)).min(1, "ids must be a non-empty array"),
@@ -504,8 +505,8 @@ router.delete("/conditions/:id", async (req, res) => {
 router.post("/conditions/bulk", async (req, res) => {
   const p = bulkConditionSchema.safeParse(req.body ?? {});
   if (!p.success) {
-    const msg = p.error.errors.map(e => e.message).join("; ");
-    return res.status(400).json({ success: false, error: msg });
+    sendValidationError(res, p.error.errors.map(e => e.message).join("; "));
+    return;
   }
   try {
     const { ids, action, reason } = p.data;
@@ -584,8 +585,8 @@ router.post("/condition-rules", async (req, res) => {
 router.patch("/condition-rules/:id", async (req, res) => {
   const p = patchConditionRuleSchema.safeParse(req.body ?? {});
   if (!p.success) {
-    const msg = p.error.errors.map(e => e.message).join("; ");
-    return res.status(400).json({ success: false, error: msg });
+    sendValidationError(res, p.error.errors.map(e => e.message).join("; "));
+    return;
   }
   try {
     const validated = p.data;
