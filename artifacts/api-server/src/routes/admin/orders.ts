@@ -101,6 +101,7 @@ router.get("/orders", async (req, res) => {
   }
 
   const whereClause = and(
+    isNull(ordersTable.deletedAt),
     status ? sql`${ordersTable.status} = ${status}` : undefined,
     type   ? sql`${ordersTable.type} = ${type}`     : undefined,
     cursorDate ? sql`${ordersTable.createdAt} < ${cursorDate}` : undefined,
@@ -144,7 +145,7 @@ router.patch("/orders/:id/status", async (req, res) => {
   }
 
   /* For wallet-paid → cancelled: do status update + wallet refund in ONE transaction */
-  const [preOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
+  const [preOrder] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, orderId), isNull(ordersTable.deletedAt))).limit(1);
   if (!preOrder) { sendNotFound(res, "Order not found"); return; }
 
   const ALLOWED_TRANSITIONS: Record<string, string[]> = {
@@ -281,7 +282,7 @@ router.patch("/orders/:id/status", async (req, res) => {
 
 router.post("/orders/:id/refund", async (req, res) => {
   const { amount, reason } = req.body;
-  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, req.params["id"]!)).limit(1);
+  const [order] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, req.params["id"]!), isNull(ordersTable.deletedAt))).limit(1);
   if (!order) { sendNotFound(res, "Order not found"); return; }
 
   /* Only allow refunds for terminal orders */
@@ -579,7 +580,7 @@ router.patch("/orders/:id/assign-rider", async (req, res) => {
   }
   const [order] = await db.update(ordersTable)
     .set({ riderId: riderId || null, riderName, riderPhone, updatedAt: new Date() })
-    .where(eq(ordersTable.id, req.params["id"]!))
+    .where(and(eq(ordersTable.id, req.params["id"]!), isNull(ordersTable.deletedAt)))
     .returning();
   if (!order) { sendNotFound(res, "Order not found"); return; }
   addAuditEntry({ action: "order_rider_assigned", ip: getClientIp(req), adminId: (req as AdminRequest).adminId, details: `Rider ${riderName ?? riderId ?? "unassigned"} assigned to order ${req.params["id"]}`, result: "success" });
