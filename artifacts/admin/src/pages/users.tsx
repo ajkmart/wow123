@@ -1275,7 +1275,6 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
               {securityMutation.isPending ? "Saving..." : "Save Security"}
             </Button>
           </div>
-        </div>
     </MobileDrawer>
 
     <SensitiveActionDialog
