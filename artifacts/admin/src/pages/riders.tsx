@@ -54,13 +54,7 @@ function RiderSuspendModal({ rider, onClose }: { rider: any; onClose: () => void
           <DialogTitle>Rider Status — {rider.name || rider.phone}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 mt-2">
-          {([ 
-            { key: "active",  label: "Active",                desc: "Rider can accept deliveries", color: "green" },
-            { key: "blocked", label: "Temporarily Blocked",   desc: "Suspend without ban",          color: "amber" },
-            { key: "banned",  label: "Permanently Banned",    desc: "Full ban with reason",          color: "red" },
-          ] as Array<{ key: "active"|"blocked"|"banned"; label: string; desc: string; color: string }>).map(opt => (
-            <div key={opt.key} onClick={() => setAction(opt.key)}
-          {[
+          {([
             { key: "active",  label: "Active",                desc: "Rider can accept deliveries", color: "green" },
             { key: "blocked", label: "Temporarily Blocked",   desc: "Suspend without ban",          color: "amber" },
             { key: "banned",  label: "Permanently Banned",    desc: "Full ban with reason",          color: "red" },

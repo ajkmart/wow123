@@ -1044,10 +1044,11 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
                     <p className="text-xs font-semibold text-amber-800">
                       Bypass active — expires {new Date(bypassUntil).toLocaleTimeString()}
                     </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground mt-0.5">No bypass active — user must verify OTP</p>
-                  )}
-                </div>
+                  </div>
+                )}
+                {!bypassActive && (
+                  <p className="text-xs text-muted-foreground mt-0.5">No bypass active — user must verify OTP</p>
+                )}
                 {bypassActive ? (
                   <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 shrink-0">ACTIVE</Badge>
                 ) : (

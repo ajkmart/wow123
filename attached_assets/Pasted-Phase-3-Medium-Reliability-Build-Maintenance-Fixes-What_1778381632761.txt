@@ -1,0 +1,43 @@
+Phase 3 — Medium: Reliability, Build & Maintenance Fixes
+What & Why
+Fix reliability risks and production build issues that don't cause immediate crashes but will cause silent failures in production deployments: hardcoded localhost fallbacks in Vite configs, the map library being classified as a devDependency, force-update lockout risk, device-clock dependency for token refresh, and widespread any type usage in critical customer app paths.
+
+Done looks like
+Admin, rider-app, and vendor-app Vite configs display a clear build-time error if VITE_API_PROXY_TARGET is missing rather than silently falling back to 127.0.0.1:5000
+leaflet and react-leaflet are moved to dependencies (not devDependencies) in artifacts/admin/package.json so the LiveRidersMap works in production
+The force-update flow in the customer app handles malformed or missing version strings gracefully — users are never permanently locked out by a bad server response
+Token refresh scheduling in AuthContext.tsx uses server-provided expiry timestamps (from the JWT exp claim) rather than local Date.now() calculations, eliminating device-clock drift issues
+The API server logs a structured warning when ip-api.com VPN detection is unavailable, and the circuit breaker state is exposed on the /api/health endpoint
+API server does not allow dev-placeholder JWT secrets when NODE_ENV is staging or production — checkEnv() treats staging the same as production for secret validation
+All any types in useApiCall.ts, AuthContext.tsx error handlers, and PlatformConfigContext.tsx are replaced with proper typed interfaces or unknown with explicit narrowing
+Out of scope
+Full TypeScript strict mode migration across the entire codebase
+Replacing the VPN detection provider
+Phase 1 or Phase 2 issues
+Steps
+Fail loudly on missing Vite proxy target — In artifacts/admin/vite.config.ts, artifacts/rider-app/vite.config.ts, and artifacts/vendor-app/vite.config.ts, replace the silent || "http://127.0.0.1:5000" fallback with a check that throws a descriptive Error at config-load time if VITE_API_PROXY_TARGET is not set in a production build (NODE_ENV === 'production'). Keep the fallback only for local dev.
+
+Move leaflet and react-leaflet to dependencies in admin — In artifacts/admin/package.json, move leaflet, @types/leaflet, and react-leaflet from devDependencies to dependencies so they are installed in production builds and the LiveRidersMap lazy chunk resolves correctly.
+
+Guard force-update against malformed version strings — In the customer app's ForceUpdateDialog (or wherever semverGte is called in artifacts/ajkmart/app/_layout.tsx), wrap the version comparison in a try-catch. If the server returns a malformed or missing version, skip the force-update check and log a warning rather than locking the user out.
+
+Use JWT exp claim for token refresh scheduling — In artifacts/ajkmart/context/AuthContext.tsx, replace scheduleProactiveRefresh logic that uses Date.now() + a fixed offset with a calculation based on the decoded JWT exp field. This makes refresh timing independent of the device clock.
+
+Expose VPN detection circuit breaker in health endpoint — In artifacts/api-server/src/middleware/security.ts, track the VPN detection circuit breaker state (open/closed) and include it as vpnDetection: { status: "ok" | "degraded" } in the /api/health response so degraded security mode is observable.
+
+Treat staging as production in secret validation — In artifacts/api-server/src/index.ts checkEnv(), change the condition from NODE_ENV !== 'production' to !['production', 'staging'].includes(NODE_ENV) so dev-placeholder JWT secrets are rejected in both environments.
+
+Replace any types in critical customer app paths — In artifacts/ajkmart/hooks/useApiCall.ts, artifacts/ajkmart/context/AuthContext.tsx (error handlers), and artifacts/ajkmart/context/PlatformConfigContext.tsx, replace any with typed interfaces or unknown with explicit type narrowing. Define response shape interfaces aligned with the API spec types from @workspace/api-zod.
+
+Relevant files
+artifacts/admin/vite.config.ts
+artifacts/admin/package.json
+artifacts/rider-app/vite.config.ts
+artifacts/vendor-app/vite.config.ts
+artifacts/ajkmart/app/_layout.tsx
+artifacts/ajkmart/context/AuthContext.tsx
+artifacts/ajkmart/context/PlatformConfigContext.tsx
+artifacts/ajkmart/hooks/useApiCall.ts
+artifacts/api-server/src/index.ts
+artifacts/api-server/src/middleware/security.ts
+artifacts/api-server/src/routes/health.ts

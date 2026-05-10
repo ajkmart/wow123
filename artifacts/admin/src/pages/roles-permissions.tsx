@@ -461,7 +461,6 @@ export default function RolesPermissionsPage() {
   const [draftPerms, setDraftPerms] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
   const [tab, setTab] = useState<"roles" | "admins" | "matrix">("roles");
-  const [tab, setTab] = useState<"roles" | "admins">("roles");
   const [confirmRemoveRole, setConfirmRemoveRole] = useState(false);
   const [sensitiveDeleteRole, setSensitiveDeleteRole] = useState(false);
   const [sensitiveSavePerms, setSensitiveSavePerms] = useState(false);

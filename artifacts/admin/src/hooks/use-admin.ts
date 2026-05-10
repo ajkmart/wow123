@@ -184,10 +184,6 @@ export const useUpdateOrder = () => {
           };
         },
       );
-            ),
-          };
-        },
-      );
       return { previousQueries };
     },
     onError: (_err, _variables, context) => {
@@ -235,7 +231,6 @@ export const useUpdateRide = () => {
       handleUpdateRideError(error);
       toast({ title: "Failed to update ride", description: error.message, variant: "destructive" });
       if (import.meta.env.DEV) console.error("[admin] update ride status failed:", error.message || error);
-    },
     },
   });
 };

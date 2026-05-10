@@ -53,7 +53,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "ADMIN_PORT_OVERRIDE=3000 ADMIN_DEV_PORT=3000 cd artifacts/admin && node node_modules/vite/bin/vite.js --config vite.config.ts --host 0.0.0.0"
+args = "ADMIN_PORT_OVERRIDE=3000 ADMIN_DEV_PORT=3000 cd artifacts/admin && node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0"
 waitForPort = 3000
 
 [agent]
@@ -141,10 +141,6 @@ id = "module:nodejs-24/languageServer:typescript-language-server"
 [[ports]]
 localPort = 3000
 externalPort = 3000
-
-[[ports]]
-localPort = 3002
-externalPort = 3002
 
 [[ports]]
 localPort = 3003

@@ -1,0 +1,50 @@
+Phase 2 — High Priority: Schema, Data Integrity & Storage Fixes
+What & Why
+Fix data integrity issues caused by mismatches between the database schema and API specification, financial precision loss, broken enum contracts, and insecure token storage in the rider app. These issues cause wrong data reaching frontends, financial amounts displaying incorrectly, and tokens being vulnerable to XSS on mobile.
+
+Done looks like
+The API spec's User schema has roles (plural) matching the DB column, and the frontend type consumers are updated accordingly
+The Product API schema includes images (array), stock, and approvalStatus — vendor and customer apps can use these fields without type errors
+The Order API schema includes vendorId, assignedRiderId, customerLat, and customerLng — rider assignment and GPS tracking work end-to-end
+Financial fields (total, price, walletBalance) are typed as string (not number) consistently across API spec, Zod validators, and frontend consumers to preserve decimal precision
+OrderStatus and RideStatus enums are defined once in @workspace/service-constants and the openapi.yaml and Zod schemas are generated from or validated against that single source
+pharmacy, parcel, van, and school order types are added to the OrderType enum in the API spec to match ServiceKey in service-constants
+artifacts/rider-app and artifacts/vendor-app both have @workspace/api-zod listed in their package.json dependencies
+Rider app does not fall back to localStorage for token storage — if Capacitor Preferences fails, the error is surfaced explicitly rather than silently downgrading storage security
+The token migration in rider app boot completes before the auth provider reads any token (migration is awaited before auth state initialization)
+@workspace/api-client-react/src/discovery.ts no longer manually re-defines Banner, WishlistItem, or RecommendationProduct — it uses the generated types from @workspace/api-zod
+Out of scope
+Database column migrations (changing existing DB columns)
+Any UI changes to display financial data differently
+Phase 1 or Phase 3 issues
+Steps
+Fix role vs roles in API spec and Zod — Update lib/api-spec/openapi.yaml User schema to use roles (plural, string) matching the DB. Regenerate or manually update the corresponding Zod validator in @workspace/api-zod. Update any frontend consumers that currently read user.role (singular) to use user.roles.
+
+Expand Product schema in API spec — Add images (string array), stock (integer), and approvalStatus (enum string) to the Product schema in openapi.yaml and the corresponding Zod type. Verify vendor-app and customer-app product components can consume these fields.
+
+Expand Order schema in API spec — Add vendorId, assignedRiderId, customerLat, and customerLng to the Order schema in openapi.yaml and the Zod type. Verify rider-app order/ride views and customer-app order tracking consume these fields correctly.
+
+Fix decimal precision: financial fields typed as string — Change all financial fields (total, price, walletBalance, commission) from type: number to type: string in openapi.yaml. Update Zod schemas and frontend consumers (wallet display, order totals, product prices) to handle string decimals — use a shared formatCurrency(value: string) utility rather than raw Number() coercion.
+
+Centralize status enums — Remove hardcoded OrderStatus and RideStatus values from openapi.yaml. Import them from @workspace/service-constants in the Zod schema package so there is a single source of truth. Ensure the Zod enums and OpenAPI enums are generated from or match this source exactly.
+
+Add missing service types to OrderType enum — Add pharmacy, parcel, van, and school to the OrderType enum in openapi.yaml to match the full ServiceKey list in @workspace/service-constants.
+
+Remove manual type re-definitions in api-client-react — In lib/api-client-react/src/discovery.ts, replace the manually written Banner, WishlistItem, and RecommendationProduct interfaces with imports from @workspace/api-zod generated types, eliminating the triple-maintenance burden.
+
+Add @workspace/api-zod to rider-app and vendor-app dependencies — Add @workspace/api-zod: "*" to artifacts/rider-app/package.json and artifacts/vendor-app/package.json. Update their local api.ts type definitions to reference these shared types rather than local [extra: string]: unknown permissive interfaces.
+
+Harden rider-app token storage — In artifacts/rider-app/src/lib/api.ts, remove the localStorage fallback for token storage. If Capacitor Preferences throws, catch the error and surface it as a visible auth failure rather than silently downgrading to insecure storage.
+
+Fix token migration race condition in rider-app — Ensure the localStorage → Preferences migration in artifacts/rider-app/src/lib/api.ts is fully awaited and completes before the auth provider initializes and reads any token value.
+
+Relevant files
+lib/api-spec/openapi.yaml
+lib/api-zod/src/
+lib/service-constants/src/index.ts
+lib/api-client-react/src/discovery.ts
+artifacts/rider-app/src/lib/api.ts
+artifacts/rider-app/package.json
+artifacts/vendor-app/src/lib/api.ts
+artifacts/vendor-app/package.json
+artifacts/ajkmart/context/AuthContext.tsx

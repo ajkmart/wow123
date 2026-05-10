@@ -901,12 +901,6 @@ export default function SettingsPage() {
                   <p className="text-sm">No settings in this section</p>
                 </div>
               ) : activeChildrenWithContent.map((child, idx) => {
-
-                <div className="text-center py-12 text-muted-foreground">
-                  <Settings2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No settings in this section</p>
-                </div>
-              ) : activeChildrenWithContent.map((child, idx) => {
                 const subCfg = CATEGORY_CONFIG[child];
                 const SubIcon = subCfg.icon;
                 const childSettings = grouped[child] ?? [];

@@ -1366,21 +1366,6 @@ export default function Products() {
                             onClick={e => e.stopPropagation()}
                           />
                         </TableCell>
-                    <TableRow><TableCell colSpan={6} className="h-32 text-center text-muted-foreground">Loading products...</TableCell></TableRow>
-                  ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">No products found.</TableCell></TableRow>
-                  ) : (
-                    filtered.map((p: ProductRow) => (
-                      <TableRow key={p.id} className={`hover:bg-muted/30 ${selectedProductIds.has(p.id) ? "bg-violet-50/60" : ""}`}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 rounded accent-violet-600 cursor-pointer"
-                            checked={selectedProductIds.has(p.id)}
-                            onChange={() => toggleProductSelect(p.id)}
-                            onClick={e => e.stopPropagation()}
-                          />
-                        </TableCell>
                         <TableCell>
                           <p className="font-semibold text-foreground">{p.name}</p>
                           <div className="flex items-center gap-2 mt-1">
