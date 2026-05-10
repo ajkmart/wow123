@@ -213,8 +213,15 @@ function validateCORS(): string[] {
     .map(o => o.trim())
     .filter(Boolean);
 
+  // Always include the Replit dev domain if running on Replit
+  const replitDomain = process.env.REPLIT_DEV_DOMAIN;
+  const replitOrigins = replitDomain
+    ? [`https://${replitDomain}`]
+    : [];
+
   if (fromEnv.length > 0) {
-    return fromEnv;
+    const merged = [...new Set([...fromEnv, ...replitOrigins])];
+    return merged;
   }
 
   if (process.env.NODE_ENV === 'production') {
@@ -231,12 +238,13 @@ function validateCORS(): string[] {
     process.exit(1);
   }
 
-  // Development fallback — safe localhost-only list
+  // Development fallback — safe localhost-only list (+ Replit dev domain if present)
   const devFallback = [
     'http://localhost:5173',
     'http://localhost:3001',
     'http://localhost:3002',
     'http://127.0.0.1:5000',
+    ...replitOrigins,
   ];
   logger.warn(
     { allowedOrigins: devFallback },
@@ -604,45 +612,40 @@ function renderHubPage() {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>AJKMart — Project Hub</title>
-      <script src="https://cdn.tailwindcss.com"></script>
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{background:#0f172a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;font-family:system-ui,sans-serif}
+        .max-w{max-width:56rem;width:100%}
+        header{text-align:center;margin-bottom:3rem}
+        h1{font-size:2.25rem;font-weight:800;letter-spacing:-.025em;margin-bottom:.5rem}
+        .sub{color:#94a3b8;font-size:1.125rem}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(16rem,1fr));gap:1.5rem}
+        a.card{display:block;padding:1.5rem;background:#1e293b;border-radius:1rem;border:1px solid #334155;text-decoration:none;transition:border-color .2s}
+        a.card:hover{border-color:#6366f1}
+        a.card.green:hover{border-color:#10b981}
+        a.card.amber:hover{border-color:#f59e0b}
+        a.card.rose:hover{border-color:#f43f5e}
+        a.card.sky:hover{border-color:#0ea5e9}
+        h3{font-size:1.125rem;font-weight:700;margin-bottom:.5rem;color:#e2e8f0}
+        p.desc{color:#94a3b8;font-size:.875rem}
+        footer{text-align:center;color:#475569;font-size:.875rem;margin-top:3rem}
+      </style>
     </head>
-    <body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-6">
-      <div class="max-w-4xl w-full">
-        <header class="mb-12 text-center">
-          <h1 class="text-4xl font-extrabold tracking-tight mb-2">AJKMart</h1>
-          <p class="text-slate-400 text-lg">Pakistan's Premium Multi-Service Platform</p>
+    <body>
+      <div class="max-w">
+        <header>
+          <h1>AJKMart</h1>
+          <p class="sub">Pakistan's Premium Multi-Service Platform</p>
         </header>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <a href="/admin/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-indigo-500 transition-all">
-            <h3 class="text-xl font-bold mb-2 group-hover:text-indigo-400">Admin Panel</h3>
-            <p class="text-slate-400 text-sm">Fleet management, financial reconciliation, and platform settings.</p>
-          </a>
-          <a href="/vendor/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-emerald-500 transition-all">
-            <h3 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Vendor App</h3>
-            <p class="text-slate-400 text-sm">Store management, order fulfillment, and inventory tracking.</p>
-          </a>
-          <a href="/rider/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-amber-500 transition-all">
-            <h3 class="text-xl font-bold mb-2 group-hover:text-amber-400">Rider App</h3>
-            <p class="text-slate-400 text-sm">Real-time ride dispatch, GPS tracking, and delivery logistics.</p>
-          </a>
-          <a href="/customer/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-rose-500 transition-all">
-            <h3 class="text-xl font-bold mb-2 group-hover:text-rose-400">Customer App</h3>
-            <p class="text-slate-400 text-sm">Marketplace, ride booking, and digital wallet (Expo/Web).</p>
-          </a>
-          <a href="/api/docs" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-sky-500 transition-all">
-            <h3 class="text-xl font-bold mb-2 group-hover:text-sky-400">API Documentation</h3>
-            <p class="text-slate-400 text-sm">Interactive Swagger UI for the backend REST endpoints.</p>
-          </a>
-          <a href="/__mockup/" class="group block p-6 bg-slate-800 rounded-2xl border border-slate-700 hover:border-slate-500 transition-all">
-            <h3 class="text-xl font-bold mb-2">Component Preview</h3>
-            <p class="text-slate-400 text-sm">Sandbox for UI components and design system verification.</p>
-          </a>
+        <div class="grid">
+          <a href="/admin/" class="card"><h3>Admin Panel</h3><p class="desc">Fleet management, financial reconciliation, and platform settings.</p></a>
+          <a href="/vendor/" class="card green"><h3>Vendor App</h3><p class="desc">Store management, order fulfillment, and inventory tracking.</p></a>
+          <a href="/rider/" class="card amber"><h3>Rider App</h3><p class="desc">Real-time ride dispatch, GPS tracking, and delivery logistics.</p></a>
+          <a href="/customer/" class="card rose"><h3>Customer App</h3><p class="desc">Marketplace, ride booking, and digital wallet (Expo/Web).</p></a>
+          <a href="/api/docs" class="card sky"><h3>API Documentation</h3><p class="desc">Interactive Swagger UI for the backend REST endpoints.</p></a>
+          <a href="/__mockup/" class="card"><h3>Component Preview</h3><p class="desc">Sandbox for UI components and design system verification.</p></a>
         </div>
-
-        <footer class="mt-16 pt-8 border-t border-slate-800 text-center text-slate-500 text-sm">
-          AJKMart Dev Hub &bull; ${new Date().getFullYear()}
-        </footer>
+        <footer>AJKMart Dev Hub &bull; ${new Date().getFullYear()}</footer>
       </div>
     </body>
     </html>

@@ -1,0 +1,18 @@
+Mock Data & Sandbox Cleanup
+What & Why
+The artifacts/mockup-sandbox/ directory is a standalone prototyping project that has no place in any production build. It must be excluded at the build/workspace level. Additionally, the admin settings pages contain hardcoded placeholder/demo-seeding lists (STAT_ITEMS, CUSTOM_FORM_OPTIONS in settings-system.tsx and default placeholder values in settings.tsx) that should either be clearly marked as dev-only or removed so the production UI does not surface fake data.
+
+Done looks like
+artifacts/mockup-sandbox/ is excluded from any production or CI build (e.g. via .gitignore additions, Vite/tsconfig exclusions, or a workspace package.json exclude entry) so its contents never end up in a deployed bundle.
+The admin settings page does not display hardcoded placeholder text (like fake app_name, content_banner defaults) in a production environment — these fall back to empty/unset rather than fake values.
+Demo-seeding actions in settings-system.tsx (STAT_ITEMS, CUSTOM_FORM_OPTIONS) are either removed entirely or gated behind a NODE_ENV !== "production" / dev-mode feature flag so they cannot be triggered on a live deployment.
+No runtime or build errors are introduced by these exclusions.
+Out of scope
+Deleting the mockup-sandbox source files (it may still be useful for local prototyping).
+Refactoring the entire settings system.
+Changing backend platform-settings endpoints.
+Steps
+Exclude mockup-sandbox from workspace builds — Add artifacts/mockup-sandbox to the pnpm workspace packages exclusion list (or confirm it is already absent), and add a Vite/tsconfig path exclusion in the admin config if any admin bundle inadvertently imports from it.
+Gate demo-seeding UI — In settings-system.tsx, wrap the STAT_ITEMS seeding actions and CUSTOM_FORM_OPTIONS mock-data generators behind a dev-only guard (import.meta.env.DEV for Vite) so they are tree-shaken out of production builds and hidden from the UI when NODE_ENV=production.
+Remove hardcoded placeholder defaults — In settings.tsx, remove or replace the hardcoded default strings for app_name, content_banner, and similar keys with empty strings or undefined, so the UI shows a proper empty/unset state rather than fake sample text.
+Verify build output — Confirm via a dry-run vite build for the admin app that the mockup-sandbox code is absent from the output and no import errors appear.
