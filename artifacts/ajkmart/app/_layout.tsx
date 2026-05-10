@@ -700,17 +700,19 @@ function RootLayoutNav() {
     }
   }, [token]);
 
-  const installedVersion = Constants.expoConfig?.version ?? "1.0.0";
-  const minAppVersion = config.compliance?.minAppVersion ?? "1.0.0";
+  const installedVersion = Constants.expoConfig?.version ?? "";
+  const minAppVersion = config.compliance?.minAppVersion ?? "";
+  const STRICT_SEMVER_RE = /^\d+\.\d+\.\d+$/;
+  const _cur = typeof installedVersion === "string" ? installedVersion.trim() : "";
+  const _min = typeof minAppVersion === "string" ? minAppVersion.trim() : "";
   let forceUpdate = false;
-  try {
-    const _min = typeof minAppVersion === "string" && minAppVersion.trim() ? minAppVersion.trim() : null;
-    const _cur = typeof installedVersion === "string" && installedVersion.trim() ? installedVersion.trim() : null;
-    if (_min && _cur) {
-      forceUpdate = !semverGte(_cur, _min);
-    }
-  } catch {
-    if (__DEV__) console.warn("[ForceUpdate] Malformed version string — skipping force-update check", { installedVersion, minAppVersion });
+  if (!_cur || !_min || !STRICT_SEMVER_RE.test(_cur) || !STRICT_SEMVER_RE.test(_min)) {
+    console.warn("[ForceUpdate] Skipping force-update check — invalid or missing version data", {
+      installedVersion: _cur || "(empty)",
+      minAppVersion: _min || "(empty)",
+    });
+  } else {
+    forceUpdate = !semverGte(_cur, _min);
   }
   const storeUrl = Platform.OS === "ios"
     ? (config.compliance?.appStoreUrl ?? "")
