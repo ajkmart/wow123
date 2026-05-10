@@ -7,7 +7,7 @@ import {
   WifiOff, Wifi, ShieldAlert, ShieldCheck, Eye, XCircle, SkipForward, Gavel, Clock,
   ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
-import { PageHeader, StatCard, FilterBar } from "@/components/shared";
+import { PageHeader, StatCard, StatCardSkeleton, FilterBar } from "@/components/shared";
 import { useLanguage } from "@/lib/useLanguage";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { PullToRefresh } from "@/components/PullToRefresh";
@@ -360,10 +360,15 @@ export default function Riders() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Bike} label="Total Riders" value={riders.length} iconBgClass="bg-green-100" iconColorClass="text-green-600" />
-        <StatCard icon={CheckCircle2} label="Online Now" value={onlineRiders} iconBgClass="bg-emerald-100" iconColorClass="text-emerald-600" />
-        <StatCard icon={AlertTriangle} label="Pending Approval" value={pendingRiders} iconBgClass="bg-yellow-100" iconColorClass="text-yellow-600" />
-        <StatCard icon={Wallet} label="Wallet Pending" value={formatCurrency(totalWallet)} iconBgClass="bg-amber-100" iconColorClass="text-amber-600" />
+        {isLoading
+          ? [1,2,3,4].map(i => <StatCardSkeleton key={i} />)
+          : <>
+              <StatCard icon={Bike} label="Total Riders" value={riders.length} iconBgClass="bg-green-100" iconColorClass="text-green-600" />
+              <StatCard icon={CheckCircle2} label="Online Now" value={onlineRiders} iconBgClass="bg-emerald-100" iconColorClass="text-emerald-600" />
+              <StatCard icon={AlertTriangle} label="Pending Approval" value={pendingRiders} iconBgClass="bg-yellow-100" iconColorClass="text-yellow-600" />
+              <StatCard icon={Wallet} label="Wallet Pending" value={formatCurrency(totalWallet)} iconBgClass="bg-amber-100" iconColorClass="text-amber-600" />
+            </>
+        }
       </div>
 
       {/* Filters */}

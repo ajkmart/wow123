@@ -10,7 +10,7 @@ import {
   Gavel, Lock, Copy, UserPlus, Monitor, ChevronDown, ChevronLeft, ChevronRight,
   ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
-import { PageHeader, StatCard, FilterBar, ActionBar } from "@/components/shared";
+import { PageHeader, StatCard, StatCardSkeleton, FilterBar, ActionBar } from "@/components/shared";
 import { useLanguage } from "@/lib/useLanguage";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1877,6 +1877,19 @@ export default function Users() {
           </div>
         }
       />
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {isLoading
+          ? [1,2,3,4].map(i => <StatCardSkeleton key={i} />)
+          : <>
+              <StatCard icon={UsersIcon} label="Total Users" value={totalCount} iconBgClass="bg-blue-100" iconColorClass="text-blue-600" />
+              <StatCard icon={CheckCircle2} label="Active" value={activeCount} iconBgClass="bg-green-100" iconColorClass="text-green-600" />
+              <StatCard icon={Ban} label="Banned" value={bannedCount} iconBgClass="bg-red-100" iconColorClass="text-red-600" />
+              <StatCard icon={AlertTriangle} label="Blocked" value={blockedCount} iconBgClass="bg-amber-100" iconColorClass="text-amber-600" />
+            </>
+        }
+      </div>
 
       {pendingUsers.length > 0 && (
         <Card className="p-4 rounded-2xl border-amber-200 bg-amber-50/60 shadow-sm">

@@ -7,7 +7,7 @@ export { PageHeader } from "./PageHeader";
 export type { PageHeaderProps, BreadcrumbCrumb } from "./PageHeader";
 export { ManageInSettingsLink } from "./ManageInSettingsLink";
 export type { ManageInSettingsLinkProps, ManageInSettingsTone } from "./ManageInSettingsLink";
-export { StatCard } from "./StatCard";
+export { StatCard, StatCardSkeleton } from "./StatCard";
 export type { StatCardProps } from "./StatCard";
 export { FilterBar } from "./FilterBar";
 export type { FilterBarProps } from "./FilterBar";

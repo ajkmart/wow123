@@ -12,7 +12,7 @@ export function PwaInstallBanner() {
   if (!isInstallable && !isIOS) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[9999] px-4 py-3 bg-gradient-to-br from-slate-900 to-slate-800 border-t border-white/5 shadow-[0_-4px_20px_rgba(0,0,0,0.35)]">
+    <div className="fixed inset-x-0 bottom-0 z-40 px-4 py-3 bg-gradient-to-br from-slate-900 to-slate-800 border-t border-white/5 shadow-[0_-4px_20px_rgba(0,0,0,0.35)]">
       <div className="mx-auto flex max-w-3xl items-center gap-3">
         <div className="flex flex-1 items-center gap-3 min-w-0">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-indigo-300">

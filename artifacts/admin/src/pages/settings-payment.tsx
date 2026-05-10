@@ -1,4 +1,4 @@
-import { useState, type ComponentType, type SVGProps } from "react";
+import { useState, type ElementType } from "react";
 import { adminFetch, fetchAdminAbsolute } from "@/lib/adminFetcher";
 import {
   AlertTriangle, ExternalLink, Loader2, CheckCircle2, XCircle, Wifi,
@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Toggle, Field, SecretInput, SLabel, ModeBtn } from "@/components/AdminShared";
 
-type LucideIcon = ComponentType<SVGProps<SVGSVGElement>>;
+type LucideIcon = ElementType;
 
 type PayTab = "jazzcash" | "easypaisa" | "bank" | "cod" | "wallet" | "rules";
 

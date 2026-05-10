@@ -8,7 +8,7 @@ import {
   ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2,
   Car, FileText, ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
-import { PageHeader, StatCard } from "@/components/shared";
+import { PageHeader, StatCard, StatCardSkeleton } from "@/components/shared";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
 import { SafeImage } from "@/components/ui/SafeImage";
@@ -567,10 +567,15 @@ export default function KycPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Filter} label="Total" value={records.length} iconBgClass="bg-gray-100" iconColorClass="text-gray-700" />
-        <StatCard icon={Clock} label="Pending" value={counts.pending} iconBgClass="bg-amber-50" iconColorClass="text-amber-700" onClick={() => setStatusFilter("pending")} />
-        <StatCard icon={BadgeCheck} label="Approved" value={counts.approved} iconBgClass="bg-green-50" iconColorClass="text-green-700" onClick={() => setStatusFilter("approved")} />
-        <StatCard icon={XCircle} label="Rejected" value={counts.rejected} iconBgClass="bg-red-50" iconColorClass="text-red-700" onClick={() => setStatusFilter("rejected")} />
+        {isLoading
+          ? [1,2,3,4].map(i => <StatCardSkeleton key={i} />)
+          : <>
+              <StatCard icon={Filter} label="Total" value={records.length} iconBgClass="bg-gray-100" iconColorClass="text-gray-700" />
+              <StatCard icon={Clock} label="Pending" value={counts.pending} iconBgClass="bg-amber-50" iconColorClass="text-amber-700" onClick={() => setStatusFilter("pending")} />
+              <StatCard icon={BadgeCheck} label="Approved" value={counts.approved} iconBgClass="bg-green-50" iconColorClass="text-green-700" onClick={() => setStatusFilter("approved")} />
+              <StatCard icon={XCircle} label="Rejected" value={counts.rejected} iconBgClass="bg-red-50" iconColorClass="text-red-700" onClick={() => setStatusFilter("rejected")} />
+            </>
+        }
       </div>
 
       {/* Filter tabs */}

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useSearch, useLocation } from "wouter";
 import { BarChart2, Search, Heart } from "lucide-react";
+import { StatCardSkeleton } from "@/components/shared";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const RevenueAnalytics = lazy(() => import("@/pages/revenue-analytics"));
@@ -16,8 +17,16 @@ function isValidTab(t: string | null): t is AnalyticsTab {
 
 function SuspenseFallback() {
   return (
-    <div className="flex items-center justify-center py-24 text-muted-foreground text-sm animate-pulse">
-      Loading…
+    <div className="space-y-6 p-4">
+      <div className="h-10 w-56 bg-muted animate-pulse rounded-2xl" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1,2,3,4].map(i => <StatCardSkeleton key={i} />)}
+      </div>
+      <div className="h-64 bg-muted animate-pulse rounded-2xl" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="h-48 bg-muted animate-pulse rounded-2xl" />
+        <div className="h-48 bg-muted animate-pulse rounded-2xl" />
+      </div>
     </div>
   );
 }

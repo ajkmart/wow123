@@ -74,6 +74,24 @@ function StatCardInner({
   );
 }
 
+/**
+ * Animated placeholder shown while stat card data is loading.
+ * Matches the dimensions of StatCard so the layout doesn't shift.
+ */
+export function StatCardSkeleton({ className = "" }: { className?: string }) {
+  return (
+    <div className={`rounded-2xl border border-border/50 bg-white p-4 shadow-sm h-[88px] ${className}`}>
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-muted animate-pulse flex-shrink-0" />
+        <div className="flex-1 space-y-2 pt-0.5">
+          <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+          <div className="h-6 w-14 bg-muted animate-pulse rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StatCard({ href, onClick, className = "", ...props }: StatCardProps) {
   const base =
     "rounded-2xl border border-border/50 bg-white p-4 shadow-sm";

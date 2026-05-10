@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { PageHeader } from "@/components/shared";
+import { PageHeader, StatCardSkeleton } from "@/components/shared";
 import {
   BanknoteIcon, CheckCircle, XCircle, RefreshCw, ChevronDown, ChevronUp, Clock, Filter, CheckSquare,
   Wallet, AlertTriangle, PartyPopper, Inbox, Landmark, Download, ArrowUpDown, ArrowUp, ArrowDown,
@@ -326,20 +326,24 @@ export default function Withdrawals() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "Pending Requests", value: String(pendingCount),      Icon: Clock,       color: "text-amber-600", bg: "bg-amber-50" },
-          { label: "Pending Amount",   value: fc(pendingAmt),            Icon: Wallet,      color: "text-red-600",   bg: "bg-red-50"   },
-          { label: "Paid Today",       value: String(paidCount),         Icon: CheckCircle, color: "text-green-600", bg: "bg-green-50" },
-          { label: "Rejected",         value: String(rejectedCount),     Icon: XCircle,     color: "text-gray-600",  bg: "bg-gray-50"  },
-        ].map(c => (
-          <Card key={c.label} className={`border-0 shadow-sm ${c.bg}`}>
-            <CardContent className="p-4">
-              <c.Icon className={`w-6 h-6 ${c.color}`} />
-              <p className={`text-lg font-extrabold ${c.color} mt-1`}>{c.value}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
-            </CardContent>
-          </Card>
-        ))}
+        {isLoading ? (
+          [1,2,3,4].map(i => <StatCardSkeleton key={i} />)
+        ) : (
+          [
+            { label: "Pending Requests", value: String(pendingCount),      Icon: Clock,       color: "text-amber-600", bg: "bg-amber-50" },
+            { label: "Pending Amount",   value: fc(pendingAmt),            Icon: Wallet,      color: "text-red-600",   bg: "bg-red-50"   },
+            { label: "Paid Today",       value: String(paidCount),         Icon: CheckCircle, color: "text-green-600", bg: "bg-green-50" },
+            { label: "Rejected",         value: String(rejectedCount),     Icon: XCircle,     color: "text-gray-600",  bg: "bg-gray-50"  },
+          ].map(c => (
+            <Card key={c.label} className={`border-0 shadow-sm ${c.bg}`}>
+              <CardContent className="p-4">
+                <c.Icon className={`w-6 h-6 ${c.color}`} />
+                <p className={`text-lg font-extrabold ${c.color} mt-1`}>{c.value}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Sort Controls */}
