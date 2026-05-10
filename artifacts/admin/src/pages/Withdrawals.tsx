@@ -25,7 +25,7 @@ const fd = (d: string | Date) =>
 type StatusFilter = "all" | "pending" | "paid" | "rejected";
 
 interface WithdrawalUser {
-  role: string;
+  roles?: string[];
   phone?: string;
   name?: string;
 }
@@ -213,7 +213,7 @@ function RejectModal({ w, onClose }: { w: Withdrawal; onClose: () => void }) {
 function exportWithdrawalsCSV(rows: Withdrawal[]) {
   const header = "ID,User,Phone,Role,Method,Amount,Status,Date";
   const lines = rows.map(w =>
-    [w.id, w.user?.name ?? "", w.user?.phone ?? "", w.user?.role ?? "", methodLabel(w.paymentMethod ?? null), Number(w.amount).toFixed(2), w.status, new Date(w.createdAt).toISOString().slice(0, 10)].join(",")
+    [w.id, w.user?.name ?? "", w.user?.phone ?? "", w.user?.roles?.[0] ?? "", methodLabel(w.paymentMethod ?? null), Number(w.amount).toFixed(2), w.status, new Date(w.createdAt).toISOString().slice(0, 10)].join(",")
   );
   const blob = new Blob([[header, ...lines].join("\n")], { type: "text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `withdrawals-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
@@ -441,8 +441,8 @@ export default function Withdrawals() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-gray-900 text-sm">{w.user?.name || "Unknown"}</p>
-                            {w.user?.role && (
-                              <Badge className={`text-[10px] font-bold ${roleColor(w.user.role)}`} variant="outline">{w.user.role}</Badge>
+                            {w.user?.roles?.[0] && (
+                              <Badge className={`text-[10px] font-bold ${roleColor(w.user.roles[0])}`} variant="outline">{w.user.roles[0]}</Badge>
                             )}
                             <StatusBadge status={w.status}/>
                           </div>

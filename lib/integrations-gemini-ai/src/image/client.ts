@@ -1,5 +1,7 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
+export { ai } from "../client";
+
 const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
 const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
 

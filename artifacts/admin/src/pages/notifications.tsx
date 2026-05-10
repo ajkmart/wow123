@@ -89,9 +89,9 @@ export default function Notifications() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-bold text-gray-800 leading-snug">{n.title}</p>
-                    {n.user && (
-                      <Badge className={`text-[9px] font-bold ${roleColor(n.user.role || "")}`} variant="outline">
-                        {n.user.role}
+                    {n.user?.roles?.[0] && (
+                      <Badge className={`text-[9px] font-bold ${roleColor(n.user.roles[0])}`} variant="outline">
+                        {n.user.roles[0]}
                       </Badge>
                     )}
                     {!n.isRead && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"/>}

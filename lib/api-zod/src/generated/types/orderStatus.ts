@@ -6,15 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+import { ORDER_VALID_STATUSES } from "@workspace/service-constants";
+
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
-export const OrderStatus = {
-  pending: "pending",
-  confirmed: "confirmed",
-  preparing: "preparing",
-  ready: "ready",
-  picked_up: "picked_up",
-  out_for_delivery: "out_for_delivery",
-  delivered: "delivered",
-  cancelled: "cancelled",
-} as const;
+export const OrderStatus = Object.fromEntries(
+  ORDER_VALID_STATUSES.map((s) => [s, s]),
+) as { [K in (typeof ORDER_VALID_STATUSES)[number]]: K };

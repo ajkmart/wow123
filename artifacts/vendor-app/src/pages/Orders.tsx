@@ -627,7 +627,7 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-extrabold text-gray-800 text-base">{fc(o.total)}</p>
-                      <p className="text-xs text-green-600 font-semibold">+{fc(o.total * vendorKeep)}</p>
+                      <p className="text-xs text-green-600 font-semibold">+{fc(Number(o.total) * vendorKeep)}</p>
                       <span className="text-gray-300 text-xs">{isExp ? "▲" : "▼"}</span>
                     </div>
                   </button>

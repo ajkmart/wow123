@@ -23,7 +23,7 @@ const fd = (d: string | Date) =>
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
 interface DepositUser {
-  role: string;
+  roles?: string[];
   name?: string;
   phone?: string;
 }
@@ -183,7 +183,7 @@ function RejectModal({ d, onClose }: { d: Deposit; onClose: () => void }) {
         <div className="p-5 space-y-4">
           <div className="bg-red-50 rounded-xl p-4 space-y-2">
             <div className="flex justify-between text-sm"><span className="text-gray-500">User</span><span className="font-bold">{d.user?.name}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Role</span><span className="font-bold capitalize">{d.user?.role}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Role</span><span className="font-bold capitalize">{d.user?.roles?.[0]}</span></div>
             <div className="flex justify-between items-center pt-1 border-t border-red-200">
               <span className="text-gray-600 font-semibold">Amount (NOT credited)</span>
               <span className="text-xl font-extrabold text-red-600">{fc(Number(d.amount))}</span>
@@ -303,7 +303,7 @@ function BulkRejectModal({ count, totalAmount, onConfirm, onClose, isPending }: 
 function exportDepositsCSV(rows: Deposit[]) {
   const header = "ID,User,Phone,Role,Method,Amount,Status,Date";
   const lines = rows.map(d =>
-    [d.id, d.user?.name ?? "", d.user?.phone ?? "", d.user?.role ?? "", methodLabel(d.paymentMethod ?? null), Number(d.amount).toFixed(2), d.status, new Date(d.createdAt).toISOString().slice(0, 10)].join(",")
+    [d.id, d.user?.name ?? "", d.user?.phone ?? "", d.user?.roles?.[0] ?? "", methodLabel(d.paymentMethod ?? null), Number(d.amount).toFixed(2), d.status, new Date(d.createdAt).toISOString().slice(0, 10)].join(",")
   );
   const blob = new Blob([[header, ...lines].join("\n")], { type: "text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `deposits-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
@@ -372,10 +372,10 @@ export default function DepositRequests() {
   const approvedCount = deposits.filter(d => d.status === "approved").length;
   const rejectedCount = deposits.filter(d => d.status === "rejected").length;
 
-  const pendingInFiltered = useMemo(() => filtered.filter((d: Deposit) => d.status === "pending" && d.user?.role === "customer"), [filtered]);
+  const pendingInFiltered = useMemo(() => filtered.filter((d: Deposit) => d.status === "pending" && d.user?.roles?.[0] === "customer"), [filtered]);
   const allPendingSelected = pendingInFiltered.length > 0 && pendingInFiltered.every((d: Deposit) => selectedIds.has(d.id));
 
-  const selectedDeposits = useMemo(() => deposits.filter(d => selectedIds.has(d.id) && d.status === "pending" && d.user?.role === "customer"), [deposits, selectedIds]);
+  const selectedDeposits = useMemo(() => deposits.filter(d => selectedIds.has(d.id) && d.status === "pending" && d.user?.roles?.[0] === "customer"), [deposits, selectedIds]);
   const selectedTotal = useMemo(() => selectedDeposits.reduce((s, d) => s + Number(d.amount), 0), [selectedDeposits]);
 
   const toggleSelect = (id: string) => {
@@ -403,7 +403,7 @@ export default function DepositRequests() {
   };
 
   const handleBulkApprove = (refNo?: string) => {
-    const ids = Array.from(selectedIds).filter(id => deposits.find(d => d.id === id && d.status === "pending" && d.user?.role === "customer"));
+    const ids = Array.from(selectedIds).filter(id => deposits.find(d => d.id === id && d.status === "pending" && d.user?.roles?.[0] === "customer"));
     bulkApprove.mutate({ ids, refNo }, {
       onSuccess: (data: BulkResult) => {
         toast({ title: `${data.approved?.length ?? 0} deposits approved` });
@@ -415,7 +415,7 @@ export default function DepositRequests() {
   };
 
   const handleBulkReject = (reason: string) => {
-    const ids = Array.from(selectedIds).filter(id => deposits.find(d => d.id === id && d.status === "pending" && d.user?.role === "customer"));
+    const ids = Array.from(selectedIds).filter(id => deposits.find(d => d.id === id && d.status === "pending" && d.user?.roles?.[0] === "customer"));
     bulkReject.mutate({ ids, reason }, {
       onSuccess: (data: BulkResult) => {
         toast({ title: `${data.rejected?.length ?? 0} deposits rejected` });
@@ -553,7 +553,7 @@ export default function DepositRequests() {
             const parsed = parseDesc(d.description || "");
             const expanded = expandedId === d.id;
             const isPending = d.status === "pending";
-            const isCustomer = d.user?.role === "customer";
+            const isCustomer = d.user?.roles?.[0] === "customer";
             const isBulkSelectable = isPending && isCustomer;
             const isSelected = selectedIds.has(d.id);
             return (
@@ -580,9 +580,9 @@ export default function DepositRequests() {
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-bold text-gray-900 text-sm">{d.user?.name || "Unknown"}</p>
-                              {d.user?.role && (
-                                <Badge className={`text-[10px] font-bold ${roleColor(d.user.role)}`} variant="outline">
-                                  {d.user.role === "customer" ? "Customer" : "Rider"}
+                              {d.user?.roles?.[0] && (
+                                <Badge className={`text-[10px] font-bold ${roleColor(d.user.roles[0])}`} variant="outline">
+                                  {d.user.roles[0] === "customer" ? "Customer" : "Rider"}
                                 </Badge>
                               )}
                               <StatusBadge status={d.status}/>
