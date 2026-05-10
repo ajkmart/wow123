@@ -9,7 +9,7 @@
  *    documented default credentials.
  *  - If the `admin_accounts` table is empty we provision a default
  *    super-admin using `ADMIN_SEED_PASSWORD` (default
- *    `Toqeerkhan@123.com`). The account is created with
+ *    `Admin@123`). The account is created with
  *    `must_change_password = false` and `default_credentials = true` so
  *    the SPA knows to show the optional "customise your credentials"
  *    popup on first login — but skipping it keeps the default
@@ -35,14 +35,14 @@ import { logger } from "../lib/logger.js";
 
 const SUPER_ADMIN_SLUG = "super_admin";
 const DEFAULT_SEED_EMAIL = "admin@ajkmart.local";
-const DEFAULT_SEED_USERNAME = "admin";
+const DEFAULT_SEED_USERNAME = "superadmin";
 const DEFAULT_SEED_NAME = "Super Admin";
 /**
  * Hard-coded fallback for the bootstrap super-admin password. Operators
  * may override via the `ADMIN_SEED_PASSWORD` env var (recommended for
  * production); the constant is the documented default for fresh installs.
  */
-const DEFAULT_SEED_PASSWORD = "Toqeerkhan@123.com";
+const DEFAULT_SEED_PASSWORD = "Admin@123";
 
 export interface SeedResult {
   /** True if a new admin was created on this boot. */

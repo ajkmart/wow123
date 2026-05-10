@@ -882,13 +882,6 @@ export default function Products() {
                 <button onClick={() => setParseErrors([])} className="text-xs text-red-400 hover:underline">Dismiss</button>
               </div>
               <ul className="space-y-0.5 max-h-32 overflow-y-auto">
-          {parseErrors.length > 0 && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-2xl">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-bold text-red-700">⚠️ {parseErrors.length} row{parseErrors.length !== 1 ? "s" : ""} skipped — fix and re-upload to include them</p>
-                <button onClick={() => setParseErrors([])} className="text-xs text-red-400 hover:underline">Dismiss</button>
-              </div>
-              <ul className="space-y-0.5 max-h-32 overflow-y-auto">
                 {parseErrors.map((e, i) => <li key={i} className="text-xs text-red-600 font-mono">{e}</li>)}
               </ul>
             </div>

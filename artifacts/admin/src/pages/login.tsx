@@ -272,8 +272,8 @@ export default function Login() {
             {step === "credentials" ? (
               <>
                 Default super-admin —{" "}
-                <span className="font-semibold text-white/45">admin</span> /{" "}
-                <span className="font-semibold text-white/45">Toqeerkhan@123.com</span>.
+                <span className="font-semibold text-white/45">superadmin</span> /{" "}
+                <span className="font-semibold text-white/45">Admin@123</span>.
                 {" "}Update from the post-login security prompt.
               </>
             ) : (

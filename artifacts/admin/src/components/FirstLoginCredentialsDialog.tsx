@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/lib/adminAuthContext";
 
-const DOCUMENTED_DEFAULT_PASSWORD = "Toqeerkhan@123.com";
+const DOCUMENTED_DEFAULT_PASSWORD = "Admin@123";
 
 function validateStrength(pw: string): string | null {
   if (pw.length < 8) return "Password must be at least 8 characters.";
