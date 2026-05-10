@@ -835,10 +835,6 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
               <button onClick={() => setAssignModal(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-sm font-bold">✕</button>
             </div>
 
-            {/* Auto-assign button */}
-            <div className="px-5 py-3 border-b border-gray-50">
-              <button
-                disabled={autoAssignMut.isPending}
             {/* Location guidance banner — shown when vendor location is unavailable */}
             {vendorLat === null && (
               <div className={`mx-5 mt-3 rounded-xl p-3 flex gap-2.5 ${locationPermission === "denied" ? "bg-red-50 border border-red-200" : "bg-amber-50 border border-amber-200"}`}>
@@ -887,10 +883,6 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
                   <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Auto-assigning...</>
                 ) : (
                   <>⚡ Auto-Assign Nearest Rider (≤5 km)</>
-                )}
-              </button>
-              <p className="text-[10px] text-gray-400 text-center mt-1.5">Selects the closest rider within 5 km of the delivery address</p>
-                  <>⚡ Auto-Assign Nearest Rider</>
                 )}
               </button>
               <p className="text-[10px] text-gray-400 text-center mt-1.5">Selects the closest rider within 5 km of the delivery address</p>

@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import { getCachedSettings, adminAuth } from "./admin.js";
 import { generateId } from "../lib/id.js";
 import { customerAuth } from "../middleware/security.js";
+import { idempotency } from "../middleware/idempotency.js";
 import { z } from "zod";
 import { sendSuccess, sendCreated, sendError, sendNotFound, sendForbidden, sendValidationError } from "../lib/response.js";
 import {
@@ -254,8 +255,9 @@ router.get("/test-connection/:gateway", adminAuth, async (req, res) => {
 //  POST /api/payments/initiate
 //  Requires auth. Verifies orderId belongs to the calling user.
 //  Body: { gateway, amount, orderId, mobileNumber?, returnUrl? }
+//  Header: X-Idempotency-Key (UUID, optional but strongly recommended)
 // ═══════════════════════════════════════════════════════════════════════════════
-router.post("/initiate", customerAuth, async (req, res) => {
+router.post("/initiate", customerAuth, idempotency("payment:initiate"), async (req, res) => {
   const callerId = req.customerId!;
 
   const parsed = paymentInitiateSchema.safeParse(req.body);

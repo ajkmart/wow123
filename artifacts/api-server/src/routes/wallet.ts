@@ -366,5 +366,359 @@ router.post("/topup", adminAuth, async (req, res) => {
   }
 });
 
-/* ... Rest of the file ... */
+/* ── POST /wallet/deposit ────────────────────────────────────────────────────
+   Customer submits proof of a manual top-up (JazzCash / EasyPaisa / bank).
+   A pending credit transaction is created; an admin later approves or rejects.
+   Body: { amount, paymentMethod, transactionId, idempotencyKey, accountNumber?, note? }
+─────────────────────────────────────────────────────────────────────────── */
+router.post("/deposit", customerAuth, async (req, res) => {
+  const userId = req.customerId!;
+
+  const parsed = depositSchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendValidationError(res, parsed.error.errors[0]?.message ?? "Invalid input"); return;
+  }
+
+  const { amount, paymentMethod, transactionId, idempotencyKey, accountNumber, note } = parsed.data;
+
+  /* ── Idempotency: acquire lock ── */
+  const idemResult = await acquireWalletIdempotency(userId, "deposit", idempotencyKey);
+  if (!idemResult.acquired) {
+    if (idemResult.action === "replay" && idemResult.body) {
+      res.status(idemResult.statusCode ?? 200).json(idemResult.body);
+    } else {
+      res.status(409).json({ success: false, error: "Request already in progress. Please wait and retry." });
+    }
+    return;
+  }
+
+  try {
+    const s = await getCachedSettings();
+    const walletEnabled = (s["feature_wallet"] ?? "on") === "on";
+    const minTopup      = parseFloat(s["wallet_min_topup"]   ?? "100");
+    const maxTopup      = parseFloat(s["wallet_max_topup"]   ?? "25000");
+
+    if (!walletEnabled) {
+      await deleteWalletIdempotency(userId, "deposit", idempotencyKey);
+      sendError(res, "Wallet service is currently disabled", 503); return;
+    }
+
+    const enabledMethods = await getEnabledPaymentMethods();
+    if (!enabledMethods.includes(paymentMethod)) {
+      await deleteWalletIdempotency(userId, "deposit", idempotencyKey);
+      sendValidationError(res, `Payment method '${paymentMethod}' is not enabled`); return;
+    }
+
+    if (amount < minTopup) {
+      await deleteWalletIdempotency(userId, "deposit", idempotencyKey);
+      sendValidationError(res, `Minimum deposit is Rs. ${minTopup}`); return;
+    }
+    if (amount > maxTopup) {
+      await deleteWalletIdempotency(userId, "deposit", idempotencyKey);
+      sendValidationError(res, `Maximum single deposit is Rs. ${maxTopup}`); return;
+    }
+
+    /* Duplicate transactionId check — prevents the same receipt being submitted twice. */
+    const [duplicate] = await db
+      .select({ id: walletTransactionsTable.id })
+      .from(walletTransactionsTable)
+      .where(eq(walletTransactionsTable.reference, `pending:${transactionId}`))
+      .limit(1);
+
+    if (duplicate) {
+      await deleteWalletIdempotency(userId, "deposit", idempotencyKey);
+      sendError(res, "This transaction ID has already been submitted.", 409); return;
+    }
+
+    const txId = generateId();
+    const description = [
+      `Deposit via ${paymentMethod}`,
+      accountNumber ? `• Acct: ${accountNumber}` : null,
+      note ? `• ${note}` : null,
+    ].filter(Boolean).join(" ");
+
+    await db.insert(walletTransactionsTable).values({
+      id: txId,
+      userId,
+      type: "credit",
+      amount: amount.toFixed(2),
+      description,
+      reference: `pending:${transactionId}`,
+      paymentMethod,
+    });
+
+    const body = { success: true, message: "Deposit request submitted. Funds will be credited after admin approval.", transactionId: txId };
+    await resolveWalletIdempotency(userId, "deposit", idempotencyKey, 200, body);
+    sendSuccess(res, body);
+  } catch (e: unknown) {
+    await deleteWalletIdempotency(userId, "deposit", idempotencyKey);
+    logger.error("[wallet /deposit] Unexpected error:", e);
+    sendError(res, "Something went wrong, please try again.", 500);
+  }
+});
+
+/* ── POST /wallet/send ───────────────────────────────────────────────────────
+   Real-time P2P transfer. Both wallets are updated atomically inside a DB
+   transaction. The `X-Idempotency-Key` header (UUID) is required.
+   Body: { receiverPhone? | ajkId?, amount, note? }
+─────────────────────────────────────────────────────────────────────────── */
+router.post("/send", customerAuth, async (req, res) => {
+  const senderId = req.customerId!;
+
+  const rawIdemKey =
+    typeof req.headers["x-idempotency-key"] === "string"
+      ? req.headers["x-idempotency-key"].trim()
+      : null;
+
+  if (!rawIdemKey) {
+    sendValidationError(res, "X-Idempotency-Key header (UUID) is required for wallet transfers"); return;
+  }
+
+  const parsed = sendSchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendValidationError(res, parsed.error.errors[0]?.message ?? "Invalid input"); return;
+  }
+
+  const { receiverPhone, ajkId, amount, note } = parsed.data;
+
+  /* ── Idempotency: acquire lock ── */
+  const idemResult = await acquireWalletIdempotency(senderId, "send", rawIdemKey);
+  if (!idemResult.acquired) {
+    if (idemResult.action === "replay" && idemResult.body) {
+      res.status(idemResult.statusCode ?? 200).json(idemResult.body);
+    } else {
+      res.status(409).json({ success: false, error: "Request already in progress. Please wait and retry." });
+    }
+    return;
+  }
+
+  try {
+    const s = await getCachedSettings();
+    const walletEnabled = (s["feature_wallet"] ?? "on") === "on";
+    const maxSend        = parseFloat(s["wallet_max_send"]    ?? "25000");
+    const minSend        = parseFloat(s["wallet_min_send"]    ?? "10");
+    const maxBalance     = parseFloat(s["wallet_max_balance"] ?? "50000");
+
+    if (!walletEnabled) {
+      await deleteWalletIdempotency(senderId, "send", rawIdemKey);
+      sendError(res, "Wallet service is currently disabled", 503); return;
+    }
+    if (amount < minSend) {
+      await deleteWalletIdempotency(senderId, "send", rawIdemKey);
+      sendValidationError(res, `Minimum transfer is Rs. ${minSend}`); return;
+    }
+    if (amount > maxSend) {
+      await deleteWalletIdempotency(senderId, "send", rawIdemKey);
+      sendValidationError(res, `Maximum single transfer is Rs. ${maxSend}`); return;
+    }
+
+    /* Resolve receiver */
+    const [receiver] = await db
+      .select({ id: usersTable.id, name: usersTable.name, walletBalance: usersTable.walletBalance, blockedServices: usersTable.blockedServices })
+      .from(usersTable)
+      .where(
+        ajkId
+          ? eq(usersTable.ajkId, ajkId)
+          : eq(usersTable.phone, receiverPhone!),
+      )
+      .limit(1);
+
+    if (!receiver) {
+      await deleteWalletIdempotency(senderId, "send", rawIdemKey);
+      sendNotFound(res, ajkId ? "No user found with that AJK ID" : "No user found with that phone number"); return;
+    }
+
+    if (receiver.id === senderId) {
+      await deleteWalletIdempotency(senderId, "send", rawIdemKey);
+      sendValidationError(res, "You cannot send money to yourself"); return;
+    }
+
+    if (isWalletFrozen(receiver)) {
+      await deleteWalletIdempotency(senderId, "send", rawIdemKey);
+      sendError(res, "Recipient wallet is currently unavailable", 422); return;
+    }
+
+    const receiverBalance = parseFloat(receiver.walletBalance ?? "0");
+    if (receiverBalance + amount > maxBalance) {
+      await deleteWalletIdempotency(senderId, "send", rawIdemKey);
+      sendValidationError(res, "Recipient wallet balance limit would be exceeded"); return;
+    }
+
+    const txRef = `send:${generateId()}`;
+    const description = note ? `Transfer${note ? ` — ${note}` : ""}` : "Wallet transfer";
+
+    const newSenderBalance = await db.transaction(async (tx) => {
+      /* Lock sender row to prevent concurrent sends draining balance twice */
+      const [sender] = await tx
+        .select({ walletBalance: usersTable.walletBalance, blockedServices: usersTable.blockedServices })
+        .from(usersTable)
+        .where(eq(usersTable.id, senderId))
+        .limit(1)
+        .for("update");
+
+      if (!sender) throw new Error("Sender not found");
+      if (isWalletFrozen(sender)) throw Object.assign(new Error("wallet_frozen"), { code: "FROZEN" });
+
+      const senderBal = parseFloat(sender.walletBalance ?? "0");
+      if (senderBal < amount) throw Object.assign(new Error("Insufficient wallet balance"), { code: "INSUFFICIENT" });
+
+      /* Deduct from sender */
+      const [updatedSender] = await tx
+        .update(usersTable)
+        .set({ walletBalance: sql`wallet_balance - ${amount.toFixed(2)}` })
+        .where(and(eq(usersTable.id, senderId), sql`CAST(wallet_balance AS numeric) >= ${amount}`))
+        .returning({ walletBalance: usersTable.walletBalance });
+      if (!updatedSender) throw Object.assign(new Error("Insufficient wallet balance"), { code: "INSUFFICIENT" });
+
+      /* Credit receiver */
+      await tx
+        .update(usersTable)
+        .set({ walletBalance: sql`wallet_balance + ${amount.toFixed(2)}` })
+        .where(eq(usersTable.id, receiver.id));
+
+      /* Insert debit txn for sender */
+      await tx.insert(walletTransactionsTable).values({
+        id: generateId(), userId: senderId, type: "debit",
+        amount: amount.toFixed(2),
+        description: `${description} → ${receiver.name ?? receiver.id}`,
+        reference: txRef, paymentMethod: "wallet",
+      });
+
+      /* Insert credit txn for receiver */
+      await tx.insert(walletTransactionsTable).values({
+        id: generateId(), userId: receiver.id, type: "credit",
+        amount: amount.toFixed(2),
+        description: `${description} ← ${senderId}`,
+        reference: txRef, paymentMethod: "wallet",
+      });
+
+      return parseFloat(updatedSender.walletBalance ?? "0");
+    });
+
+    broadcastWalletUpdate(senderId, newSenderBalance);
+
+    const body = { success: true, message: `Rs. ${amount.toFixed(2)} sent successfully`, balance: newSenderBalance, reference: txRef };
+    await resolveWalletIdempotency(senderId, "send", rawIdemKey, 200, body);
+    sendSuccess(res, body);
+  } catch (e: unknown) {
+    await deleteWalletIdempotency(senderId, "send", rawIdemKey);
+    const code = (e as Error & { code?: string }).code;
+    if (code === "FROZEN") { sendForbidden(res, "wallet_frozen", "Your wallet has been temporarily frozen. Contact support."); return; }
+    if (code === "INSUFFICIENT") { sendError(res, "Insufficient wallet balance", 422); return; }
+    logger.error("[wallet /send] Unexpected error:", e);
+    sendError(res, "Something went wrong, please try again.", 500);
+  }
+});
+
+/* ── POST /wallet/withdraw ───────────────────────────────────────────────────
+   Customer requests a withdrawal. A pending debit is recorded; admin processes
+   the payout and then approves/rejects the transaction.
+   Header: X-Idempotency-Key (UUID, required)
+   Body: { amount, paymentMethod, accountNumber, note? }
+─────────────────────────────────────────────────────────────────────────── */
+router.post("/withdraw", customerAuth, async (req, res) => {
+  const userId = req.customerId!;
+
+  const rawIdemKey =
+    typeof req.headers["x-idempotency-key"] === "string"
+      ? req.headers["x-idempotency-key"].trim()
+      : null;
+
+  if (!rawIdemKey) {
+    sendValidationError(res, "X-Idempotency-Key header (UUID) is required for withdrawals"); return;
+  }
+
+  const parsed = withdrawSchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendValidationError(res, parsed.error.errors[0]?.message ?? "Invalid input"); return;
+  }
+
+  const { amount, paymentMethod, accountNumber, note } = parsed.data;
+
+  /* ── Idempotency: acquire lock ── */
+  const idemResult = await acquireWalletIdempotency(userId, "withdraw", rawIdemKey);
+  if (!idemResult.acquired) {
+    if (idemResult.action === "replay" && idemResult.body) {
+      res.status(idemResult.statusCode ?? 200).json(idemResult.body);
+    } else {
+      res.status(409).json({ success: false, error: "Request already in progress. Please wait and retry." });
+    }
+    return;
+  }
+
+  try {
+    const s = await getCachedSettings();
+    const walletEnabled = (s["feature_wallet"]      ?? "on")  === "on";
+    const minWithdraw   = parseFloat(s["wallet_min_withdraw"] ?? "100");
+    const maxWithdraw   = parseFloat(s["wallet_max_withdraw"] ?? "25000");
+
+    if (!walletEnabled) {
+      await deleteWalletIdempotency(userId, "withdraw", rawIdemKey);
+      sendError(res, "Wallet service is currently disabled", 503); return;
+    }
+    if (amount < minWithdraw) {
+      await deleteWalletIdempotency(userId, "withdraw", rawIdemKey);
+      sendValidationError(res, `Minimum withdrawal is Rs. ${minWithdraw}`); return;
+    }
+    if (amount > maxWithdraw) {
+      await deleteWalletIdempotency(userId, "withdraw", rawIdemKey);
+      sendValidationError(res, `Maximum single withdrawal is Rs. ${maxWithdraw}`); return;
+    }
+
+    const enabledMethods = await getEnabledPaymentMethods();
+    if (!enabledMethods.includes(paymentMethod)) {
+      await deleteWalletIdempotency(userId, "withdraw", rawIdemKey);
+      sendValidationError(res, `Payment method '${paymentMethod}' is not enabled`); return;
+    }
+
+    const txRef = `pending-withdraw:${generateId()}`;
+    const description = [
+      `Withdrawal via ${paymentMethod} to ${accountNumber}`,
+      note ? `• ${note}` : null,
+    ].filter(Boolean).join(" ");
+
+    await db.transaction(async (tx) => {
+      /* Lock user row for update */
+      const [user] = await tx
+        .select({ walletBalance: usersTable.walletBalance, blockedServices: usersTable.blockedServices })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1)
+        .for("update");
+
+      if (!user) throw new Error("User not found");
+      if (isWalletFrozen(user)) throw Object.assign(new Error("wallet_frozen"), { code: "FROZEN" });
+
+      const bal = parseFloat(user.walletBalance ?? "0");
+      if (bal < amount) throw Object.assign(new Error("Insufficient wallet balance"), { code: "INSUFFICIENT" });
+
+      /* Immediately deduct the amount (hold) — admin either approves or refunds. */
+      const [updated] = await tx
+        .update(usersTable)
+        .set({ walletBalance: sql`wallet_balance - ${amount.toFixed(2)}` })
+        .where(and(eq(usersTable.id, userId), sql`CAST(wallet_balance AS numeric) >= ${amount}`))
+        .returning({ walletBalance: usersTable.walletBalance });
+      if (!updated) throw Object.assign(new Error("Insufficient wallet balance"), { code: "INSUFFICIENT" });
+
+      await tx.insert(walletTransactionsTable).values({
+        id: generateId(), userId, type: "debit",
+        amount: amount.toFixed(2),
+        description,
+        reference: txRef, paymentMethod,
+      });
+    });
+
+    const body = { success: true, message: "Withdrawal request submitted. Funds will be transferred after admin approval.", reference: txRef };
+    await resolveWalletIdempotency(userId, "withdraw", rawIdemKey, 200, body);
+    sendSuccess(res, body);
+  } catch (e: unknown) {
+    await deleteWalletIdempotency(userId, "withdraw", rawIdemKey);
+    const code = (e as Error & { code?: string }).code;
+    if (code === "FROZEN") { sendForbidden(res, "wallet_frozen", "Your wallet has been temporarily frozen. Contact support."); return; }
+    if (code === "INSUFFICIENT") { sendError(res, "Insufficient wallet balance", 422); return; }
+    logger.error("[wallet /withdraw] Unexpected error:", e);
+    sendError(res, "Something went wrong, please try again.", 500);
+  }
+});
+
 export default router;

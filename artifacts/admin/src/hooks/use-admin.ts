@@ -475,6 +475,13 @@ export const useOrderRefund = () => {
   });
 };
 
+type BroadcastInput = {
+  title: string;
+  body: string;
+  targetRole?: string | string[];
+  userId?: string | null;
+};
+
 export const useBroadcast = () => {
   return useMutation({
     mutationFn: (data: BroadcastInput) =>

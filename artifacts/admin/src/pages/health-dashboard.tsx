@@ -158,23 +158,24 @@ export default function HealthDashboard() {
     <div className="space-y-6 pb-10">
       <PageHeader
         title="Health Dashboard"
-        description="Real-time status of GPS tracking, content moderation rules, and service feature flags"
+        subtitle="Real-time status of GPS tracking, content moderation rules, and service feature flags"
         icon={Activity}
-      >
-        <div className="flex items-center gap-3">
-          <LastUpdated dataUpdatedAt={dataUpdatedAt} onRefresh={handleRefresh} isRefreshing={isFetching} />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isFetching}
-            className="gap-2 border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700"
-          >
-            <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
-            Refresh
-          </Button>
-        </div>
-      </PageHeader>
+        actions={
+          <div className="flex items-center gap-3">
+            <LastUpdated dataUpdatedAt={dataUpdatedAt} onRefresh={handleRefresh} isRefreshing={isFetching} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isFetching}
+              className="gap-2 border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700"
+            >
+              <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
+              Refresh
+            </Button>
+          </div>
+        }
+      />
 
       {/* Issues banner */}
       {!isLoading && hasIssues && (

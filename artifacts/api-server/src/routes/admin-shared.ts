@@ -93,6 +93,13 @@ export const DEFAULT_PLATFORM_SETTINGS: Array<{ key: string; value: string; cate
   { key: "loyalty_enabled",              value: "off",  category: "features" },
   { key: "loyalty_points_per_rupee",     value: "1",    category: "loyalty" },
   { key: "loyalty_redemption_rate",      value: "0.01", category: "loyalty" },
+  { key: "wallet_min_topup",             value: "100",  category: "wallet" },
+  { key: "wallet_max_topup",             value: "25000", category: "wallet" },
+  { key: "wallet_max_balance",           value: "50000", category: "wallet" },
+  { key: "wallet_min_send",              value: "10",   category: "wallet" },
+  { key: "wallet_max_send",             value: "25000", category: "wallet" },
+  { key: "wallet_min_withdraw",          value: "100",  category: "wallet" },
+  { key: "wallet_max_withdraw",         value: "25000", category: "wallet" },
 ];
 
 /* ── DEFAULT RIDE SERVICES ─────────────────────────────────────────────── */

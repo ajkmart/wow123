@@ -274,8 +274,7 @@ export default function OtpControl() {
       const perPhone = get("security_otp_max_per_phone", "5");
       const perIp    = get("security_otp_max_per_ip", "10");
       const winMin   = get("security_otp_window_min", "10");
-      setRlPerPhone(perPhone); setRlPerIp(perIp); setRlWindowMin(winMin);
-      setRlOriginal({ perPhone, perIp, windowMin: winMin });
+      setRlPhone(perPhone); setRlIp(perIp); setRlWindow(winMin);
     } catch (err) {
       console.warn("[OtpControl] Rate limit load failed:", err);
     }
@@ -362,83 +361,7 @@ export default function OtpControl() {
       }
     } finally {
       setOtpLookupLoading(false);
-  const suspend = async (mins: number) => {
-    if (!mins || mins <= 0) return;
-    setSuspendPendingMins(mins);
-    setSuspendReason("");
-    setSuspendModal(true);
-  };
-
-  /* Called from the modal — performs the actual API call. */
-  const executeSuspend = async () => {
-    if (!suspendReason.trim() || suspendReason.trim().length < 5) {
-      toast({ title: "Reason required", description: "Please provide at least 5 characters explaining why OTP is being suspended.", variant: "destructive" });
-      return;
     }
-    setSuspendSaving(true);
-    try {
-      const d = await api("POST", "/otp/disable", { minutes: suspendPendingMins, reason: suspendReason.trim() });
-      if (d?.data) {
-        toast({ title: "OTP Suspended", description: `All OTPs suspended for ${suspendPendingMins} minute(s).` });
-        setSuspendModal(false);
-        loadStatus(); loadAudit();
-      } else {
-        toast({ title: "Error", description: d?.error ?? "Failed", variant: "destructive" });
-      }
-    } catch (e) {
-      toast({ title: "Error", description: errorMessage(e, "Failed to suspend OTPs."), variant: "destructive" });
-    } finally { setSuspendSaving(false); }
-  };
-
-  const restore = async () => {
-    await api("DELETE", "/otp/disable");
-    toast({ title: "OTPs Restored", description: "Global OTP suspension lifted." });
-    loadStatus(); loadAudit();
-  };
-
-  const saveRateLimits = async () => {
-    const perPhone = parseInt(rlPerPhone, 10);
-    const perIp    = parseInt(rlPerIp, 10);
-    const winMin   = parseInt(rlWindowMin, 10);
-    if (isNaN(perPhone) || perPhone < 1 || isNaN(perIp) || perIp < 1 || isNaN(winMin) || winMin < 1) {
-      toast({ title: "Invalid values", description: "All rate limit fields must be positive integers.", variant: "destructive" });
-      return;
-    }
-    setRlSaving(true);
-    try {
-      await adminFetch("/platform-settings", {
-        method: "PUT",
-        body: JSON.stringify({
-          settings: [
-            { key: "security_otp_max_per_phone", value: String(perPhone) },
-            { key: "security_otp_max_per_ip",    value: String(perIp) },
-            { key: "security_otp_window_min",    value: String(winMin) },
-          ],
-        }),
-      });
-      setRlOriginal({ perPhone: String(perPhone), perIp: String(perIp), windowMin: String(winMin) });
-      toast({ title: "Rate limits saved", description: "OTP rate limiting settings updated." });
-    } catch (e) {
-      toast({ title: "Save failed", description: errorMessage(e, "Could not save rate limit settings."), variant: "destructive" });
-    } finally { setRlSaving(false); }
-  };
-
-  const lookupDeliveryOtp = async () => {
-    const id = deliveryRideId.trim();
-    if (!id) return;
-    setDeliveryLoading(true);
-    setDeliveryError(null);
-    setDeliveryResult(null);
-    try {
-      const d = await api("GET", `/otp/delivery-otp/${encodeURIComponent(id)}`);
-      if (d?.data) {
-        setDeliveryResult(d.data as DeliveryOtpResult);
-      } else {
-        setDeliveryError(d?.error ?? "Ride not found");
-      }
-    } catch (e) {
-      setDeliveryError(errorMessage(e, "Could not look up delivery OTP."));
-    } finally { setDeliveryLoading(false); }
   };
 
   const searchUsers = useCallback(async () => {
@@ -595,7 +518,7 @@ export default function OtpControl() {
                 </div>
                 <p className="text-xs text-red-600 mt-0.5">All users can log in without OTP. Auto-restores when the timer expires.</p>
               </div>
-              <Button size="sm" variant="destructive" onClick={restore} className="shrink-0 rounded-xl">
+              <Button size="sm" variant="destructive" onClick={() => api("DELETE", "/otp/disable").then(() => { toast({ title: "OTPs Restored", description: "Global OTP suspension lifted." }); loadStatus(); loadAudit(); })} className="shrink-0 rounded-xl">
                 Restore Now
               </Button>
             </div>
@@ -634,7 +557,6 @@ export default function OtpControl() {
                 <button
                   key={opt.mins}
                   onClick={() => openSuspendModal(opt.mins)}
-                  onClick={() => suspend(opt.mins)}
                   disabled={statusLoading}
                   className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-red-200 text-red-700 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 shadow-sm"
                 >
@@ -659,7 +581,6 @@ export default function OtpControl() {
                       return;
                     }
                     openSuspendModal(m);
-                    suspend(m);
                   }}
                   disabled={!customMinutes || statusLoading}
                   className="px-3.5 py-2 h-8 rounded-xl text-xs font-semibold border border-red-200 text-red-700 bg-white hover:bg-red-50 transition-colors disabled:opacity-50 shadow-sm"
@@ -846,61 +767,6 @@ export default function OtpControl() {
           )}
         </div>
       </ProCard>
-
-      {/* ── Suspend Confirmation Modal ── */}
-      {suspendModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { if (!suspendSaving) setSuspendModal(false); }} />
-          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white border border-border shadow-2xl p-6 space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
-                <ShieldOff className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground">Confirm Global OTP Suspension</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Duration: <strong>{suspendPendingMins} minute{suspendPendingMins !== 1 ? "s" : ""}</strong></p>
-              </div>
-            </div>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800 flex gap-2">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-600" />
-              <span>This will allow <strong>all users</strong> to log in without OTP verification. An internal alert will be sent to the admin team. This action is logged.</span>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">
-                Reason <span className="text-red-500">*</span>
-                <span className="text-muted-foreground font-normal ml-1">(min. 5 characters)</span>
-              </label>
-              <textarea
-                className="w-full rounded-xl border border-border bg-muted/20 text-sm px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-300 transition-all"
-                rows={3}
-                placeholder="e.g. SMS gateway outage — users cannot receive OTPs"
-                value={suspendReason}
-                onChange={e => setSuspendReason(e.target.value)}
-                disabled={suspendSaving}
-              />
-              <p className="text-[10px] text-muted-foreground">{suspendReason.trim().length} / 5 min chars</p>
-            </div>
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                className="flex-1 rounded-xl"
-                onClick={() => setSuspendModal(false)}
-                disabled={suspendSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                className="flex-1 rounded-xl gap-1.5"
-                onClick={executeSuspend}
-                disabled={suspendSaving || suspendReason.trim().length < 5}
-              >
-                {suspendSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Suspending…</> : <><ShieldOff className="w-3.5 h-3.5" /> Suspend OTP</>}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── 3. AUDIT LOG ── */}
       <ProCard>
@@ -1122,147 +988,7 @@ export default function OtpControl() {
       </ProCard>
 
       {/* ── 6. WHITELIST ── */}
-      {/* ── 4. WHITELIST ── */}
       <WhitelistSection />
-
-      {/* ── 6. DELIVERY OTP VIEWER ── */}
-      <ProCard>
-        <CardHeader
-          icon={Car}
-          label="Delivery OTP Viewer"
-          sub="Look up the ride OTP for any trip by Ride ID — read only"
-          color="text-orange-600"
-          gradient="bg-gradient-to-r from-orange-50/80 to-slate-50"
-        />
-        <div className="p-5 space-y-4">
-          <div className="flex items-start gap-2.5 text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded-xl p-3">
-            <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-orange-500" />
-            <span>This is a read-only viewer. The OTP is generated by the rider app when the rider arrives at the pickup. Use this to resolve passenger disputes — do not share OTPs openly.</span>
-          </div>
-
-          {/* Search bar */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                className="pl-10 rounded-xl h-10 text-sm font-mono focus-visible:ring-orange-400"
-                placeholder="Enter Ride ID…"
-                value={deliveryRideId}
-                onChange={e => { setDeliveryRideId(e.target.value); setDeliveryError(null); setDeliveryResult(null); }}
-                onKeyDown={e => { if (e.key === "Enter") lookupDeliveryOtp(); }}
-              />
-            </div>
-            <Button
-              className="rounded-xl gap-1.5 shrink-0"
-              variant="outline"
-              onClick={lookupDeliveryOtp}
-              disabled={!deliveryRideId.trim() || deliveryLoading}
-            >
-              {deliveryLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              Lookup
-            </Button>
-          </div>
-
-          {/* Error */}
-          {deliveryError && (
-            <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2 text-xs text-red-700">
-              <XCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
-              {deliveryError}
-            </div>
-          )}
-
-          {/* Result */}
-          {deliveryResult && (
-            <div className={`rounded-xl border-2 p-4 space-y-3 ${
-              deliveryResult.displayStatus === "used" ? "bg-green-50 border-green-200" :
-              deliveryResult.displayStatus === "expired" ? "bg-muted/20 border-border" :
-              "bg-blue-50 border-blue-200"
-            }`}>
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Car className={`w-4 h-4 ${
-                    deliveryResult.displayStatus === "used" ? "text-green-600" :
-                    deliveryResult.displayStatus === "expired" ? "text-muted-foreground" :
-                    "text-blue-600"
-                  }`} />
-                  <span className="text-xs font-mono text-muted-foreground truncate max-w-[180px]">
-                    {deliveryResult.rideId}
-                  </span>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                  deliveryResult.displayStatus === "used"    ? "bg-green-100 text-green-700 border-green-300" :
-                  deliveryResult.displayStatus === "expired" ? "bg-muted text-muted-foreground border-border" :
-                  "bg-blue-100 text-blue-700 border-blue-300"
-                }`}>
-                  {deliveryResult.displayStatus.toUpperCase()}
-                </span>
-              </div>
-
-              {/* OTP digits */}
-              {deliveryResult.otp ? (
-                <div className="flex items-center gap-3">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">OTP</p>
-                  <div className="flex gap-1.5">
-                    {deliveryResult.otp.split("").map((digit, idx) => (
-                      <span
-                        key={idx}
-                        className={`w-8 h-10 flex items-center justify-center rounded-lg text-base font-extrabold border ${
-                          deliveryResult.displayStatus === "used"    ? "bg-green-100 border-green-300 text-green-800" :
-                          deliveryResult.displayStatus === "expired" ? "bg-muted border-border text-muted-foreground" :
-                          "bg-white border-blue-200 text-blue-900"
-                        }`}
-                      >
-                        {digit}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground italic">OTP not yet generated — rider has not arrived.</p>
-              )}
-
-              {/* Meta */}
-              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50 text-[11px]">
-                <div>
-                  <p className="text-muted-foreground">Ride Status</p>
-                  <p className="font-semibold capitalize">{deliveryResult.rideStatus}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">OTP Verified</p>
-                  <p className="font-semibold">{deliveryResult.otpVerified ? "Yes ✓" : "No"}</p>
-                </div>
-                {deliveryResult.arrivedAt && (
-                  <div>
-                    <p className="text-muted-foreground">Arrived At</p>
-                    <p className="font-semibold">{fmtDate(deliveryResult.arrivedAt)}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-muted-foreground">Ride Created</p>
-                  <p className="font-semibold">{fmtDate(deliveryResult.createdAt)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">OTP Attempts</p>
-                  <p className="font-semibold">{deliveryResult.otpAttempts.count}</p>
-                </div>
-                {deliveryResult.otpAttempts.firstAt && (
-                  <div>
-                    <p className="text-muted-foreground">First Attempt</p>
-                    <p className="font-semibold">{fmtDate(deliveryResult.otpAttempts.firstAt)}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {!deliveryResult && !deliveryError && !deliveryLoading && (
-            <div className="text-center py-8 text-sm text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border">
-              <Car className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
-              Enter a Ride ID to look up its delivery OTP
-            </div>
-          )}
-        </div>
-      </ProCard>
     </div>
   );
 }

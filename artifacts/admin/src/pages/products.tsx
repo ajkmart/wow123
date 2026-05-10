@@ -483,8 +483,7 @@ export default function Products() {
     } else {
       createMutation.mutate(payload, {
         onSuccess: () => { toast({ title: "Product created" }); setIsFormOpen(false); },
-        onError: onProductError,
-        onError: err => toast({ title: "Create failed", description: err.message, variant: "destructive" })
+        onError: (err: unknown) => toast({ title: "Create failed", description: errMsg(err), variant: "destructive" })
       });
     }
   };
@@ -493,15 +492,13 @@ export default function Products() {
     if (!deleteTarget) return;
     deleteMutation.mutate(deleteTarget.id, {
       onSuccess: () => { toast({ title: "Product deleted" }); setDeleteTarget(null); },
-      onError: onProductError,
-      onError: err => toast({ title: "Delete failed", description: err.message, variant: "destructive" })
+      onError: (err: unknown) => toast({ title: "Delete failed", description: errMsg(err), variant: "destructive" })
     });
   };
 
   const handleApprove = (prod: ProductRow) => {
     approveMutation.mutate({ id: prod.id }, {
       onSuccess: () => toast({ title: "Product approved", description: `${prod.name} is now live in the store` }),
-      onError: onProductError,
       onError: (err: unknown) => toast({ title: "Error", description: errMsg(err), variant: "destructive" }),
     });
   };
@@ -509,8 +506,7 @@ export default function Products() {
   const toggleStock = (prod: ProductRow) => {
     updateMutation.mutate({ id: prod.id, inStock: !prod.inStock }, {
       onSuccess: () => toast({ title: prod.inStock ? "Marked out of stock" : "Marked in stock" }),
-      onError: onProductError,
-      onError: err => toast({ title: "Failed", description: err.message, variant: "destructive" }),
+      onError: (err: unknown) => toast({ title: "Failed", description: errMsg(err), variant: "destructive" }),
     });
   };
 

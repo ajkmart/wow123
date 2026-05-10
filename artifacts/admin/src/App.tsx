@@ -79,7 +79,6 @@ import FaqManagement from "@/pages/faq-management";
 const ErrorMonitor = lazy(() => import("@/pages/error-monitor"));
 const Communication = lazy(() => import("@/pages/communication"));
 const SmsGateways = lazy(() => import("@/pages/sms-gateways"));
-const Communications = lazy(() => import("@/pages/communications"));
 import Loyalty from "@/pages/loyalty";
 import WalletTransfers from "@/pages/wallet-transfers";
 import ChatMonitor from "@/pages/chat-monitor";
@@ -350,9 +349,7 @@ function Router() {
       <Route path="/parcel"><ProtectedRoute component={Parcel} requiredPermission="fleet.parcel.view" /></Route>
       <Route path="/products"><ProtectedRoute component={Products} requiredPermission="content.products.view" /></Route>
       <Route path="/broadcast"><ProtectedRoute component={Broadcast} requiredPermission="support.broadcast.send" /></Route>
-      <Route path="/broadcast"><RedirectTo to="/communications?tab=send" /></Route>
       <Route path="/communications"><ProtectedRoute component={Communication} requiredPermission="support.broadcast.send" /></Route>
-      <Route path="/communications"><ProtectedRoute component={Communications} requiredPermission="support.broadcast.send" /></Route>
       <Route path="/transactions"><ProtectedRoute component={Transactions} requiredPermission="finance.transactions.view" /></Route>
       <Route path="/revenue-analytics"><RedirectTo to="/analytics?tab=revenue" /></Route>
       <Route path="/analytics"><ProtectedRoute component={AnalyticsPage} requiredPermission="finance.transactions.view" /></Route>

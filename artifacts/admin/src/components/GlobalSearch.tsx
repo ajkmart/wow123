@@ -61,7 +61,7 @@ const SEE_ALL_PATHS: Record<"user" | "order" | "rider", string> = {
 };
 
 interface GlobalSearchProps {
-  inputRef?: React.RefObject<HTMLInputElement>;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
   onClose?: () => void;
 }
 

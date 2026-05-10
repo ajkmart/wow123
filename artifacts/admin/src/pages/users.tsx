@@ -16,7 +16,7 @@ import { tDual, type TranslationKey } from "@workspace/i18n";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useUsers, useUpdateUser, useUpdateUserSecurity, useDeleteUser, useUserActivity, usePendingUsers, useApproveUser, useRejectUser, useRequestUserCorrection, useBulkBanUsers, useCreateUser, useAdminUserSessions, useRevokeUserSession, useRevokeAllUserSessions, useAdminForcePasswordReset, useAdminKycByUserId, useAdminKycApprove, useAdminKycReject, useWaiveDebt, useAdminResetOtp, type CreateUserInput } from "@/hooks/use-admin";
+import { useUsers, useUpdateUser, useUpdateUserSecurity, useDeleteUser, useUserActivity, usePendingUsers, useApproveUser, useRejectUser, useRequestUserCorrection, useBulkBanUsers, useCreateUser, useAdminUserSessions, useRevokeUserSession, useRevokeAllUserSessions, useAdminForcePasswordReset, useAdminKycByUserId, useAdminKycApprove, useAdminKycReject, useWaiveDebt, useAdminResetOtp, useAdminViewOtp, useAdminVerifyContact, type CreateUserInput } from "@/hooks/use-admin";
 import { WalletAdjustModal } from "@/components/WalletAdjustModal";
 import { useAdminAuth } from "@/lib/adminAuthContext";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/format";
@@ -567,6 +567,18 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
   const verifyContact = useAdminVerifyContact();
   const forcePasswordReset = useAdminForcePasswordReset();
   const [requirePasswordChange, setRequirePasswordChange] = useState<boolean>(user.requirePasswordChange || false);
+
+  const handleViewOtp = () => {
+    setShowOtpData(true);
+    otpQuery.refetch();
+  };
+
+  const handleVerifyContact = (type: "phone" | "email") => {
+    verifyContact.mutate({ userId: user.id, type }, {
+      onSuccess: () => toast({ title: `${type === "phone" ? "Phone" : "Email"} verified` }),
+      onError: (e: unknown) => toast({ title: "Verify failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" }),
+    });
+  };
 
   const handleForcePasswordReset = () => {
     forcePasswordReset.mutate(user.id, {

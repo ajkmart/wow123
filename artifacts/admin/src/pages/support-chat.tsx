@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { adminAbsoluteFetch } from "@/lib/adminFetcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -289,7 +289,7 @@ export default function SupportChatPage() {
                 <p className="text-sm">No messages yet</p>
               </div>
             ) : (
-              messages.map(msg => {
+              messages.map((msg: ChatMessage) => {
                 const isSupport = msg.isFromSupport;
                 return (
                   <div key={msg.id} className={cn("flex", isSupport ? "justify-end" : "justify-start")}>

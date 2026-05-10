@@ -464,32 +464,12 @@ export default function Products() {
             category:    (row["category"] || row["Category"] || bulkCat || "").trim(),
             unit:        (row["unit"] || row["Unit"] || "").trim(),
             stock:       stockRaw,
-            stock:       (row["stock"] || row["Stock"] || "").trim(),
             type:        ((row["type"] || row["Type"] || "mart").trim()) || "mart",
           });
         },
         complete: (results: Papa.ParseResult<Record<string, string>>) => {
           if (results.meta.aborted) {
             showToast("❌ CSV has more than 500 rows — split into files of ≤500 rows.");
-            return;
-          }
-          setParseErrors(rowErrors);
-          if (parsed.length === 0) {
-            showToast("❌ No valid rows found — check that 'name' and 'price' columns have values");
-            return;
-          }
-          /* Idempotency: check for name collisions against existing products */
-          const existingNames = new Set(products.map((p: any) => p.name.toLowerCase().trim()));
-          const dupes = parsed.map(r => r.name).filter(n => existingNames.has(n.toLowerCase().trim()));
-          if (dupes.length > 0) setDuplicateWarning(dupes);
-          else setDuplicateWarning([]);
-          setBulkRows(r => {
-            const empty = r.filter(x => !x.name.trim() && !x.price.trim());
-            return [...(empty.length === r.length ? [] : r), ...parsed];
-          });
-          if (switchToBulk) setView("bulk");
-          showToast(`✅ Imported ${parsed.length} rows${rowErrors.length ? ` (${rowErrors.length} skipped)` : ""}`);
-            showToast("❌ CSV has more than 500 rows — import rejected. Split into files of 500 rows or fewer.");
             return;
           }
           setParseErrors(rowErrors);

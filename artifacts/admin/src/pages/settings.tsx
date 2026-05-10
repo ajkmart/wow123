@@ -79,7 +79,7 @@ export default function SettingsPage() {
     const fromRoute = resolveTop10(params.section);
     if (fromRoute) return fromRoute;
     const p = new URLSearchParams(window.location.search);
-    return resolveTop10(p.get("tab")) ?? resolveTop10(p.get("cat")) ?? "services";
+    return resolveTop10(p.get("tab")) ?? resolveTop10(p.get("cat")) ?? "general";
   });
   // Sub-section deep link — when the path includes /:subsection we scroll to
   // it on mount. The legacy ?cat= query is also honoured so pre-existing

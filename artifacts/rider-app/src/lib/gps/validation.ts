@@ -48,8 +48,6 @@ function recordRejection(reason: string, lat: number, lng: number, suspicious = 
   _auditLog.push({ timestamp: Date.now(), reason: suspicious ? `[suspicious] ${reason}` : reason, lat, lng });
 }
 
-}
-
 function haversineDistanceM(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6_371_000;
   const toRad = (d: number) => (d * Math.PI) / 180;
