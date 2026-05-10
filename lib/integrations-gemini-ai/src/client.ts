@@ -1,30 +1,45 @@
 import { GoogleGenAI } from "@google/genai";
 
-function getAI(): GoogleGenAI {
-  if (!process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) {
-    throw new Error(
-      "AI_INTEGRATIONS_GEMINI_BASE_URL must be set. Did you forget to provision the Gemini AI integration?",
-    );
-  }
-  if (!process.env.AI_INTEGRATIONS_GEMINI_API_KEY) {
-    throw new Error(
-      "AI_INTEGRATIONS_GEMINI_API_KEY must be set. Did you forget to provision the Gemini AI integration?",
-    );
-  }
-  return new GoogleGenAI({
-    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-    httpOptions: {
-      apiVersion: "",
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-    },
-  });
-}
+const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
 
 let _ai: GoogleGenAI | null = null;
 
-export const ai = new Proxy({} as GoogleGenAI, {
+if (baseUrl && apiKey) {
+  _ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      apiVersion: "",
+      baseUrl,
+    },
+  });
+} else {
+  const missing = [
+    !baseUrl && "AI_INTEGRATIONS_GEMINI_BASE_URL",
+    !apiKey && "AI_INTEGRATIONS_GEMINI_API_KEY",
+  ].filter(Boolean);
+  console.warn(
+    `[gemini-ai] Gemini integration not configured — missing: ${missing.join(", ")}. ` +
+    `AI features will be unavailable. Provision the Gemini integration in the Replit Integrations panel.`
+  );
+}
+
+export function getAI(): GoogleGenAI {
+  if (!_ai) {
+    const missing = [
+      !baseUrl && "AI_INTEGRATIONS_GEMINI_BASE_URL",
+      !apiKey && "AI_INTEGRATIONS_GEMINI_API_KEY",
+    ].filter(Boolean);
+    throw new Error(
+      `Gemini AI is not configured. Missing: ${missing.join(", ")}. ` +
+      `Provision the Gemini integration in the Replit Integrations panel.`
+    );
+  }
+  return _ai;
+}
+
+export const ai: GoogleGenAI = new Proxy({} as GoogleGenAI, {
   get(_target, prop) {
-    if (!_ai) _ai = getAI();
-    return (_ai as Record<string | symbol, unknown>)[prop];
+    return getAI()[prop as keyof GoogleGenAI];
   },
 });

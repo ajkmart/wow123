@@ -1,0 +1,69 @@
+Phase 2: Schema, Data Integrity & Storage Fixes
+What & Why
+Fix data integrity issues caused by mismatches between the database schema and API specification, financial precision loss, broken enum contracts, and insecure token storage in the rider app. These issues cause wrong data reaching frontends, financial amounts displaying incorrectly, and tokens being vulnerable to XSS on mobile.
+
+Confirmed current state via codebase inspection:
+
+User.role is singular in generated types; DB uses roles (array)
+User.walletBalance and all financial fields typed as number — causes decimal precision loss
+Product lacks images, stock, and approvalStatus fields
+Order lacks vendorId, assignedRiderId, customerLat, customerLng
+OrderType enum only has mart and food — missing pharmacy, parcel, van, school
+OrderStatus and RideStatus enums are hardcoded in generated files, not from @workspace/service-constants
+discovery.ts manually re-defines Banner, RecommendationProduct instead of importing from @workspace/api-zod
+Neither rider-app nor vendor-app has @workspace/api-zod in their package.json
+rider-app/src/lib/api.ts silently falls back to localStorage when Capacitor Preferences throws
+The tokenStoreReady migration in rider-app swallows errors and may silently fail without surfacing auth failure
+Done looks like
+User type has roles: string[] (plural); frontend consumers updated from user.role → user.roles
+Product type includes images: string[], stock: number, approvalStatus enum; vendor and customer app components can use these without type errors
+Order type includes vendorId, assignedRiderId, customerLat, customerLng; rider assignment and GPS tracking compile cleanly
+All financial fields (total, price, walletBalance, commission, originalPrice) typed as string in openapi.yaml, Zod types, and frontend consumers; a shared formatCurrency(value: string) utility is used instead of raw Number() coercion
+OrderStatus and RideStatus enum values in openapi.yaml and Zod types match @workspace/service-constants exactly; OrderType includes all 7 service keys
+@workspace/api-zod: "workspace:*" listed in both rider-app and vendor-app package.json
+discovery.ts no longer manually re-defines Banner, WishlistItem, or RecommendationProduct — imports them from @workspace/api-zod
+Rider app preferencesSet, preferencesGet, preferencesRemove throw on failure instead of silently downgrading to localStorage
+tokenStoreReady in rider-app surfaces a visible auth error if Preferences fails; AuthProvider awaits it before reading any token
+Out of scope
+Database column migrations (changing existing DB columns)
+Any UI changes to display financial data differently
+Phase 1 or Phase 3 issues
+Steps
+Fix role → roles in API spec and Zod — Update the User schema in lib/api-spec/openapi.yaml from role: string to roles as a string array. Manually update lib/api-zod/src/generated/types/user.ts accordingly (since regeneration via orval would overwrite all types). Search all frontend consumers (rider-app, vendor-app, ajkmart, api-client-react) for user.role and update to user.roles.
+
+Expand Product schema — Add images (string array), stock (integer), and approvalStatus (enum: pending | approved | rejected) to the Product schema in openapi.yaml and update lib/api-zod/src/generated/types/product.ts. Update vendor-app and customer-app product components that display or submit these fields to reference the new typed fields.
+
+Expand Order schema — Add vendorId, assignedRiderId, customerLat, and customerLng to the Order schema in openapi.yaml and update lib/api-zod/src/generated/types/order.ts. Verify rider-app order and ride views and customer-app order tracking consume the new fields correctly (no [extra: string]: unknown casts needed).
+
+Fix financial fields to string type — Change total, price, originalPrice, walletBalance, and commission from type: number to type: string in openapi.yaml. Update all corresponding Zod generated type files. Add a formatCurrency(value: string): string utility in a shared location (e.g. lib/api-zod/src/utils.ts or lib/api-client-react/src/utils.ts). Update wallet display, order totals, and product price components across all apps to use this utility instead of raw Number() coercion.
+
+Centralize status enums from @workspace/service-constants — Export OrderStatus and RideStatus constant objects from lib/service-constants/src/index.ts. Update lib/api-zod/src/generated/types/orderStatus.ts and rideStatus.ts to import and re-export these values from @workspace/service-constants rather than defining them inline. Ensure the values in openapi.yaml match exactly.
+
+Add missing service types to OrderType — Add rides, pharmacy, parcel, van, and school to the OrderType enum in openapi.yaml and update lib/api-zod/src/generated/types/orderType.ts to match the full ServiceKey list from @workspace/service-constants.
+
+Remove manual type re-definitions in discovery.ts — In lib/api-client-react/src/discovery.ts, remove the manually defined Banner, WishlistItem, and RecommendationProduct interfaces. Import and use the equivalent types from @workspace/api-zod (adding the dependency to lib/api-client-react/package.json if not already present). Update all usages within the file to the imported types.
+
+Add @workspace/api-zod to rider-app and vendor-app — Add @workspace/api-zod: "workspace:*" to devDependencies in artifacts/rider-app/package.json and artifacts/vendor-app/package.json. Update their local api.ts type annotations that use permissive [extra: string]: unknown patterns to reference the shared Zod-generated types instead.
+
+Harden rider-app token storage — remove localStorage fallback — In artifacts/rider-app/src/lib/api.ts, update preferencesSet, preferencesGet, and preferencesRemove to re-throw the error from Capacitor Preferences instead of catching it and silently falling back to localStorage. The caller (auth flow) is responsible for handling the thrown error and surfacing a visible failure to the user.
+
+Fix token migration race condition in rider-app — In artifacts/rider-app/src/lib/api.ts, ensure tokenStoreReady propagates errors (removes the bare catch {}) and that the AuthProvider fully awaits tokenStoreReady before reading any token or initializing auth state. If the migration throws, the AuthProvider must show a visible error state rather than silently treating the session as unauthenticated.
+
+Relevant files
+lib/api-spec/openapi.yaml
+lib/api-zod/src/index.ts
+lib/api-zod/src/generated/types/user.ts
+lib/api-zod/src/generated/types/product.ts
+lib/api-zod/src/generated/types/order.ts
+lib/api-zod/src/generated/types/orderStatus.ts
+lib/api-zod/src/generated/types/orderType.ts
+lib/api-zod/src/generated/types/rideStatus.ts
+lib/api-zod/src/generated/types/vendorOrder.ts
+lib/service-constants/src/index.ts
+lib/api-client-react/src/discovery.ts
+lib/api-client-react/src/generated/api.schemas.ts
+artifacts/rider-app/src/lib/api.ts
+artifacts/rider-app/package.json
+artifacts/vendor-app/src/lib/api.ts
+artifacts/vendor-app/package.json
+artifacts/ajkmart/context/AuthContext.tsx

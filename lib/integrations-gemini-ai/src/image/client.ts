@@ -1,39 +1,34 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
-function getAI(): GoogleGenAI {
-  if (!process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) {
-    throw new Error(
-      "AI_INTEGRATIONS_GEMINI_BASE_URL must be set. Did you forget to provision the Gemini AI integration?",
-    );
-  }
-  if (!process.env.AI_INTEGRATIONS_GEMINI_API_KEY) {
-    throw new Error(
-      "AI_INTEGRATIONS_GEMINI_API_KEY must be set. Did you forget to provision the Gemini AI integration?",
-    );
-  }
-  return new GoogleGenAI({
-    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+
+let _ai: GoogleGenAI | null = null;
+
+if (baseUrl && apiKey) {
+  _ai = new GoogleGenAI({
+    apiKey,
     httpOptions: {
       apiVersion: "",
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+      baseUrl,
     },
   });
 }
 
-let _ai: GoogleGenAI | null = null;
-
-export const ai = new Proxy({} as GoogleGenAI, {
-  get(_target, prop) {
-    if (!_ai) _ai = getAI();
-    return (_ai as Record<string | symbol, unknown>)[prop];
-  },
-});
+function getAI(): GoogleGenAI {
+  if (!_ai) {
+    throw new Error(
+      `Gemini AI is not configured. Provision the Gemini integration in the Replit Integrations panel.`
+    );
+  }
+  return _ai;
+}
 
 export async function generateImage(
   prompt: string
 ): Promise<{ b64_json: string; mimeType: string }> {
-  const aiClient = getAI();
-  const response = await aiClient.models.generateContent({
+  const ai = getAI();
+  const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-image",
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: {
@@ -43,7 +38,8 @@ export async function generateImage(
 
   const candidate = response.candidates?.[0];
   const imagePart = candidate?.content?.parts?.find(
-    (part: { inlineData?: { data?: string; mimeType?: string } }) => part.inlineData
+    (part: { inlineData?: { data?: string; mimeType?: string } }) =>
+      part.inlineData
   );
 
   if (!imagePart?.inlineData?.data) {

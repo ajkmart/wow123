@@ -30,7 +30,15 @@ args = "Start application"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "artifacts/admin: web"
+args = "Admin Panel"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Vendor App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Rider App"
 
 [[workflows.workflow]]
 name = "Start application"
@@ -45,16 +53,40 @@ args = "pnpm install --no-frozen-lockfile && cd artifacts/api-server && pnpm run
 waitForPort = 5000
 
 [[workflows.workflow]]
-name = "artifacts/admin: web"
+name = "Admin Panel"
 author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm install --no-frozen-lockfile && cd artifacts/admin && pnpm run dev"
+waitForPort = 3000
 
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "Vendor App"
+author = "agent"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "ADMIN_PORT_OVERRIDE=3000 ADMIN_DEV_PORT=3000 cd artifacts/admin && node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0"
-waitForPort = 3000
+args = "pnpm install --no-frozen-lockfile && cd artifacts/vendor-app && pnpm run dev"
+waitForPort = 3002
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Rider App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm install --no-frozen-lockfile && cd artifacts/rider-app && pnpm run dev"
+waitForPort = 3003
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -143,13 +175,17 @@ localPort = 3000
 externalPort = 3000
 
 [[ports]]
-localPort = 3003
-externalPort = 3003
-
-[[ports]]
 localPort = 4200
 externalPort = 4200
 
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+[[ports]]
+localPort = 3003
+externalPort = 3003
