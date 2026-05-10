@@ -1,7 +1,26 @@
 import { customFetch } from "./custom-fetch";
-import type { Banner, RecommendationProduct, WishlistItem } from "@workspace/api-zod";
+import type { Banner } from "@workspace/api-zod";
 
-export type { Banner, RecommendationProduct, WishlistItem };
+export type { Banner };
+
+export interface RecommendationProduct {
+  id: string;
+  name: string;
+  price: string;
+  image: string | null;
+  category: string | null;
+  originalPrice?: string;
+  rating: number | null;
+  vendorName: string | null;
+  type: string | null;
+}
+
+export interface WishlistItem {
+  id: string;
+  productId: string;
+  product: RecommendationProduct;
+  createdAt: string;
+}
 
 export const getBanners = async (
   params?: { placement?: string; service?: string },

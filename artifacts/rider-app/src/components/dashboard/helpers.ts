@@ -1,8 +1,14 @@
-export function formatCurrency(n: number, currencySymbol = "Rs."): string {
-  if (!Number.isFinite(n)) return `${currencySymbol} 0`;
-  const rounded = Math.round(n);
-  const prefix = rounded < 0 ? "-" : "";
-  return `${prefix}${currencySymbol} ${Math.abs(rounded).toLocaleString()}`;
+import { formatCurrency as _sharedFc } from "@workspace/api-zod";
+
+/**
+ * Precision-safe currency formatter — delegates to the shared @workspace/api-zod
+ * utility so API monetary strings (fare, amount, walletBalance) are never coerced
+ * through Number() / Math.round() before display.
+ *
+ * Accepts string (from API) or number (from local calculations like riderEarningPct).
+ */
+export function formatCurrency(value: string | number | null | undefined, currencySymbol = "Rs."): string {
+  return _sharedFc(value != null ? String(value) : (value as null | undefined), currencySymbol);
 }
 
 export function timeAgo(d: string | Date): string {

@@ -8,17 +8,10 @@
 
 export interface Banner {
   id: string;
-  title: string;
-  subtitle: string | null;
-  imageUrl: string | null;
-  linkType: string;
-  linkValue: string | null;
-  linkUrl: string | null;
-  placement: string;
-  targetService: string | null;
-  gradient1: string | null;
-  gradient2: string | null;
-  icon: string | null;
-  sortOrder: number;
+  title?: string;
+  imageUrl: string;
+  linkUrl?: string;
+  type?: string;
+  position?: number;
   isActive: boolean;
 }

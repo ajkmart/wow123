@@ -235,66 +235,11 @@ interface ApiEnvelope<T = unknown> {
   code?: string;
 }
 
-/** Typed shape returned by GET /rider/requests (includes serverTime envelope field) */
-/* T1: Concrete shapes for the Rider request feed. The previous `any[]`
-   annotations propagated unchecked through Home/Active filters and renderers,
-   so a backend rename used to silently render `undefined`. We keep the types
-   permissive (most fields optional) because the backend still returns
-   loosely-shaped payloads in some legacy code paths, but every consumer now
-   gets compile-time guidance for the canonical fields. */
-export interface Order {
-  id: string;
-  status?: string;
-  pickupAddress?: string;
-  pickupLat?: number;
-  pickupLng?: number;
-  dropoffAddress?: string;
-  dropoffLat?: number;
-  dropoffLng?: number;
-  customerName?: string;
-  customerPhone?: string;
-  total?: string;
-  fare?: string;
-  riderEarning?: string;
-  paymentMethod?: string;
-  distance?: number;
-  duration?: number;
-  createdAt?: string;
-  items?: Array<{ name?: string; quantity?: number; price?: string }>;
-  vendorName?: string;
-  vendorPhone?: string;
-  vendorAddress?: string;
-  notes?: string;
-}
-
-export interface Ride {
-  id: string;
-  status?: string;
-  pickupAddress?: string;
-  pickupLat?: number;
-  pickupLng?: number;
-  dropoffAddress?: string;
-  dropoffLat?: number;
-  dropoffLng?: number;
-  customerName?: string;
-  customerPhone?: string;
-  fare?: string;
-  riderEarning?: string;
-  distance?: number;
-  duration?: number;
-  paymentMethod?: string;
-  vehicleType?: string;
-  createdAt?: string;
-  scheduledFor?: string;
-  notes?: string;
-}
-
-export interface RiderRequestsResponse {
-  orders: Order[];
-  rides: Ride[];
-  /** ISO timestamp from the server at response time — used to offset AcceptCountdown */
-  _serverTime: string | null;
-}
+/* T1: Rider request-feed types are imported from @workspace/api-zod (generated
+   from the OpenAPI spec). RiderOrder / RiderRide have all rider-facing fields
+   with monetary values typed as string for precision safety. They are re-exported
+   here as `Order` / `Ride` so existing consumers (Home.tsx etc.) need no changes. */
+export type { RiderOrder as Order, RiderRide as Ride, RiderRequestsResponse } from "@workspace/api-zod";
 
 /* ── Configurable network settings ────────────────────────────────────────────
    These are updated at startup by the platform config. Defaults match the

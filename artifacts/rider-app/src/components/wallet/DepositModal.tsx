@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { formatCurrency as _sharedFcD } from "@workspace/api-zod";
 import { api, apiFetch } from "../../lib/api";
 import { riderIsDev } from "../../lib/envValidation";
 import { checkSufficientBalance } from "../../lib/wallet/validation";
@@ -23,7 +24,7 @@ export default function DepositModal({
   minBalance: number; balance: number; onClose: () => void; onSuccess: () => void;
 }) {
   const { symbol: currencySymbol } = useCurrency();
-  const fc = (n: number) => `${currencySymbol} ${Math.round(n).toLocaleString()}`;
+  const fc = (n: string | number | null | undefined) => _sharedFcD(n != null ? String(n) : (n as null | undefined), currencySymbol);
   const [amount, setAmount]         = useState("");
   const [selectedMethod, setMethod] = useState<PayMethod | null>(null);
   const [txId, setTxId]             = useState("");
@@ -277,7 +278,7 @@ export default function DepositModal({
                 <div className="border-t border-teal-200 pt-2 mt-2">
                   <p className="text-xs text-teal-700">
                     {selectedMethod.manualInstructions || selectedMethod.instructions ||
-                      `${currencySymbol} ${Number(amount).toLocaleString()} transfer karein aur Transaction ID yahan daalen.`}
+                      `${fc(amount, currencySymbol)} transfer karein aur Transaction ID yahan daalen.`}
                   </p>
                 </div>
               </div>

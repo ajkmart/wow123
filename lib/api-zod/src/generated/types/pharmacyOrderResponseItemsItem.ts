@@ -9,5 +9,5 @@
 export type PharmacyOrderResponseItemsItem = {
   name: string;
   quantity: number;
-  price?: number;
+  price?: string;
 };

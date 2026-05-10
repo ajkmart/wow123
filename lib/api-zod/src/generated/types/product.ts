@@ -5,15 +5,8 @@
  * AJKMart Super App API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProductApprovalStatus } from "./productApprovalStatus";
 import type { ProductType } from "./productType";
-
-export type ProductApprovalStatus = (typeof ProductApprovalStatus)[keyof typeof ProductApprovalStatus];
-
-export const ProductApprovalStatus = {
-  pending: "pending",
-  approved: "approved",
-  rejected: "rejected",
-} as const;
 
 export interface Product {
   id: string;

@@ -11,6 +11,6 @@ export type RiderHistoryResponseEntriesItem = {
   id: string;
   type: RiderHistoryResponseEntriesItemType;
   status: string;
-  fare?: number;
+  fare?: string;
   createdAt: string;
 };

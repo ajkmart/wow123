@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { formatCurrency as _sharedFcW2 } from "@workspace/api-zod";
 import { useAuth } from "../../lib/auth";
 import { api, apiFetch } from "../../lib/api";
 import { riderIsDev } from "../../lib/envValidation";
@@ -44,7 +45,7 @@ export default function WithdrawModal({
   const { language } = useLanguage();
   const T = (key: TranslationKey) => tDual(key, language);
   const currency = config.platform.currencySymbol ?? "Rs.";
-  const fc = (n: number) => `${currency} ${Math.round(n).toLocaleString()}`;
+  const fc = (n: string | number | null | undefined) => _sharedFcW2(n != null ? String(n) : (n as null | undefined), currency);
 
   const [todayWithdrawn, setTodayWithdrawn]         = useState(0);
   const [todayWithdrawCount, setTodayWithdrawCount] = useState(0);

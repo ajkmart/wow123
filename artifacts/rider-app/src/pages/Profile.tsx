@@ -1,3 +1,4 @@
+import { formatCurrency as _sharedFcP } from "@workspace/api-zod";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -17,7 +18,7 @@ import { usePlatformConfig } from "../lib/useConfig";
 import { useLanguage } from "../lib/useLanguage";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 
-const fc = (n: number | string, currencySymbol = "Rs.") => `${currencySymbol} ${Math.round(Number(n)).toLocaleString()}`;
+const fc = (n: string | number | null | undefined, currencySymbol = "Rs.") => _sharedFcP(n != null ? String(n) : (n as null | undefined), currencySymbol);
 
 const CITIES   = ["Muzaffarabad","Mirpur","Rawalakot","Bagh","Kotli","Bhimber","Jhelum","Rawalpindi","Islamabad","Other"];
 const BANKS    = ["EasyPaisa","JazzCash","MCB","HBL","UBL","Meezan Bank","Bank Alfalah","NBP","Allied Bank","Other"];
@@ -1076,7 +1077,7 @@ export default function Profile() {
                               {(p.type || "penalty").replace(/_/g, " ")}
                             </span>
                             {Number(p.amount) > 0 && (
-                              <span className="text-xs font-black text-red-600">−{currency} {Math.round(Number(p.amount))}</span>
+                              <span className="text-xs font-black text-red-600">−{fc(p.amount, currency)}</span>
                             )}
                           </div>
                           {p.reason && <p className="text-xs text-gray-600 mt-1 leading-relaxed">{p.reason}</p>}

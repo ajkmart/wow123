@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type RedeemLoyaltyPoints200 = {
-  message?: string;
-  pointsUsed?: number;
-  walletCredit?: string;
-};
+export interface RiderOrderItem {
+  name?: string;
+  quantity?: number;
+  price?: string;
+}

@@ -8,5 +8,5 @@
 
 export type WalletSend200 = {
   message?: string;
-  newBalance?: number;
+  newBalance?: string;
 };

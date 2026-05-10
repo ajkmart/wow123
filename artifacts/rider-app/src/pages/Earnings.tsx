@@ -1,3 +1,4 @@
+import { formatCurrency as _sharedFcE } from "@workspace/api-zod";
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,7 +24,7 @@ export default function Earnings() {
   const { language } = useLanguage();
   const T = (key: Parameters<typeof tDual>[0]) => tDual(key, language);
   const currency = config.platform.currencySymbol ?? "Rs.";
-  const formatCurrency = (n: number | string) => `${currency} ${Math.round(Number(n)).toLocaleString()}`;
+  const formatCurrency = (n: string | number | null | undefined) => _sharedFcE(n != null ? String(n) : (n as null | undefined), currency);
   const riderKeepPct = config.rider?.keepPct ?? config.finance.riderEarningPct;
   const [period, setPeriod] = useState<Period>("week");
   const qc = useQueryClient();

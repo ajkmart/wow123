@@ -13,7 +13,7 @@ export interface PaymentMethod {
   available: boolean;
   mode?: string;
   description?: string;
-  maxAmount?: number;
-  fee?: number;
-  freeAbove?: number;
+  maxAmount?: string;
+  fee?: string;
+  freeAbove?: string;
 }

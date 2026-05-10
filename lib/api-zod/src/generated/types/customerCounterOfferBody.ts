@@ -7,5 +7,5 @@
  */
 
 export type CustomerCounterOfferBody = {
-  offeredFare?: number;
+  offeredFare?: string;
 };

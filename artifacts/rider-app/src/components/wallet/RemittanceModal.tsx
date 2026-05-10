@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { formatCurrency as _sharedFcR } from "@workspace/api-zod";
 import { api, apiFetch } from "../../lib/api";
 import { riderIsDev } from "../../lib/envValidation";
 import { useAuth } from "../../lib/auth";
@@ -23,7 +24,7 @@ export default function RemittanceModal({ netOwed, codCollected, onClose, onSucc
 }) {
   const { user } = useAuth();
   const { symbol: currencySymbol } = useCurrency();
-  const fc = (n: number) => `${currencySymbol} ${Math.round(n).toLocaleString()}`;
+  const fc = (n: string | number | null | undefined) => _sharedFcR(n != null ? String(n) : (n as null | undefined), currencySymbol);
   const [step, setStep]     = useState<"method"|"details"|"confirm"|"done">("method");
   const [method, setMethod] = useState<PayMethod | null>(null);
   const [amount, setAmount] = useState(String(Math.ceil(netOwed)));

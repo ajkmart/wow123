@@ -7,5 +7,5 @@
  */
 
 export type RiderAcceptRideBody = {
-  fare?: number;
+  fare?: string;
 };

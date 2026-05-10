@@ -1,3 +1,4 @@
+import { formatCurrency as _sharedFc } from "@workspace/api-zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
@@ -260,7 +261,7 @@ function useElapsedTimer(startIso?: string | null) {
   return { label, elapsed, urgent };
 }
 
-function formatCurrency(n: number, currencySymbol = "Rs.") { return `${currencySymbol} ${Math.round(n).toLocaleString()}`; }
+function formatCurrency(n: string | number | null | undefined, currencySymbol = "Rs.") { return _sharedFc(n != null ? String(n) : (n as null | undefined), currencySymbol); }
 
 function ElapsedBadge({ startIso }: { startIso?: string | null }) {
   const { label, urgent, elapsed } = useElapsedTimer(startIso);

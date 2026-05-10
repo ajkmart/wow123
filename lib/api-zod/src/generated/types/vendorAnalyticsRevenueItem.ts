@@ -8,5 +8,5 @@
 
 export type VendorAnalyticsRevenueItem = {
   date?: string;
-  amount?: number;
+  amount?: string;
 };

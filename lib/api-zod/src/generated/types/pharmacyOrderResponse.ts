@@ -14,7 +14,7 @@ export interface PharmacyOrderResponse {
   items?: PharmacyOrderResponseItemsItem[];
   prescriptionUrl?: string;
   status: PharmacyOrderResponseStatus;
-  total?: number;
+  total?: string;
   deliveryAddress?: string;
   paymentMethod?: string;
   note?: string;

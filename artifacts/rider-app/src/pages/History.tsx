@@ -1,3 +1,4 @@
+import { formatCurrency as _sharedFcH } from "@workspace/api-zod";
 import { useState, useCallback } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,7 +15,7 @@ function formatDate(d: string | Date, tz?: string) {
   return formatDateTz(d, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, tz ?? "Asia/Karachi");
 }
 
-function formatCurrency(n: number) { return `Rs. ${Math.round(n).toLocaleString()}`; }
+function formatCurrency(n: string | number | null | undefined) { return _sharedFcH(n != null ? String(n) : (n as null | undefined)); }
 
 type FilterPeriod = "today" | "week" | "all";
 type FilterKind   = "all" | "order" | "ride";
@@ -37,7 +38,6 @@ export default function History() {
   const T = (key: Parameters<typeof tDual>[0]) => tDual(key, language);
   const { config } = usePlatformConfig();
   const tz = config.regional?.timezone ?? "Asia/Karachi";
-  const formatCurrency = (n: number) => `${config.platform.currencySymbol ?? "Rs."} ${Math.round(n).toLocaleString()}`;
   const qc = useQueryClient();
 
   const {

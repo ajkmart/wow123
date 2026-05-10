@@ -351,7 +351,7 @@ export function RideRequestCard({
                     <MessageSquare size={11} /> Your Bid Pending
                   </p>
                   <p className="text-lg font-extrabold text-orange-600">
-                    {currency} {Math.round(Number(r.myBid.fare))}
+                    {formatCurrency(r.myBid.fare, currency)}
                   </p>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-orange-100 text-orange-600 rounded-full animate-pulse border border-orange-200">

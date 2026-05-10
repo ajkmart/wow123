@@ -204,22 +204,14 @@ export interface SessionsResponse {
   sessions: Session[];
 }
 
-export type UserRole = (typeof UserRole)[keyof typeof UserRole];
-
-export const UserRole = {
-  customer: "customer",
-  rider: "rider",
-  vendor: "vendor",
-} as const;
-
 export interface User {
   id: string;
   phone: string;
   name?: string;
   email?: string;
-  role: UserRole;
+  roles: string[];
   avatar?: string;
-  walletBalance: number;
+  walletBalance: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -240,7 +232,7 @@ export interface UpdateProfileRequest {
 export interface CartItem {
   productId: string;
   name: string;
-  price: number;
+  price: string;
   quantity: number;
   image?: string;
 }
@@ -257,17 +249,34 @@ export type ProductType = (typeof ProductType)[keyof typeof ProductType];
 export const ProductType = {
   mart: "mart",
   food: "food",
+  rides: "rides",
+  pharmacy: "pharmacy",
+  parcel: "parcel",
+  van: "van",
+  school: "school",
+} as const;
+
+export type ProductApprovalStatus =
+  (typeof ProductApprovalStatus)[keyof typeof ProductApprovalStatus];
+
+export const ProductApprovalStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
 } as const;
 
 export interface Product {
   id: string;
   name: string;
   description?: string;
-  price: number;
-  originalPrice?: number;
+  price: string;
+  originalPrice?: string;
   category: string;
   type: ProductType;
   image?: string;
+  images?: string[];
+  stock?: number;
+  approvalStatus?: ProductApprovalStatus;
   videoUrl?: string | null;
   vendorId?: string;
   vendorName?: string;
@@ -294,7 +303,7 @@ export const CreateProductRequestType = {
 export interface CreateProductRequest {
   name: string;
   description?: string;
-  price: number;
+  price: string;
   category: string;
   type: CreateProductRequestType;
   image?: string;
@@ -326,6 +335,11 @@ export type OrderType = (typeof OrderType)[keyof typeof OrderType];
 export const OrderType = {
   mart: "mart",
   food: "food",
+  rides: "rides",
+  pharmacy: "pharmacy",
+  parcel: "parcel",
+  van: "van",
+  school: "school",
 } as const;
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
@@ -334,6 +348,8 @@ export const OrderStatus = {
   pending: "pending",
   confirmed: "confirmed",
   preparing: "preparing",
+  ready: "ready",
+  picked_up: "picked_up",
   out_for_delivery: "out_for_delivery",
   delivered: "delivered",
   cancelled: "cancelled",
@@ -350,11 +366,15 @@ export const OrderPaymentMethod = {
 export interface Order {
   id: string;
   userId: string;
+  vendorId?: string;
+  assignedRiderId?: string;
   type: OrderType;
   items: CartItem[];
   status: OrderStatus;
-  total: number;
+  total: string;
   deliveryAddress?: string;
+  customerLat?: number;
+  customerLng?: number;
   paymentMethod: OrderPaymentMethod;
   riderId?: string;
   estimatedTime?: string;
@@ -420,13 +440,13 @@ export const WalletTransactionType = {
 export interface WalletTransaction {
   id: string;
   type: WalletTransactionType;
-  amount: number;
+  amount: string;
   description: string;
   createdAt: string;
 }
 
 export interface WalletResponse {
-  balance: number;
+  balance: string;
   transactions: WalletTransaction[];
 }
 
@@ -437,11 +457,11 @@ export interface WalletTransactionsResponse {
 
 export interface TopUpRequest {
   userId: string;
-  amount: number;
+  amount: string;
 }
 
 export interface WalletDepositRequest {
-  amount: number;
+  amount: string;
   paymentMethod: string;
   transactionId: string;
   idempotencyKey: string;
@@ -466,7 +486,7 @@ export const WalletDepositStatus = {
 
 export interface WalletDeposit {
   id: string;
-  amount: number;
+  amount: string;
   paymentMethod: string;
   status: WalletDepositStatus;
   transactionId?: string;
@@ -482,9 +502,9 @@ export interface WalletMethod {
   id: string;
   label: string;
   description?: string;
-  minAmount?: number;
-  maxAmount?: number;
-  fee?: number;
+  minAmount?: string;
+  maxAmount?: string;
+  fee?: string;
   logo?: string;
   available: boolean;
 }
@@ -494,7 +514,7 @@ export interface WalletMethodsResponse {
 }
 
 export interface WalletWithdrawRequest {
-  amount: number;
+  amount: string;
   method: string;
   accountNumber: string;
   accountTitle?: string;
@@ -504,7 +524,7 @@ export interface WalletWithdrawRequest {
 export interface WalletSendRequest {
   receiverPhone?: string;
   ajkId?: string;
-  amount: number;
+  amount: string;
   note?: string;
 }
 
@@ -539,9 +559,9 @@ export interface RideService {
   icon: string;
   description?: string;
   color: string;
-  baseFare: number;
-  perKm: number;
-  minFare: number;
+  baseFare: string;
+  perKm: string;
+  minFare: string;
   maxPassengers: number;
   allowBargaining: boolean;
 }
@@ -556,7 +576,7 @@ export interface RideBid {
   riderId: string;
   riderName: string;
   riderPhone?: string | null;
-  fare: number;
+  fare: string;
   note?: string | null;
   status: string;
   vehiclePlate?: string | null;
@@ -579,8 +599,11 @@ export type RideStatus = (typeof RideStatus)[keyof typeof RideStatus];
 
 export const RideStatus = {
   searching: "searching",
-  confirmed: "confirmed",
-  in_progress: "in_progress",
+  bargaining: "bargaining",
+  accepted: "accepted",
+  arrived: "arrived",
+  in_transit: "in_transit",
+  ongoing: "ongoing",
   completed: "completed",
   cancelled: "cancelled",
 } as const;
@@ -604,7 +627,7 @@ export interface Ride {
   pickupLng?: number;
   dropLat?: number;
   dropLng?: number;
-  fare: number;
+  fare: string;
   distance: number;
   riderId?: string;
   riderName?: string;
@@ -671,7 +694,7 @@ export interface EstimateFareRequest {
 
 export interface FareEstimate {
   distance: number;
-  fare: number;
+  fare: string;
   duration: string;
   type: string;
 }
@@ -951,7 +974,7 @@ export interface FaqEntry {
 export type PharmacyOrderResponseItemsItem = {
   name: string;
   quantity: number;
-  price?: number;
+  price?: string;
 };
 
 export type PharmacyOrderResponseStatus =
@@ -972,7 +995,7 @@ export interface PharmacyOrderResponse {
   items?: PharmacyOrderResponseItemsItem[];
   prescriptionUrl?: string;
   status: PharmacyOrderResponseStatus;
-  total?: number;
+  total?: string;
   deliveryAddress?: string;
   paymentMethod?: string;
   note?: string;
@@ -1011,11 +1034,11 @@ export interface ParcelEstimateRequest {
 }
 
 export interface ParcelEstimateResponse {
-  fare: number;
+  fare: string;
   estimatedTime: string;
   parcelType?: string;
-  baseFee?: number;
-  perKgRate?: number;
+  baseFee?: string;
+  perKgRate?: string;
   weightKg?: number;
 }
 
@@ -1043,7 +1066,7 @@ export interface ParcelBooking {
   parcelType: string;
   weight?: number;
   description?: string;
-  fare: number;
+  fare: string;
   paymentMethod: string;
   status: ParcelBookingStatus;
   estimatedTime?: string;
@@ -1089,9 +1112,9 @@ export interface PaymentMethod {
   available: boolean;
   mode?: string;
   description?: string;
-  maxAmount?: number;
-  fee?: number;
-  freeAbove?: number;
+  maxAmount?: string;
+  fee?: string;
+  freeAbove?: string;
 }
 
 export interface PaymentMethodsResponse {
@@ -1216,7 +1239,7 @@ export interface VendorOrdersResponse {
 export interface VendorCreateProductRequest {
   name: string;
   description?: string;
-  price: number;
+  price: string;
   categoryId: string;
   stock?: number;
   unit?: string;
@@ -1227,7 +1250,7 @@ export interface VendorCreateProductRequest {
 
 export type VendorAnalyticsRevenueItem = {
   date?: string;
-  amount?: number;
+  amount?: string;
 };
 
 export type VendorAnalyticsOrdersItem = {
@@ -1270,7 +1293,7 @@ export interface RiderProfile {
   isApproved: boolean;
   rating?: number;
   totalRides?: number;
-  walletBalance?: number;
+  walletBalance?: string;
 }
 
 export interface UpdateRiderProfileRequest {
@@ -1281,9 +1304,70 @@ export interface UpdateRiderProfileRequest {
   emergencyContact?: string;
 }
 
+export interface RiderOrderItem {
+  name?: string;
+  quantity?: number;
+  price?: string;
+}
+
+/**
+ * Rider-facing view of a delivery order (request feed + active trip)
+ */
+export interface RiderOrder {
+  id: string;
+  status?: string;
+  pickupAddress?: string;
+  pickupLat?: number;
+  pickupLng?: number;
+  dropoffAddress?: string;
+  dropoffLat?: number;
+  dropoffLng?: number;
+  customerName?: string;
+  customerPhone?: string;
+  total?: string;
+  fare?: string;
+  riderEarning?: string;
+  paymentMethod?: string;
+  distance?: number;
+  duration?: number;
+  createdAt?: string;
+  items?: RiderOrderItem[];
+  vendorName?: string;
+  vendorPhone?: string;
+  vendorAddress?: string;
+  notes?: string;
+}
+
+/**
+ * Rider-facing view of a ride (request feed + active trip)
+ */
+export interface RiderRide {
+  id: string;
+  status?: string;
+  pickupAddress?: string;
+  pickupLat?: number;
+  pickupLng?: number;
+  dropoffAddress?: string;
+  dropoffLat?: number;
+  dropoffLng?: number;
+  customerName?: string;
+  customerPhone?: string;
+  fare?: string;
+  riderEarning?: string;
+  distance?: number;
+  duration?: number;
+  paymentMethod?: string;
+  vehicleType?: string;
+  createdAt?: string;
+  scheduledFor?: string;
+  notes?: string;
+}
+
 export interface RiderRequestsResponse {
-  orders: Order[];
-  rides: Ride[];
+  orders: RiderOrder[];
+  rides: RiderRide[];
+  /** ISO timestamp from the server at response time */
+  _serverTime?: string | null;
 }
 
 export type RiderActiveResponseType =
@@ -1315,7 +1399,7 @@ export type RiderHistoryResponseEntriesItem = {
   id: string;
   type: RiderHistoryResponseEntriesItemType;
   status: string;
-  fare?: number;
+  fare?: string;
   createdAt: string;
 };
 
@@ -1326,16 +1410,16 @@ export interface RiderHistoryResponse {
 
 export type RiderEarningsBreakdownItem = {
   date?: string;
-  amount?: number;
+  amount?: string;
 };
 
 export interface RiderEarnings {
   period: string;
-  totalEarnings: number;
+  totalEarnings: string;
   totalRides: number;
   totalOrders: number;
-  cashCollected?: number;
-  walletBalance?: number;
+  cashCollected?: string;
+  walletBalance?: string;
   breakdown?: RiderEarningsBreakdownItem[];
 }
 
@@ -1453,7 +1537,7 @@ export type ResolveWalletPhoneBody = {
 
 export type WalletSend200 = {
   message?: string;
-  newBalance?: number;
+  newBalance?: string;
 };
 
 export type SetupWalletPin200 = {
@@ -1490,7 +1574,7 @@ export type AcceptRideBidBody = {
 };
 
 export type CustomerCounterOfferBody = {
-  offeredFare?: number;
+  offeredFare?: string;
 };
 
 export type GetNotificationsParams = {
@@ -1513,13 +1597,13 @@ export type CheckCanReview200 = {
 
 export type ApplyReferralCode200 = {
   message?: string;
-  bonus?: number;
+  bonus?: string;
 };
 
 export type RedeemLoyaltyPoints200 = {
   message?: string;
   pointsUsed?: number;
-  walletCredit?: number;
+  walletCredit?: string;
 };
 
 export type GetPushVapidKey200 = {
@@ -1667,7 +1751,7 @@ export type UpdateRiderOrderStatusBody = {
 };
 
 export type RiderAcceptRideBody = {
-  fare?: number;
+  fare?: string;
 };
 
 export type RiderVerifyRideOtpBody = {
@@ -1687,7 +1771,7 @@ export type UpdateRiderRideStatusBody = {
 };
 
 export type RiderCounterOfferBody = {
-  fare: number;
+  fare: string;
 };
 
 export type GetRiderHistoryParams = {

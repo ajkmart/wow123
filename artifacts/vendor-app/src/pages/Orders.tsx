@@ -930,7 +930,7 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
                         ) : (
                           <p className="text-xs text-gray-400">— km</p>
                         )}
-                        <p className="text-[10px] text-green-600 font-semibold">{currencySymbol} {Math.round(Number(rider.walletBalance)).toString()}</p>
+                        <p className="text-[10px] text-green-600 font-semibold">{fc(rider.walletBalance, currencySymbol)}</p>
                       </div>
                     </button>
                   ))}

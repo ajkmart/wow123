@@ -1,3 +1,4 @@
+import { formatCurrency as _sharedFcW } from "@workspace/api-zod";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
@@ -22,7 +23,7 @@ import {
   Eye, EyeOff, Sparkles, BarChart3, ChevronRight,
 } from "lucide-react";
 
-const fc  = (n: number, currencySymbol = "Rs.") => `${currencySymbol} ${Math.round(n).toLocaleString()}`;
+const fc = (n: string | number | null | undefined, currencySymbol = "Rs.") => _sharedFcW(n != null ? String(n) : (n as null | undefined), currencySymbol);
 const fd  = (d: string | Date, tz?: string) => formatDateTz(d, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, tz ?? "Asia/Karachi");
 const fdr = (d: string | Date) => {
   const diff = Date.now() - new Date(d).getTime();
@@ -319,7 +320,8 @@ export default function Wallet() {
     return out;
   }, [pages]);
   const balanceFromServer = pages[0]?.balance;
-  const balance = balanceFromServer != null ? Number(balanceFromServer) : 0;
+  const balance = balanceFromServer ?? "0";
+  const balanceNum = balanceFromServer != null ? Number(balanceFromServer) : 0;
   const isBalanceStale = false;
 
   const today   = new Date(); today.setHours(0,0,0,0);
@@ -530,12 +532,12 @@ export default function Wallet() {
             </div>
           )}
 
-          {minBalance > 0 && balance < minBalance && (
+          {minBalance > 0 && balanceNum < minBalance && (
             <div className="mb-4 bg-amber-500/15 rounded-2xl px-3.5 py-2.5 flex items-center gap-2.5 border border-amber-500/15">
               <AlertTriangle size={14} className="text-amber-400 flex-shrink-0"/>
               <div>
                 <p className="text-xs text-amber-300 font-bold">{T("cashMinBalance")}: {fc(minBalance, currency)}</p>
-                <p className="text-[10px] text-amber-400/60">{currency} {Math.round(minBalance - balance)} {T("moreNeeded")}</p>
+                <p className="text-[10px] text-amber-400/60">{currency} {Math.round(minBalance - balanceNum)} {T("moreNeeded")}</p>
               </div>
             </div>
           )}
@@ -931,7 +933,7 @@ export default function Wallet() {
 
       {showWithdraw && withdrawalEnabled && (
         <WithdrawModal
-          balance={balance} minPayout={minPayout} maxPayout={maxPayout}
+          balance={balanceNum} minPayout={minPayout} maxPayout={maxPayout}
           onClose={() => setShowWithdraw(false)}
           onSuccess={() => {
             qc.invalidateQueries({ queryKey: ["rider-wallet"] });
@@ -950,7 +952,7 @@ export default function Wallet() {
 
       {showDeposit && depositEnabled && (
         <DepositModal
-          balance={balance} minBalance={minBalance}
+          balance={balanceNum} minBalance={minBalance}
           onClose={() => setShowDeposit(false)}
           onSuccess={() => {
             qc.invalidateQueries({ queryKey: ["rider-wallet"] });

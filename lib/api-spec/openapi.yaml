@@ -4993,17 +4993,127 @@ components:
         emergencyContact:
           type: string
 
+    RiderOrderItem:
+      type: object
+      properties:
+        name:
+          type: string
+        quantity:
+          type: number
+        price:
+          type: string
+
+    RiderOrder:
+      type: object
+      description: Rider-facing view of a delivery order (request feed + active trip)
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        pickupAddress:
+          type: string
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        dropoffAddress:
+          type: string
+        dropoffLat:
+          type: number
+        dropoffLng:
+          type: number
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        total:
+          type: string
+        fare:
+          type: string
+        riderEarning:
+          type: string
+        paymentMethod:
+          type: string
+        distance:
+          type: number
+        duration:
+          type: number
+        createdAt:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiderOrderItem"
+        vendorName:
+          type: string
+        vendorPhone:
+          type: string
+        vendorAddress:
+          type: string
+        notes:
+          type: string
+      required: [id]
+
+    RiderRide:
+      type: object
+      description: Rider-facing view of a ride (request feed + active trip)
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        pickupAddress:
+          type: string
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        dropoffAddress:
+          type: string
+        dropoffLat:
+          type: number
+        dropoffLng:
+          type: number
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        fare:
+          type: string
+        riderEarning:
+          type: string
+        distance:
+          type: number
+        duration:
+          type: number
+        paymentMethod:
+          type: string
+        vehicleType:
+          type: string
+        createdAt:
+          type: string
+        scheduledFor:
+          type: string
+        notes:
+          type: string
+      required: [id]
+
     RiderRequestsResponse:
       type: object
       properties:
         orders:
           type: array
           items:
-            $ref: "#/components/schemas/Order"
+            $ref: "#/components/schemas/RiderOrder"
         rides:
           type: array
           items:
-            $ref: "#/components/schemas/Ride"
+            $ref: "#/components/schemas/RiderRide"
+        _serverTime:
+          type: string
+          nullable: true
+          description: ISO timestamp from the server at response time
       required: [orders, rides]
 
     RiderActiveResponse:

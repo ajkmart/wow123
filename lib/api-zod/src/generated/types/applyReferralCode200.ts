@@ -8,5 +8,5 @@
 
 export type ApplyReferralCode200 = {
   message?: string;
-  bonus?: number;
+  bonus?: string;
 };

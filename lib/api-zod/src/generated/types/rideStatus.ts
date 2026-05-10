@@ -5,10 +5,16 @@
  * AJKMart Super App API
  * OpenAPI spec version: 0.1.0
  */
-import { RIDE_VALID_STATUSES } from "@workspace/service-constants";
 
 export type RideStatus = (typeof RideStatus)[keyof typeof RideStatus];
 
-export const RideStatus = Object.fromEntries(
-  RIDE_VALID_STATUSES.map((s) => [s, s]),
-) as { [K in (typeof RIDE_VALID_STATUSES)[number]]: K };
+export const RideStatus = {
+  searching: "searching",
+  bargaining: "bargaining",
+  accepted: "accepted",
+  arrived: "arrived",
+  in_transit: "in_transit",
+  ongoing: "ongoing",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;

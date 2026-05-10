@@ -10,9 +10,9 @@ export interface WalletMethod {
   id: string;
   label: string;
   description?: string;
-  minAmount?: number;
-  maxAmount?: number;
-  fee?: number;
+  minAmount?: string;
+  maxAmount?: string;
+  fee?: string;
   logo?: string;
   available: boolean;
 }

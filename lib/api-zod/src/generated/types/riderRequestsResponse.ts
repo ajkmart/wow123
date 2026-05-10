@@ -5,10 +5,12 @@
  * AJKMart Super App API
  * OpenAPI spec version: 0.1.0
  */
-import type { Order } from "./order";
-import type { Ride } from "./ride";
+import type { RiderOrder } from "./riderOrder";
+import type { RiderRide } from "./riderRide";
 
 export interface RiderRequestsResponse {
-  orders: Order[];
-  rides: Ride[];
+  orders: RiderOrder[];
+  rides: RiderRide[];
+  /** ISO timestamp from the server at response time */
+  _serverTime?: string | null;
 }

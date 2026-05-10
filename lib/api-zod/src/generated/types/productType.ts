@@ -5,9 +5,8 @@
  * AJKMart Super App API
  * OpenAPI spec version: 0.1.0
  */
-import type { ServiceKey } from "@workspace/service-constants";
 
-export type ProductType = ServiceKey;
+export type ProductType = (typeof ProductType)[keyof typeof ProductType];
 
 export const ProductType = {
   mart: "mart",
