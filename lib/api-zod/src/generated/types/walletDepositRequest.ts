@@ -7,7 +7,7 @@
  */
 
 export interface WalletDepositRequest {
-  amount: number;
+  amount: string;
   paymentMethod: string;
   transactionId: string;
   idempotencyKey: string;

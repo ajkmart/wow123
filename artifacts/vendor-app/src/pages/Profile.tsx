@@ -271,7 +271,7 @@ export default function Profile() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-orange-100 font-medium">Wallet Balance</p>
-                  <p className="text-3xl font-extrabold mt-0.5">{fc(user?.walletBalance || 0)}</p>
+                  <p className="text-3xl font-extrabold mt-0.5">{fc(user?.walletBalance ?? "0")}</p>
                 </div>
                 <div className="text-right bg-white/15 rounded-2xl px-4 py-2.5">
                   <p className="text-xs text-orange-100 font-medium">Commission</p>

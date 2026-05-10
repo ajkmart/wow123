@@ -103,7 +103,7 @@ export default function Earnings() {
 
           <div className="mt-5 bg-white/[0.06] backdrop-blur-sm rounded-2xl border border-white/[0.06] p-4">
             <p className="text-white/40 text-xs font-semibold tracking-widest uppercase flex items-center gap-1.5"><Wallet size={13}/> {T("walletBalance")}</p>
-            <p className="text-[36px] font-black text-white mt-1 leading-tight">{formatCurrency(Number(user?.walletBalance) || 0)}</p>
+            <p className="text-[36px] font-black text-white mt-1 leading-tight">{formatCurrency(user?.walletBalance ?? "0")}</p>
             <p className="text-white/30 text-xs mt-1">{T("earningsAfterDelivery")}</p>
           </div>
         </div>

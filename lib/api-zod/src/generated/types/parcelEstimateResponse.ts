@@ -7,10 +7,10 @@
  */
 
 export interface ParcelEstimateResponse {
-  fare: number;
+  fare: string;
   estimatedTime: string;
   parcelType?: string;
-  baseFee?: number;
-  perKgRate?: number;
+  baseFee?: string;
+  perKgRate?: string;
   weightKg?: number;
 }

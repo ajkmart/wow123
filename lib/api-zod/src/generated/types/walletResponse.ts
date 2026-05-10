@@ -8,6 +8,6 @@
 import type { WalletTransaction } from "./walletTransaction";
 
 export interface WalletResponse {
-  balance: number;
+  balance: string;
   transactions: WalletTransaction[];
 }

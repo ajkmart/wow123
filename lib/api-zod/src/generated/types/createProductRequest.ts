@@ -10,7 +10,7 @@ import type { CreateProductRequestType } from "./createProductRequestType";
 export interface CreateProductRequest {
   name: string;
   description?: string;
-  price: number;
+  price: string;
   category: string;
   type: CreateProductRequestType;
   image?: string;

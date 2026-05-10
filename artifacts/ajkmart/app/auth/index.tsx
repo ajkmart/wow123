@@ -197,7 +197,7 @@ export default function AuthScreen() {
     } else {
       rolesArr = [];
     }
-    const fakeUser: AppUser = { id: "", phone: "", roles: rolesArr, walletBalance: 0, isActive: true, createdAt: "" };
+    const fakeUser: AppUser = { id: "", phone: "", roles: rolesArr, walletBalance: "0", isActive: true, createdAt: "" };
     if (!hasRole(fakeUser, "customer")) {
       router.replace("/auth/wrong-app");
       return;
@@ -663,7 +663,7 @@ export default function AuthScreen() {
         return;
       }
       const completeUser: AppUser = {
-        walletBalance: 0, isActive: true, createdAt: new Date().toISOString(), ...res.user,
+        walletBalance: "0", isActive: true, createdAt: new Date().toISOString(), ...res.user,
       };
       await login(completeUser, res.token ?? pendingToken, res.refreshToken ?? pendingRefreshToken);
       await navigateAfterLogin(completeUser);

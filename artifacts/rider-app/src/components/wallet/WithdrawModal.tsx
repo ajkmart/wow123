@@ -56,7 +56,7 @@ export default function WithdrawModal({
       const todayWithdrawals = items.filter(
         it => it.type === "withdrawal" && (it.createdAt ?? "").startsWith(todayStr),
       );
-      setTodayWithdrawn(todayWithdrawals.reduce((s, it) => s + (it.amount as number), 0));
+      setTodayWithdrawn(todayWithdrawals.reduce((s, it) => s + Number(it.amount), 0));
       setTodayWithdrawCount(todayWithdrawals.length);
     }).catch(() => {});
   }, []);

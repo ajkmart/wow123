@@ -8,7 +8,7 @@
 
 export interface FareEstimate {
   distance: number;
-  fare: number;
+  fare: string;
   duration: string;
   type: string;
 }

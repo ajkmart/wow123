@@ -34,7 +34,7 @@ export const BADGE_GRAY   = "text-xs font-bold px-2.5 py-1 rounded-full bg-gray-
 export const SECTION = "px-4 py-4 space-y-3";
 export const PAGE    = "min-h-screen bg-gray-50";
 
-export function fc(n: number, currencySymbol = "Rs."): string { return `${currencySymbol} ${Math.round(n).toLocaleString()}`; }
+export function fc(n: number | string, currencySymbol = "Rs."): string { return `${currencySymbol} ${Math.round(Number(n)).toLocaleString()}`; }
 export function fd(d: string | Date): string {
   return new Date(d).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }

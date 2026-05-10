@@ -86,7 +86,7 @@ export function SideNav() {
         <Link href="/wallet">
           <div className="px-3 py-2.5 bg-orange-50 rounded-xl cursor-pointer hover:bg-orange-100 transition-colors">
             <p className="text-xs text-gray-500 font-medium">{T("walletBalanceLabel")}</p>
-            <p className="text-lg font-extrabold text-orange-600">{currencySymbol} {Math.round(user?.walletBalance || 0).toLocaleString()}</p>
+            <p className="text-lg font-extrabold text-orange-600">{currencySymbol} {Math.round(Number(user?.walletBalance ?? "0")).toLocaleString()}</p>
           </div>
         </Link>
         <button onClick={logout} className="w-full flex items-center gap-2 px-3 py-2.5 text-red-500 hover:bg-red-50 rounded-xl text-sm font-semibold transition-colors">

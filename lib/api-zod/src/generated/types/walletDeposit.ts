@@ -9,7 +9,7 @@ import type { WalletDepositStatus } from "./walletDepositStatus";
 
 export interface WalletDeposit {
   id: string;
-  amount: number;
+  amount: string;
   paymentMethod: string;
   status: WalletDepositStatus;
   transactionId?: string;

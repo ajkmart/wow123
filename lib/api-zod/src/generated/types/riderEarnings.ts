@@ -9,10 +9,10 @@ import type { RiderEarningsBreakdownItem } from "./riderEarningsBreakdownItem";
 
 export interface RiderEarnings {
   period: string;
-  totalEarnings: number;
+  totalEarnings: string;
   totalRides: number;
   totalOrders: number;
-  cashCollected?: number;
-  walletBalance?: number;
+  cashCollected?: string;
+  walletBalance?: string;
   breakdown?: RiderEarningsBreakdownItem[];
 }

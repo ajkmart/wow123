@@ -12,7 +12,7 @@ export interface RideBid {
   riderId: string;
   riderName: string;
   riderPhone?: string | null;
-  fare: number;
+  fare: string;
   note?: string | null;
   status: string;
   vehiclePlate?: string | null;

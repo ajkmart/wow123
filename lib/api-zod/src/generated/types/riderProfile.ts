@@ -18,5 +18,5 @@ export interface RiderProfile {
   isApproved: boolean;
   rating?: number;
   totalRides?: number;
-  walletBalance?: number;
+  walletBalance?: string;
 }

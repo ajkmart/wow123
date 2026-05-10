@@ -7,5 +7,5 @@
  */
 
 export type RiderCounterOfferBody = {
-  fare: number;
+  fare: string;
 };

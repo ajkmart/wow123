@@ -7,7 +7,7 @@ export interface StoreHours { [day: string]: { open: string; close: string; clos
 
 export interface AuthUser {
   id: string; phone: string; name?: string; email?: string; avatar?: string;
-  walletBalance: number;
+  walletBalance: string;
   roles: string[];
   storeName?: string; storeCategory?: string;
   storeBanner?: string; storeDescription?: string;

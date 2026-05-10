@@ -19,7 +19,7 @@ function decodeJwtExp(tok: string): number | null {
 
 export interface AuthUser {
   id: string; phone: string; name?: string; email?: string;
-  avatar?: string; isOnline: boolean; walletBalance: number;
+  avatar?: string; isOnline: boolean; walletBalance: string;
   isRestricted?: boolean;
   approvalStatus?: string;
   rejectionReason?: string | null;
@@ -180,11 +180,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (err instanceof Error && err.name === "AbortError") return;
         const errAny = err as Record<string, unknown>;
         if (errAny.code === "APPROVAL_PENDING") {
-          setUser({ id: "", phone: "", isOnline: false, walletBalance: 0, roles: [], approvalStatus: "pending", stats: { deliveriesToday: 0, earningsToday: 0, totalDeliveries: 0, totalEarnings: 0 } });
+          setUser({ id: "", phone: "", isOnline: false, walletBalance: "0", roles: [], approvalStatus: "pending", stats: { deliveriesToday: 0, earningsToday: 0, totalDeliveries: 0, totalEarnings: 0 } });
           return;
         }
         if (errAny.code === "APPROVAL_REJECTED") {
-          setUser({ id: "", phone: "", isOnline: false, walletBalance: 0, roles: [], approvalStatus: "rejected", rejectionReason: (errAny.rejectionReason as string | undefined) ?? null, stats: { deliveriesToday: 0, earningsToday: 0, totalDeliveries: 0, totalEarnings: 0 } });
+          setUser({ id: "", phone: "", isOnline: false, walletBalance: "0", roles: [], approvalStatus: "rejected", rejectionReason: (errAny.rejectionReason as string | undefined) ?? null, stats: { deliveriesToday: 0, earningsToday: 0, totalDeliveries: 0, totalEarnings: 0 } });
           return;
         }
         api.clearTokens();

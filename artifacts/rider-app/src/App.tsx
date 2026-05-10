@@ -395,7 +395,7 @@ function AppRoutes() {
 
   const isLimited = config.platform.appStatus === "limited";
 
-  const userRoles = typeof user.roles === "string" ? user.roles : "";
+  const userRoles: string[] = Array.isArray(user.roles) ? user.roles : [];
   const isVanDriver = userRoles.includes("van_driver");
 
   if (isVanDriver) {

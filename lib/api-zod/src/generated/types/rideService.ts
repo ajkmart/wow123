@@ -13,9 +13,9 @@ export interface RideService {
   icon: string;
   description?: string;
   color: string;
-  baseFare: number;
-  perKm: number;
-  minFare: number;
+  baseFare: string;
+  perKm: string;
+  minFare: string;
   maxPassengers: number;
   allowBargaining: boolean;
 }

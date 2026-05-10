@@ -21,7 +21,7 @@ export interface Ride {
   pickupLng?: number;
   dropLat?: number;
   dropLng?: number;
-  fare: number;
+  fare: string;
   distance: number;
   riderId?: string;
   riderName?: string;

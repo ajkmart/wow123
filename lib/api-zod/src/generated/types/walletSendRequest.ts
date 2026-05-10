@@ -9,6 +9,6 @@
 export interface WalletSendRequest {
   receiverPhone?: string;
   ajkId?: string;
-  amount: number;
+  amount: string;
   note?: string;
 }

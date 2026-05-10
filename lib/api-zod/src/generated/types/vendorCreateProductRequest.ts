@@ -9,7 +9,7 @@
 export interface VendorCreateProductRequest {
   name: string;
   description?: string;
-  price: number;
+  price: string;
   categoryId: string;
   stock?: number;
   unit?: string;

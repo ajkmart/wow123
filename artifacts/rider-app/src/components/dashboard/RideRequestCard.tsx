@@ -83,7 +83,7 @@ export function RideRequestCard({
     (Date.now() - new Date(r.createdAt).getTime()) / 1000 >= acceptTimeoutSec;
 
   const riderEarningPct = config.finance.riderEarningPct ?? PRICING_DEFAULTS.defaultRiderEarningPct;
-  const earnings = effectiveFare != null ? effectiveFare * (riderEarningPct / 100) : null;
+  const earnings = effectiveFare != null ? Number(effectiveFare) * (riderEarningPct / 100) : null;
 
   const svcName = SVC_NAMES[r.type] ?? r.type?.replace(/_/g, " ") ?? "Ride";
   const rideDistKm = r.distance != null ? parseFloat(r.distance) : null;
@@ -108,7 +108,7 @@ export function RideRequestCard({
 
   const getMaxFare = () => {
     const maxMult = config.rides.counterMaxMultiplier ?? PRICING_DEFAULTS.counterMaxMultiplier;
-    return (r.offeredFare ?? r.fare ?? 0) * maxMult;
+    return Number(r.offeredFare ?? r.fare ?? 0) * maxMult;
   };
 
   const validateAndSubmitCounter = () => {
@@ -351,7 +351,7 @@ export function RideRequestCard({
                     <MessageSquare size={11} /> Your Bid Pending
                   </p>
                   <p className="text-lg font-extrabold text-orange-600">
-                    {currency} {Math.round(r.myBid.fare)}
+                    {currency} {Math.round(Number(r.myBid.fare))}
                   </p>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-orange-100 text-orange-600 rounded-full animate-pulse border border-orange-200">

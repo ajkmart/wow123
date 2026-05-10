@@ -8,5 +8,5 @@
 
 export type RiderEarningsBreakdownItem = {
   date?: string;
-  amount?: number;
+  amount?: string;
 };

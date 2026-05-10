@@ -4974,9 +4974,9 @@ components:
         rating:
           type: number
         totalRides:
-          type: number
+          type: integer
         walletBalance:
-          type: number
+          type: string
       required: [id, userId, isOnline, isApproved]
 
     UpdateRiderProfileRequest:

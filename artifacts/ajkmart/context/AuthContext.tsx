@@ -21,7 +21,7 @@ export interface AppUser {
   username?: string;
   roles: string[];
   avatar?: string;
-  walletBalance: number;
+  walletBalance: string;
   isActive: boolean;
   createdAt: string;
   cnic?: string;

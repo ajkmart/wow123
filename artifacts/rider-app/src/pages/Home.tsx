@@ -917,7 +917,7 @@ export default function Home() {
                   {T("wallet")}
                 </p>
                 <p className="font-extrabold text-base sm:text-lg leading-tight">
-                  {formatCurrency(Number(user?.walletBalance) || 0, currency)}
+                  {formatCurrency(user?.walletBalance ?? "0", currency)}
                 </p>
               </div>
             </Link>

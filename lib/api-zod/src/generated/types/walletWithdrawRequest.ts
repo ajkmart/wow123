@@ -7,7 +7,7 @@
  */
 
 export interface WalletWithdrawRequest {
-  amount: number;
+  amount: string;
   method: string;
   accountNumber: string;
   accountTitle?: string;

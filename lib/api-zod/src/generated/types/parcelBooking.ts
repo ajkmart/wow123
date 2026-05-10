@@ -19,7 +19,7 @@ export interface ParcelBooking {
   parcelType: string;
   weight?: number;
   description?: string;
-  fare: number;
+  fare: string;
   paymentMethod: string;
   status: ParcelBookingStatus;
   estimatedTime?: string;

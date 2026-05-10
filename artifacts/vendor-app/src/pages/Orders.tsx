@@ -137,7 +137,7 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
     queryFn: async () => {
       if (!assignModal?.orderId) return { riders: [] };
       try {
-        return await api.getOrderAvailableRiders(assignModal.orderId) as { riders: { id: string; name: string; phone: string; distanceKm: number | null; walletBalance: number }[] };
+        return await api.getOrderAvailableRiders(assignModal.orderId) as { riders: { id: string; name: string; phone: string; distanceKm: number | null; walletBalance: string }[] };
       } catch {
         return { riders: [] };
       }
@@ -930,7 +930,7 @@ export default function Orders({ targetOrderId }: { targetOrderId?: string } = {
                         ) : (
                           <p className="text-xs text-gray-400">— km</p>
                         )}
-                        <p className="text-[10px] text-green-600 font-semibold">{currencySymbol} {rider.walletBalance.toFixed(0)}</p>
+                        <p className="text-[10px] text-green-600 font-semibold">{currencySymbol} {Math.round(Number(rider.walletBalance)).toString()}</p>
                       </div>
                     </button>
                   ))}

@@ -17,7 +17,7 @@ import { usePlatformConfig } from "../lib/useConfig";
 import { useLanguage } from "../lib/useLanguage";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 
-const fc = (n: number, currencySymbol = "Rs.") => `${currencySymbol} ${Math.round(n).toLocaleString()}`;
+const fc = (n: number | string, currencySymbol = "Rs.") => `${currencySymbol} ${Math.round(Number(n)).toLocaleString()}`;
 
 const CITIES   = ["Muzaffarabad","Mirpur","Rawalakot","Bagh","Kotli","Bhimber","Jhelum","Rawalpindi","Islamabad","Other"];
 const BANKS    = ["EasyPaisa","JazzCash","MCB","HBL","UBL","Meezan Bank","Bank Alfalah","NBP","Allied Bank","Other"];
@@ -557,7 +557,7 @@ export default function Profile() {
           {[
             { label: T("deliveriesLabel"), value: String(totalDeliveries), icon: <ClipboardList size={15} className="text-blue-500"/>,   bg: "bg-blue-50",   border: "border-blue-100" },
             { label: T("earnedStat"),      value: fc(totalEarnings, currency),       icon: <BarChart2 size={15} className="text-green-500"/>,      bg: "bg-green-50",  border: "border-green-100" },
-            { label: T("walletStat"),      value: fc(Number(user?.walletBalance || 0), currency), icon: <Wallet size={15} className="text-amber-500"/>, bg: "bg-amber-50",  border: "border-amber-100" },
+            { label: T("walletStat"),      value: fc(user?.walletBalance ?? "0", currency), icon: <Wallet size={15} className="text-amber-500"/>, bg: "bg-amber-50",  border: "border-amber-100" },
             { label: T("ratingStat"),      value: rating.toFixed(1),       icon: <Star size={15} className="text-yellow-500"/>,          bg: "bg-yellow-50", border: "border-yellow-100" },
           ].map(s => (
             <div key={s.label} className={`flex-1 ${s.bg} rounded-2xl p-3 border ${s.border} text-center`}>
@@ -1075,8 +1075,8 @@ export default function Profile() {
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${typeColor[p.type] ?? "bg-gray-100 text-gray-600"}`}>
                               {(p.type || "penalty").replace(/_/g, " ")}
                             </span>
-                            {p.amount > 0 && (
-                              <span className="text-xs font-black text-red-600">−{currency} {Math.round(p.amount)}</span>
+                            {Number(p.amount) > 0 && (
+                              <span className="text-xs font-black text-red-600">−{currency} {Math.round(Number(p.amount))}</span>
                             )}
                           </div>
                           {p.reason && <p className="text-xs text-gray-600 mt-1 leading-relaxed">{p.reason}</p>}

@@ -10,7 +10,7 @@ import type { WalletTransactionType } from "./walletTransactionType";
 export interface WalletTransaction {
   id: string;
   type: WalletTransactionType;
-  amount: number;
+  amount: string;
   description: string;
   createdAt: string;
 }

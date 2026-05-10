@@ -8,5 +8,5 @@
 
 export interface TopUpRequest {
   userId: string;
-  amount: number;
+  amount: string;
 }

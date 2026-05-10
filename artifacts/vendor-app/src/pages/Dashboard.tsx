@@ -390,7 +390,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between bg-white/20 rounded-2xl px-4 py-2.5">
             <div>
               <p className="text-orange-100 text-xs font-medium">{T("walletBalance")}</p>
-              <p className="text-2xl font-extrabold text-white">{fc(user?.walletBalance || 0)}</p>
+              <p className="text-2xl font-extrabold text-white">{fc(user?.walletBalance ?? "0")}</p>
             </div>
             <div className="text-right">
               <p className="text-orange-100 text-xs font-medium">{T("storeStatus")}</p>
@@ -440,7 +440,7 @@ export default function Dashboard() {
                 <span className="text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">✓ Verified</span>
               )}
             </div>
-            <p className="text-3xl font-extrabold">{fc(user?.walletBalance || 0)}</p>
+            <p className="text-3xl font-extrabold">{fc(user?.walletBalance ?? "0")}</p>
           </div>
           <div className="text-center border-l border-white/20 pl-4">
             <p className="text-orange-100 text-xs font-medium">{T("commission")}</p>
