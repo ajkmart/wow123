@@ -18,7 +18,7 @@ const paginationSchema = z.object({
 const assignExperimentSchema = z.object({
   userId:       z.string().min(1, "userId is required"),
   experimentId: z.string().min(1, "experimentId is required"),
-});
+}).strict();
 
 router.get("/", async (req, res) => {
   const p = paginationSchema.safeParse(req.query);

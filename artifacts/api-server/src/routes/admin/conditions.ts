@@ -254,7 +254,7 @@ const bulkConditionSchema = z.object({
   ids:    z.array(z.string().min(1)).min(1, "ids must be a non-empty array"),
   action: z.enum(["lift", "delete"], { errorMap: () => ({ message: "action must be 'lift' or 'delete'" }) }),
   reason: z.string().optional(),
-});
+}).strict();
 
 export async function reconcileUserFlags(userId: string): Promise<{ success: boolean; conditions?: number; error?: string }> {
   try {

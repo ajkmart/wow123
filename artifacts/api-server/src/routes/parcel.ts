@@ -43,7 +43,7 @@ const createParcelSchema = z.object({
 const parcelEstimateSchema = z.object({
   parcelType: z.string().max(50).optional(),
   weight:     z.number().nonnegative("weight must be non-negative").max(500, "weight cannot exceed 500 kg").optional(),
-});
+}).strict();
 
 const router: IRouter = Router();
 
