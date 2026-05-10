@@ -116,10 +116,10 @@ export const useApproveUser = () => {
       const prevUsers = snapshotQueries(queryClient, ["admin-users"]);
       queryClient.setQueriesData({ queryKey: ["admin-users-pending"], exact: false }, (old) => removeUserFromCache(old, id));
       queryClient.setQueriesData({ queryKey: ["admin-users"], exact: false }, (old) => {
-        if (Array.isArray(old)) return old.map((u: any) => u.id === id ? { ...u, status: "active", isVerified: true } : u);
+        if (Array.isArray(old)) return old.map((u: any) => u.id === id ? { ...u, status: "active", isVerified: true, isApproved: true } : u);
         const cache = old as Record<string, unknown> | undefined;
         if (cache && Array.isArray(cache["users"])) {
-          return { ...cache, users: (cache["users"] as any[]).map((u: any) => u.id === id ? { ...u, status: "active", isVerified: true } : u) };
+          return { ...cache, users: (cache["users"] as any[]).map((u: any) => u.id === id ? { ...u, status: "active", isVerified: true, isApproved: true } : u) };
         }
         return old;
       });
