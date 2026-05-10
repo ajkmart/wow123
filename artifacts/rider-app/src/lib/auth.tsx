@@ -44,6 +44,7 @@ interface AuthCtx {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
+  storageError: boolean;
   twoFactorPending: boolean;
   setTwoFactorPending: (v: boolean) => void;
   login: (token: string, user: AuthUser, refreshToken?: string) => void;
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]   = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [storageError, setStorageError] = useState(false);
   const [twoFactorPending, setTwoFactorPending] = useState(false);
   const refreshFailCountRef = useRef(0);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -144,14 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
            than silently treating the session as unauthenticated. */
         console.error("[auth] tokenStoreReady failed — secure storage unavailable:", storeErr);
         api.clearTokens();
+        setStorageError(true);
         setLoading(false);
-        /* Dispatch so any listening component can show a "storage unavailable"
-           banner or toast instead of a blank/stuck login screen. */
-        try {
-          window.dispatchEvent(new CustomEvent("ajkmart:storage-error", {
-            detail: { message: "Secure storage unavailable. Please reinstall the app or clear app data." },
-          }));
-        } catch {}
         return;
       }
       if (controller.signal.aborted) return;
@@ -265,5 +261,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return p;
   }, []);
 
-  return <Ctx.Provider value={{ user, token, loading, twoFactorPending, setTwoFactorPending, login, logout, refreshUser }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, token, loading, storageError, twoFactorPending, setTwoFactorPending, login, logout, refreshUser }}>{children}</Ctx.Provider>;
 }

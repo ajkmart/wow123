@@ -253,19 +253,18 @@ export interface Order {
   dropoffLng?: number;
   customerName?: string;
   customerPhone?: string;
-  total?: number;
-  fare?: number;
-  riderEarning?: number;
+  total?: string;
+  fare?: string;
+  riderEarning?: string;
   paymentMethod?: string;
   distance?: number;
   duration?: number;
   createdAt?: string;
-  items?: Array<{ name?: string; quantity?: number; price?: number }>;
+  items?: Array<{ name?: string; quantity?: number; price?: string }>;
   vendorName?: string;
   vendorPhone?: string;
   vendorAddress?: string;
   notes?: string;
-  [extra: string]: unknown;
 }
 
 export interface Ride {
@@ -279,8 +278,8 @@ export interface Ride {
   dropoffLng?: number;
   customerName?: string;
   customerPhone?: string;
-  fare?: number;
-  riderEarning?: number;
+  fare?: string;
+  riderEarning?: string;
   distance?: number;
   duration?: number;
   paymentMethod?: string;
@@ -288,7 +287,6 @@ export interface Ride {
   createdAt?: string;
   scheduledFor?: string;
   notes?: string;
-  [extra: string]: unknown;
 }
 
 export interface RiderRequestsResponse {

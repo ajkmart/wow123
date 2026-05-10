@@ -81,7 +81,7 @@ function PageFallback() {
 }
 
 function AppRoutes() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, storageError, logout } = useAuth();
   const { config } = usePlatformConfig();
   const modules = getRiderModules(config);
   const { language } = useLanguage();
@@ -303,6 +303,23 @@ function AppRoutes() {
     const id = setTimeout(() => setSplashTimedOut(true), SPLASH_DEADLINE_MS);
     return () => clearTimeout(id);
   }, [loading]);
+
+  if (storageError) return (
+    <div className="min-h-screen bg-gradient-to-br from-red-700 to-rose-900 flex items-center justify-center p-6">
+      <div className="bg-white rounded-3xl shadow-xl p-8 max-w-sm w-full text-center">
+        <div className="text-5xl mb-4">🔐</div>
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Secure Storage Unavailable</h2>
+        <p className="text-gray-500 text-sm leading-relaxed mb-6">
+          Your device's secure storage could not be accessed. This is required to safely store your
+          login credentials. Please clear the app's data or reinstall and try again.
+        </p>
+        <button onClick={() => window.location.reload()}
+          className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 transition-colors">
+          Retry
+        </button>
+      </div>
+    </div>
+  );
 
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-br from-green-600 to-emerald-800 flex items-center justify-center">

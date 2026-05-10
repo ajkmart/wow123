@@ -23,7 +23,7 @@ export default function Earnings() {
   const { language } = useLanguage();
   const T = (key: Parameters<typeof tDual>[0]) => tDual(key, language);
   const currency = config.platform.currencySymbol ?? "Rs.";
-  const formatCurrency = (n: number) => `${currency} ${Math.round(n).toLocaleString()}`;
+  const formatCurrency = (n: number | string) => `${currency} ${Math.round(Number(n)).toLocaleString()}`;
   const riderKeepPct = config.rider?.keepPct ?? config.finance.riderEarningPct;
   const [period, setPeriod] = useState<Period>("week");
   const qc = useQueryClient();
