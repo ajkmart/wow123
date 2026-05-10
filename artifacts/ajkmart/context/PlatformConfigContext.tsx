@@ -434,7 +434,38 @@ export function PlatformConfigProvider({ children }: { children: React.ReactNode
         clearTimeout(timeoutId);
       }
       if (!res.ok) throw new Error("config fetch failed");
-      const raw = unwrapApiResponse(await res.json()) as Record<string, Record<string, unknown> & unknown[]>;
+      interface RawConfigSection { [key: string]: unknown }
+      interface RawPlatformConfigResponse {
+        platform?: RawConfigSection;
+        features?: RawConfigSection;
+        content?: RawConfigSection;
+        orderRules?: RawConfigSection;
+        deliveryFee?: RawConfigSection;
+        parcelFares?: Record<string, number>;
+        rides?: RawConfigSection;
+        finance?: RawConfigSection;
+        customer?: RawConfigSection;
+        payment?: RawConfigSection;
+        security?: RawConfigSection;
+        profile?: RawConfigSection;
+        integrations?: RawConfigSection;
+        auth?: RawConfigSection;
+        language?: { defaultLanguage?: string; enabledLanguages?: string[] };
+        cities?: unknown[];
+        network?: RawConfigSection;
+        branding?: RawConfigSection;
+        regional?: RawConfigSection;
+        serviceContent?: RawConfigSection;
+        compliance?: RawConfigSection;
+        releaseNotes?: unknown[];
+        uploads?: RawConfigSection;
+        pagination?: RawConfigSection;
+        onboarding?: RawConfigSection;
+        supportHoursSchedule?: RawConfigSection | null;
+        currencyCode?: string;
+        currencySymbol?: string;
+      }
+      const raw = unwrapApiResponse(await res.json()) as RawPlatformConfigResponse;
       const parsed: PlatformConfig = {
         appStatus: raw.platform?.appStatus === "maintenance"
           ? "maintenance"

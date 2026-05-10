@@ -215,13 +215,17 @@ async function isVpnOrProxy(ip: string): Promise<boolean> {
       signal: AbortSignal.timeout(5_000),
     });
     if (!resp.ok) {
-      logger.warn(`[VPN] Check failed for IP ${ip}: HTTP ${resp.status} — flagging as check_failed`);
-      addSecurityEvent({ type: "vpn_check_failed", ip, details: `VPN check HTTP error ${resp.status}`, severity: "low" });
       _vpnCbFailures++;
-      if (_vpnCbFailures >= VPN_CB_THRESHOLD) {
-        _vpnCbOpenedAt = Date.now();
-        logger.warn({ failures: _vpnCbFailures, windowMs: VPN_CB_WINDOW_MS }, "[VPN] circuit-breaker opened — too many ip-api.com failures");
-      }
+      const willOpen = _vpnCbFailures >= VPN_CB_THRESHOLD;
+      if (willOpen) _vpnCbOpenedAt = Date.now();
+      logger.warn({
+        provider: "ip-api.com",
+        ip,
+        reason: `HTTP ${resp.status}`,
+        circuitBreakerState: willOpen ? "opened" : "closed",
+        consecutiveFailures: _vpnCbFailures,
+      }, "[VPN] provider unavailable — non-2xx response");
+      addSecurityEvent({ type: "vpn_check_failed", ip, details: `VPN check HTTP error ${resp.status}`, severity: "low" });
       return false;
     }
     interface IpApiResponse { status?: string; proxy?: boolean; hosting?: boolean; }
@@ -233,13 +237,17 @@ async function isVpnOrProxy(ip: string): Promise<boolean> {
     return isVpn;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "unknown error";
-    logger.warn(`[VPN] Check failed for IP ${ip}: ${msg} — flagging as check_failed`);
-    addSecurityEvent({ type: "vpn_check_failed", ip, details: `VPN check error: ${msg}`, severity: "low" });
     _vpnCbFailures++;
-    if (_vpnCbFailures >= VPN_CB_THRESHOLD) {
-      _vpnCbOpenedAt = Date.now();
-      logger.warn({ failures: _vpnCbFailures }, "[VPN] circuit-breaker opened — too many ip-api.com failures");
-    }
+    const willOpen = _vpnCbFailures >= VPN_CB_THRESHOLD;
+    if (willOpen) _vpnCbOpenedAt = Date.now();
+    logger.warn({
+      provider: "ip-api.com",
+      ip,
+      reason: msg,
+      circuitBreakerState: willOpen ? "opened" : "closed",
+      consecutiveFailures: _vpnCbFailures,
+    }, "[VPN] provider unavailable — network/timeout error");
+    addSecurityEvent({ type: "vpn_check_failed", ip, details: `VPN check error: ${msg}`, severity: "low" });
     return false;
   }
 }

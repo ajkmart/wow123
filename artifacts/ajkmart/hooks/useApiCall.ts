@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/context/ToastContext";
 import { usePlatformConfig } from "@/context/PlatformConfigContext";
 
-type ApiCallState<T> = {
+type ApiCallState<T, Args extends unknown[] = unknown[]> = {
   data: T | null;
   loading: boolean;
   error: string | null;
   retrying: boolean;
   retryCount: number;
-  execute: (...args: any[]) => Promise<T | null>;
+  execute: (...args: Args) => Promise<T | null>;
   retry: () => Promise<T | null>;
   reset: () => void;
 };
@@ -20,8 +20,31 @@ function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-export function useApiCall<T>(
-  apiFn: (...args: any[]) => Promise<T>,
+function extractError(e: unknown): string {
+  if (e instanceof Error) return e.message || "Something went wrong. Please try again.";
+  if (typeof e === "object" && e !== null) {
+    const obj = e as Record<string, unknown>;
+    const response = obj["response"];
+    if (typeof response === "object" && response !== null) {
+      const data = (response as Record<string, unknown>)["data"];
+      if (typeof data === "object" && data !== null) {
+        const err = (data as Record<string, unknown>)["error"];
+        if (typeof err === "string" && err) return err;
+      }
+    }
+    const data = obj["data"];
+    if (typeof data === "object" && data !== null) {
+      const err = (data as Record<string, unknown>)["error"];
+      if (typeof err === "string" && err) return err;
+    }
+    const msg = obj["message"];
+    if (typeof msg === "string" && msg) return msg;
+  }
+  return "Something went wrong. Please try again.";
+}
+
+export function useApiCall<T, Args extends unknown[] = unknown[]>(
+  apiFn: (...args: Args) => Promise<T>,
   options?: {
     showErrorToast?: boolean;
     maxRetries?: number;
@@ -30,13 +53,13 @@ export function useApiCall<T>(
     retryMessage?: string;
     withSignal?: boolean;
   },
-): ApiCallState<T> {
+): ApiCallState<T, Args> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const lastArgsRef = useRef<any[]>([]);
+  const lastArgsRef = useRef<Args | []>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const { showToast } = useToast();
@@ -48,21 +71,6 @@ export function useApiCall<T>(
   const showErr = options?.showErrorToast !== false;
   const maxRetries = options?.maxRetries ?? configMaxRetries;
   const backoffBaseMs = configBackoffBase;
-
-  const extractError = (e: unknown): string => {
-    if (e instanceof Error) return e.message || "Something went wrong. Please try again.";
-    if (typeof e === "object" && e !== null) {
-      const obj = e as Record<string, unknown>;
-      const nested = obj["response"] as Record<string, unknown> | undefined;
-      return (
-        (nested?.["data"] as Record<string, unknown>)?.["error"] as string ||
-        (obj["data"] as Record<string, unknown>)?.["error"] as string ||
-        obj["message"] as string ||
-        "Something went wrong. Please try again."
-      );
-    }
-    return "Something went wrong. Please try again.";
-  };
 
   useEffect(() => {
     mountedRef.current = true;
@@ -76,7 +84,7 @@ export function useApiCall<T>(
   }, []);
 
   const callWithRetry = useCallback(
-    async (args: any[], isRetry = false): Promise<T | null> => {
+    async (args: Args | [], isRetry = false): Promise<T | null> => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -105,7 +113,9 @@ export function useApiCall<T>(
         }
 
         try {
-          const callArgs = options?.withSignal ? [...args, controller.signal] : args;
+          const callArgs = options?.withSignal
+            ? ([...args, controller.signal] as unknown as Args)
+            : (args as unknown as Args);
           const result = await apiFn(...callArgs);
           if (controller.signal.aborted || !mountedRef.current) return null;
           setData(result);
@@ -136,7 +146,7 @@ export function useApiCall<T>(
   );
 
   const execute = useCallback(
-    async (...args: any[]) => {
+    async (...args: Args) => {
       lastArgsRef.current = args;
       return callWithRetry(args, false);
     },
