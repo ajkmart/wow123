@@ -676,43 +676,46 @@ export function SystemSection() {
         </div>
       )}
 
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <HardDrive size={15} className="text-slate-500" />
-            <p className="font-semibold text-sm text-slate-700">Database Overview</p>
-            {!statsLoading && stats && (
-              <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
-                {Object.values(stats).reduce((a, b) => a + b, 0).toLocaleString()} total rows
-              </span>
-            )}
+      {import.meta.env.DEV && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <HardDrive size={15} className="text-slate-500" />
+              <p className="font-semibold text-sm text-slate-700">Database Overview</p>
+              <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Dev only</span>
+              {!statsLoading && stats && (
+                <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
+                  {Object.values(stats).reduce((a, b) => a + b, 0).toLocaleString()} total rows
+                </span>
+              )}
+            </div>
+            <button onClick={loadStats} disabled={statsLoading}
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded-lg hover:bg-slate-100 transition-all">
+              <RefreshCw size={11} className={statsLoading ? "animate-spin" : ""} />
+              Refresh
+            </button>
           </div>
-          <button onClick={loadStats} disabled={statsLoading}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded-lg hover:bg-slate-100 transition-all">
-            <RefreshCw size={11} className={statsLoading ? "animate-spin" : ""} />
-            Refresh
-          </button>
-        </div>
-        {statsLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {Array(8).fill(0).map((_,i) => (
-              <div key={i} className="h-14 rounded-xl bg-slate-100 animate-pulse" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {STAT_ITEMS.map(item => (
-              <div key={item.key} className={`rounded-xl border p-3 flex items-center gap-2.5 ${item.color}`}>
-                <span className="text-lg shrink-0">{item.icon}</span>
-                <div>
-                  <p className="text-lg font-extrabold leading-none">{(stats?.[item.key] ?? 0).toLocaleString()}</p>
-                  <p className="text-[10px] font-medium opacity-70 mt-0.5">{item.label}</p>
+          {statsLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {Array(8).fill(0).map((_,i) => (
+                <div key={i} className="h-14 rounded-xl bg-slate-100 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {STAT_ITEMS.map(item => (
+                <div key={item.key} className={`rounded-xl border p-3 flex items-center gap-2.5 ${item.color}`}>
+                  <span className="text-lg shrink-0">{item.icon}</span>
+                  <div>
+                    <p className="text-lg font-extrabold leading-none">{(stats?.[item.key] ?? 0).toLocaleString()}</p>
+                    <p className="text-[10px] font-medium opacity-70 mt-0.5">{item.label}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <div className="flex items-center gap-2 mb-3">
