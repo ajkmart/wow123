@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ShoppingBag, Car, Wallet, AlertTriangle, Radio, Wifi, WifiOff, Trash2, Shield } from "lucide-react";
+import { ShoppingBag, Car, Wallet, AlertTriangle, Radio, Wifi, WifiOff, Trash2, Shield, Package, TrendingDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useActivityFeed, type ActivityEvent, type ActivityEventType } from "@/hooks/useActivityFeed";
@@ -25,8 +25,10 @@ const EVENT_META: Record<
   "rider:status":         { icon: Radio,         color: "text-violet-600",  bg: "bg-violet-50",   dot: "bg-violet-500" },
   "rider:offline":        { icon: Radio,         color: "text-gray-500",    bg: "bg-gray-50",     dot: "bg-gray-400" },
   "rider:spoof-alert":    { icon: Shield,        color: "text-orange-600",  bg: "bg-orange-50",   dot: "bg-orange-500" },
-  "wallet:admin-topup":   { icon: Wallet,        color: "text-amber-600",   bg: "bg-amber-50",    dot: "bg-amber-500" },
-  "wallet:deposit-approved": { icon: Wallet,     color: "text-green-600",   bg: "bg-green-50",    dot: "bg-green-500" },
+  "wallet:admin-topup":       { icon: Wallet,       color: "text-amber-600",   bg: "bg-amber-50",    dot: "bg-amber-500" },
+  "wallet:deposit-approved":  { icon: Wallet,       color: "text-green-600",   bg: "bg-green-50",    dot: "bg-green-500" },
+  "product:stock_updated":    { icon: Package,      color: "text-blue-600",    bg: "bg-blue-50",     dot: "bg-blue-500" },
+  "product:stock_low":        { icon: TrendingDown, color: "text-orange-600",  bg: "bg-orange-50",   dot: "bg-orange-500" },
 };
 
 function EventRow({ event, tick }: { event: ActivityEvent; tick: number }) {

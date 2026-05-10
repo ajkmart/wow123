@@ -141,7 +141,7 @@ export default defineConfig(async ({ mode: _mode }) => {
     fs: {
       strict: true,
       deny: ["**/.*"],
-      allow: ["../../lib/ui"],
+      allow: [".", "../../lib/ui", "../../lib/i18n"],
     },
   },
   preview: {

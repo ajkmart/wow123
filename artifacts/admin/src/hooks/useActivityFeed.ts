@@ -11,7 +11,9 @@ export type ActivityEventType =
   | "rider:offline"
   | "rider:spoof-alert"
   | "wallet:admin-topup"
-  | "wallet:deposit-approved";
+  | "wallet:deposit-approved"
+  | "product:stock_updated"
+  | "product:stock_low";
 
 export interface ActivityEvent {
   id: string;
@@ -95,6 +97,20 @@ function describe(
             ? `Rs. ${Number(p.amount).toLocaleString()}`
             : "Wallet credited",
       };
+    case "product:stock_updated":
+      return {
+        title: "Stock updated",
+        subtitle: p.productName
+          ? `${String(p.productName)} — ${p.stock ?? 0} units`
+          : `Product ${String(p.productId ?? "").slice(-6).toUpperCase()} — ${p.stock ?? 0} units`,
+      };
+    case "product:stock_low":
+      return {
+        title: (p.stock as number) <= 0 ? "Out of stock!" : "Low stock alert",
+        subtitle: p.productName
+          ? `${String(p.productName)} — ${p.stock ?? 0} units left`
+          : `Product ${String(p.productId ?? "").slice(-6).toUpperCase()} — ${p.stock ?? 0} units`,
+      };
     default:
       return { title: String(type), subtitle: "" };
   }
@@ -115,6 +131,8 @@ const FEED_EVENTS: ActivityEventType[] = [
   "rider:spoof-alert",
   "wallet:admin-topup",
   "wallet:deposit-approved",
+  "product:stock_updated",
+  "product:stock_low",
 ];
 
 export function useActivityFeed() {

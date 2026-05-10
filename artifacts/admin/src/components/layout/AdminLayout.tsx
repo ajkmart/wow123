@@ -39,6 +39,7 @@ import {
   readFavorites,
   writeFavorites,
 } from "@/lib/navConfig";
+import { StockNotificationBell } from "@/components/StockNotificationBell";
 
 // NAV_GROUPS, NAV_DESCRIPTIONS, BOTTOM_NAV and navItems are imported from
 // `@/lib/navConfig` so the command palette, breadcrumbs and any future
@@ -838,6 +839,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </Link>
             )}
+
+            {/* Stock notification bell */}
+            <StockNotificationBell />
 
             {/* Language selector */}
             <div className="relative hidden sm:block" ref={langRef}>

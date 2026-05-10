@@ -88,7 +88,7 @@ export default defineConfig({
     fs: {
       strict: true,
       deny: ["**/.*"],
-      allow: ["../../lib/ui"],
+      allow: [".", "../../lib/ui", "../../lib/i18n"],
     },
   },
   preview: {

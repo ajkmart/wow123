@@ -345,10 +345,23 @@ router.patch("/products/:id", async (req, res) => {
   if (stock !== undefined || inStock !== undefined) {
     const io = getIO();
     if (io) {
-      const payload = { productId: product.id, vendorId: product.vendorId, stock: product.stock, inStock: product.inStock };
+      const LOW_STOCK_THRESHOLD = 5;
+      const payload = { productId: product.id, vendorId: product.vendorId, stock: product.stock, inStock: product.inStock, productName: product.name };
       if (product.vendorId) io.to(`vendor:${product.vendorId}`).emit("product:stock_updated", payload);
       io.to("admin-fleet").emit("product:stock_updated", payload);
+      if (product.stock !== null && product.stock < LOW_STOCK_THRESHOLD) {
+        io.to("admin-fleet").emit("product:stock_low", { ...payload, isLow: true, threshold: LOW_STOCK_THRESHOLD });
+      }
     }
+    const adminReq = req as AdminRequest;
+    addAuditEntry({
+      action: "stock:updated",
+      ip: getClientIp(req),
+      adminId: adminReq.admin?.id,
+      adminName: adminReq.admin?.name,
+      details: `Admin manually set stock for "${product.name}" (${product.id}) → ${product.stock ?? 0} units`,
+      result: "success",
+    });
   }
 
   sendSuccess(res, { ...product, price: parseFloat(product.price) });
@@ -817,6 +830,43 @@ router.delete("/promo-codes/:id", async (req, res) => {
 /* ══════════════════════════════════════
    VENDOR MANAGEMENT
 ══════════════════════════════════════ */
+
+/* ── GET /stock-notifications — recent stock changes for the admin notification bell ──
+   Returns last 60 entries from product_stock_history joined with product name.
+   Flags low-stock rows (newStock < 5) so the client can highlight them.
+───────────────────────────────────────────────────────────────────────────────────── */
+router.get("/stock-notifications", adminAuth, async (req, res) => {
+  const LOW_STOCK_THRESHOLD = 5;
+  try {
+    const rows = await db
+      .select({
+        id: productStockHistoryTable.id,
+        productId: productStockHistoryTable.productId,
+        vendorId: productStockHistoryTable.vendorId,
+        previousStock: productStockHistoryTable.previousStock,
+        newStock: productStockHistoryTable.newStock,
+        quantityDelta: productStockHistoryTable.quantityDelta,
+        reason: productStockHistoryTable.reason,
+        source: productStockHistoryTable.source,
+        orderId: productStockHistoryTable.orderId,
+        changedAt: productStockHistoryTable.changedAt,
+        productName: productsTable.name,
+      })
+      .from(productStockHistoryTable)
+      .leftJoin(productsTable, eq(productStockHistoryTable.productId, productsTable.id))
+      .orderBy(desc(productStockHistoryTable.changedAt))
+      .limit(60);
+    const notifications = rows.map(r => ({
+      ...r,
+      isLow: r.newStock !== null && r.newStock < LOW_STOCK_THRESHOLD,
+      isOutOfStock: r.newStock !== null && r.newStock <= 0,
+    }));
+    sendSuccess(res, { notifications, total: notifications.length });
+  } catch (err: any) {
+    logger.error({ err: err.message }, "[stock-notifications] fetch failed");
+    sendError(res, "Failed to fetch stock notifications", 500);
+  }
+});
 
 /* ── POST /uploads/admin — base64 image upload for admin panel ── */
 router.post("/uploads/admin", async (req, res) => {

@@ -1,0 +1,302 @@
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Bell, Package, AlertTriangle, TrendingDown, X, RefreshCw, ExternalLink } from "lucide-react";
+import { io, type Socket } from "socket.io-client";
+import { useAdminAuth } from "@/lib/adminAuthContext";
+import { adminFetch } from "@/lib/adminFetcher";
+import { toast } from "@/hooks/use-toast";
+import { Link } from "wouter";
+
+const LOW_STOCK_THRESHOLD = 5;
+
+interface StockNotification {
+  id: string;
+  productId: string;
+  productName: string | null;
+  vendorId: string;
+  previousStock: number | null;
+  newStock: number | null;
+  quantityDelta: number | null;
+  reason: string;
+  source: string;
+  orderId: string | null;
+  changedAt: string;
+  isLow: boolean;
+  isOutOfStock: boolean;
+}
+
+function relativeTime(ts: string | number): string {
+  const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (diff < 5)  return "just now";
+  if (diff < 60) return `${diff}s ago`;
+  const m = Math.floor(diff / 60);
+  if (m < 60)    return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24)    return `${h}h ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+function reasonLabel(reason: string): string {
+  switch (reason) {
+    case "order":           return "Order";
+    case "order_confirmed": return "Confirmed";
+    case "manual":          return "Manual";
+    default:                return reason;
+  }
+}
+
+function NotificationRow({ n }: { n: StockNotification }) {
+  const isOut = n.isOutOfStock;
+  const isLow = n.isLow && !isOut;
+
+  return (
+    <div className={`flex items-start gap-3 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors ${isOut ? "bg-red-50/40" : isLow ? "bg-amber-50/40" : ""}`}>
+      <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isOut ? "bg-red-100" : isLow ? "bg-amber-100" : "bg-blue-50"}`}>
+        {isOut
+          ? <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+          : isLow
+          ? <TrendingDown className="w-3.5 h-3.5 text-amber-500" />
+          : <Package className="w-3.5 h-3.5 text-blue-500" />
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-semibold leading-tight truncate ${isOut ? "text-red-700" : isLow ? "text-amber-700" : "text-gray-800"}`}>
+          {isOut ? "Out of Stock" : isLow ? "Low Stock Alert" : "Stock Updated"}
+        </p>
+        <p className="text-xs text-gray-500 truncate mt-0.5">
+          {n.productName ?? n.productId} — {n.newStock ?? 0} units left
+        </p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[10px] text-gray-400">{reasonLabel(n.reason)}</span>
+          {n.quantityDelta !== null && n.quantityDelta !== 0 && (
+            <span className={`text-[10px] font-bold ${n.quantityDelta < 0 ? "text-red-500" : "text-green-600"}`}>
+              {n.quantityDelta > 0 ? "+" : ""}{n.quantityDelta}
+            </span>
+          )}
+        </div>
+      </div>
+      <span className="text-[10px] text-gray-400 shrink-0 mt-0.5 tabular-nums whitespace-nowrap">
+        {relativeTime(n.changedAt)}
+      </span>
+    </div>
+  );
+}
+
+export function StockNotificationBell() {
+  const { state } = useAdminAuth();
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState<StockNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [lastRead, setLastRead] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem("ajkmart_stock_bell_read") ?? "0", 10) || 0; } catch { return 0; }
+  });
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
+
+  const fetchNotifications = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await adminFetch("/stock-notifications") as { notifications: StockNotification[] };
+      setNotifications(data.notifications ?? []);
+      const newUnread = (data.notifications ?? []).filter(
+        n => new Date(n.changedAt).getTime() > lastRead && (n.isLow || n.isOutOfStock)
+      ).length;
+      setUnreadCount(newUnread);
+    } catch {
+      /* silent — badge just won't show */
+    } finally {
+      setLoading(false);
+    }
+  }, [lastRead]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    if (!state.accessToken) return;
+    const socket = io(window.location.origin, {
+      path: "/api/socket.io",
+      query: { rooms: "admin-fleet" },
+      auth: (cb: (d: Record<string, string>) => void) => cb({ token: state.accessToken || "" }),
+      transports: ["websocket", "polling"],
+    });
+    socketRef.current = socket;
+    socket.on("connect", () => socket.emit("join", "admin-fleet"));
+
+    socket.on("product:stock_low", (payload: { productId: string; productName?: string; vendorId: string; stock: number; inStock: boolean }) => {
+      const isOut = payload.stock <= 0;
+      toast({
+        title: isOut ? "⚠️ Out of Stock" : "⚠️ Low Stock Alert",
+        description: `"${payload.productName ?? payload.productId}" — ${payload.stock} unit${payload.stock !== 1 ? "s" : ""} remaining`,
+        variant: isOut ? "destructive" : "default",
+      });
+      const synthetic: StockNotification = {
+        id: `live-${Date.now()}`,
+        productId: payload.productId,
+        productName: payload.productName ?? null,
+        vendorId: payload.vendorId,
+        previousStock: null,
+        newStock: payload.stock,
+        quantityDelta: null,
+        reason: "order",
+        source: "live",
+        orderId: null,
+        changedAt: new Date().toISOString(),
+        isLow: !isOut && payload.stock < LOW_STOCK_THRESHOLD,
+        isOutOfStock: isOut,
+      };
+      setNotifications(prev => [synthetic, ...prev].slice(0, 60));
+      setUnreadCount(c => c + 1);
+    });
+
+    socket.on("product:stock_updated", (payload: { productId: string; productName?: string; vendorId: string; stock: number; inStock: boolean }) => {
+      const isOut = payload.stock <= 0;
+      const isLow = !isOut && payload.stock < LOW_STOCK_THRESHOLD;
+      if (!isLow && !isOut) return;
+      const synthetic: StockNotification = {
+        id: `live-upd-${Date.now()}`,
+        productId: payload.productId,
+        productName: payload.productName ?? null,
+        vendorId: payload.vendorId,
+        previousStock: null,
+        newStock: payload.stock,
+        quantityDelta: null,
+        reason: "order",
+        source: "live",
+        orderId: null,
+        changedAt: new Date().toISOString(),
+        isLow,
+        isOutOfStock: isOut,
+      };
+      setNotifications(prev => {
+        const exists = prev.findIndex(n => n.productId === payload.productId && n.source === "live");
+        if (exists >= 0) {
+          const next = [...prev];
+          next[exists] = synthetic;
+          return next;
+        }
+        return [synthetic, ...prev].slice(0, 60);
+      });
+    });
+
+    return () => { socket.disconnect(); socketRef.current = null; };
+  }, [state.accessToken]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleOpen = () => {
+    setOpen(o => {
+      if (!o) {
+        const now = Date.now();
+        setLastRead(now);
+        setUnreadCount(0);
+        try { localStorage.setItem("ajkmart_stock_bell_read", String(now)); } catch {}
+      }
+      return !o;
+    });
+  };
+
+  const lowAndOut = notifications.filter(n => n.isLow || n.isOutOfStock);
+  const displayList = open
+    ? (lowAndOut.length > 0 ? lowAndOut : notifications).slice(0, 20)
+    : [];
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={handleOpen}
+        aria-label={`Stock notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+        className="relative w-8 h-8 flex items-center justify-center rounded-xl border transition-all duration-150 hover:bg-amber-50"
+        style={{ borderColor: unreadCount > 0 ? "rgba(245,158,11,0.3)" : "rgba(0,0,0,0.08)", background: open ? "rgba(245,158,11,0.06)" : undefined }}
+      >
+        <Bell className={`w-4 h-4 ${unreadCount > 0 ? "text-amber-500" : "text-slate-400"}`} />
+        {unreadCount > 0 && (
+          <span
+            className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-black text-white"
+            style={{ background: "#EF4444", padding: "0 3px", boxShadow: "0 1px 4px rgba(239,68,68,0.5)" }}
+          >
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
+          style={{
+            width: 340,
+            background: "#fff",
+            border: "1px solid rgba(0,0,0,0.08)",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.14)",
+          }}
+        >
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-bold text-gray-800">Stock Alerts</span>
+              {lowAndOut.length > 0 && (
+                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                  {lowAndOut.length} alert{lowAndOut.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={fetchNotifications}
+                disabled={loading}
+                className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-400"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-400"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-y-auto" style={{ maxHeight: 380 }}>
+            {loading && notifications.length === 0 ? (
+              <div className="flex items-center justify-center py-10 text-sm text-gray-400 gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Loading…
+              </div>
+            ) : displayList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 text-center px-4">
+                <div className="w-9 h-9 rounded-2xl bg-green-50 flex items-center justify-center">
+                  <Package className="w-4.5 h-4.5 text-green-400" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700">All stock levels healthy</p>
+                <p className="text-xs text-gray-400">No low-stock or out-of-stock products right now.</p>
+              </div>
+            ) : (
+              displayList.map(n => <NotificationRow key={n.id} n={n} />)
+            )}
+          </div>
+
+          <div className="px-4 py-2.5" style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+            <Link href="/products" onClick={() => setOpen(false)}>
+              <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer transition-colors">
+                View all products
+                <ExternalLink className="w-3 h-3" />
+              </div>
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

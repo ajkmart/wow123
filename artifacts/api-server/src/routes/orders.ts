@@ -104,10 +104,12 @@ async function broadcastStockUpdates(
   if (!io) return;
   const productIds = items.map(i => i.productId).filter(Boolean) as string[];
   if (productIds.length === 0) return;
+  const LOW_STOCK_THRESHOLD = 5;
   try {
     const rows = await db
       .select({
         id: productsTable.id,
+        name: productsTable.name,
         vendorId: productsTable.vendorId,
         stock: productsTable.stock,
         inStock: productsTable.inStock,
@@ -115,9 +117,18 @@ async function broadcastStockUpdates(
       .from(productsTable)
       .where(inArray(productsTable.id, productIds));
     for (const row of rows) {
-      const payload = { productId: row.id, vendorId: row.vendorId, stock: row.stock, inStock: row.inStock };
+      const payload = { productId: row.id, vendorId: row.vendorId, stock: row.stock, inStock: row.inStock, productName: row.name };
       io.to(`vendor:${row.vendorId}`).emit("product:stock_updated", payload);
       io.to("admin-fleet").emit("product:stock_updated", payload);
+      if (row.stock !== null && row.stock < LOW_STOCK_THRESHOLD) {
+        io.to("admin-fleet").emit("product:stock_low", { ...payload, isLow: true, threshold: LOW_STOCK_THRESHOLD });
+      }
+      addAuditEntry({
+        action: "stock:updated",
+        ip: "system",
+        details: `Stock updated: "${row.name}" (${row.id}) → ${row.stock ?? 0} units [order decrement]`,
+        result: "success",
+      });
     }
   } catch (err) {
     logger.warn({ productIds, err: (err as Error).message }, "[orders] post-commit stock broadcast failed — vendors will see update on next poll");
