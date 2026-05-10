@@ -28,11 +28,11 @@ const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
    (S3-compatible: set STORAGE_BUCKET_URL + STORAGE_ACCESS_KEY +
    STORAGE_SECRET_KEY) before deploying to production. */
 if (process.env.NODE_ENV === "production" && !process.env["STORAGE_BUCKET_URL"]) {
-  logger.warn(
-    "[uploads] WARNING: Running in production with local disk storage. " +
+  throw new Error(
+    "[uploads] FATAL: Running in production without object storage. " +
     "Files stored in ./uploads/ will be lost on container restart and are " +
-    "not shared across instances. Set STORAGE_BUCKET_URL to use S3-compatible " +
-    "object storage before going live.",
+    "not shared across instances. Set STORAGE_BUCKET_URL (S3-compatible) " +
+    "in your environment before deploying to production.",
   );
 }
 

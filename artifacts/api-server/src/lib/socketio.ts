@@ -246,8 +246,11 @@ function buildAllowedOrigins(): string | string[] {
   if (process.env.NODE_ENV !== "production") return "*";
   const explicit = (process.env.ALLOWED_ORIGINS ?? "").split(",").filter(Boolean);
   if (explicit.length > 0) return explicit;
-  const replitDomains = (process.env.REPLIT_DOMAINS ?? "").split(",").filter(Boolean);
-  const origins = replitDomains.flatMap(d => [`https://${d.trim()}`, `http://${d.trim()}`]);
+  /* ALLOWED_DOMAINS: generic comma-separated domain list (no scheme).
+     Falls back to REPLIT_DOMAINS for Replit-hosted environments. */
+  const domainSrc = process.env.ALLOWED_DOMAINS ?? process.env.REPLIT_DOMAINS ?? "";
+  const domains = domainSrc.split(",").filter(Boolean);
+  const origins = domains.flatMap(d => [`https://${d.trim()}`, `http://${d.trim()}`]);
   return origins.length > 0 ? origins : "*";
 }
 

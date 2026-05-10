@@ -138,12 +138,15 @@ const changePasswordSchema = z.object({
 
 /** Build a user-facing reset URL pointing at the admin SPA. */
 function buildAdminResetUrl(rawToken: string): string {
+  /* Priority: explicit admin URL → generic app base URL → Replit dev domain (fallback) → localhost */
+  const replitFallback = process.env.REPLIT_DEV_DOMAIN
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}/admin`
+    : null;
   const base =
     process.env.ADMIN_BASE_URL ||
     process.env.APP_BASE_URL ||
-    (process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}/admin`
-      : "http://localhost:5000/admin");
+    replitFallback ||
+    "http://localhost:5000/admin";
   // Trim trailing slash and append the SPA route. The admin SPA exposes a
   // wouter route at `/reset-password` that consumes ?token=...
   const trimmed = base.replace(/\/+$/, "");

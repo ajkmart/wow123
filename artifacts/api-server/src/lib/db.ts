@@ -11,6 +11,11 @@ if (!databaseUrl) {
 }
 logger.info({ urlLength: databaseUrl.length }, "✅ DB URL loaded");
 
-const pool = new Pool(buildPgPoolConfig(databaseUrl));
+const pool = new Pool({
+  ...buildPgPoolConfig(databaseUrl),
+  max: parseInt(process.env.DB_POOL_MAX ?? "10"),
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
 export const db = drizzle(pool, { schema });
 export { pool };

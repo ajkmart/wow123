@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "NODE_ENV=development node ./scripts/start-with-restart.mjs",
     "build": "node ./build.mjs",
-    "start": "tsx --enable-source-maps ./src/index.ts",
+    "start": "node dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
+    "@sentry/node": "^8.55.2",
     "@workspace/api-zod": "workspace:*",
     "@workspace/auth-utils": "workspace:*",
     "@workspace/db": "workspace:*",
@@ -49,9 +50,6 @@
     "web-push": "^3.6.7",
     "yaml": "^2.8.4",
     "zod": "catalog:"
-  },
-  "optionalDependencies": {
-    "@sentry/node": "^8"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

@@ -1,9 +1,10 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db } from "@workspace/db";
 import { popularLocationsTable, mapApiUsageLogTable, platformSettingsTable } from "@workspace/db/schema";
 import { eq, asc, and, sql } from "drizzle-orm";
 import { getCachedSettings, adminAuth } from "./admin.js";
 import { sendSuccess, sendError, sendNotFound, sendValidationError } from "../lib/response.js";
+import { verifyUserJwt } from "../middleware/security.js";
 
 const router: IRouter = Router();
 
@@ -691,11 +692,24 @@ router.get("/status", async (_req, res) => {
   });
 });
 
-/* ── GET /api/maps/config — Securely serves map provider config to frontend clients.
+/* ── Helper: extract and verify Bearer token from Authorization header or socket auth ── */
+function extractAuthToken(req: Request): string | null {
+  const auth = req.headers["authorization"];
+  if (auth && auth.startsWith("Bearer ")) return auth.slice(7);
+  return null;
+}
+
+function isRequestAuthenticated(req: Request): boolean {
+  const token = extractAuthToken(req);
+  if (!token) return false;
+  return verifyUserJwt(token) !== null;
+}
+
+/* ── GET /api/maps/config — Serves map provider config to authenticated clients.
    API keys are fetched from platform_settings (DB-managed) and returned at request
    time so they never appear in frontend build artifacts or source code.
-   This endpoint is intentionally public (no auth) because map API keys are
-   domain-restricted by the provider and must be available on page load.
+   Unauthenticated requests receive provider/tile config but NO API keys, preventing
+   key exposure to scrapers and bots. Authenticated users get full config.
    Rate limiting is enforced by the global API rate limiter.
 
    Optional query param ?app=customer|rider|vendor|admin scopes the returned
@@ -703,6 +717,7 @@ router.get("/status", async (_req, res) => {
    When ?app is absent the token for the global primary provider is returned.
 ── */
 router.get("/config", async (req, res) => {
+  const authenticated = isRequestAuthenticated(req);
   const settings = await getCachedSettings();
   const s = settings as Record<string, string>;
 
@@ -742,10 +757,17 @@ router.get("/config", async (req, res) => {
   const validApps = ["customer", "rider", "vendor", "admin"];
   const scopedApp = validApps.includes(reqApp) ? reqApp : null;
 
-  const primaryToken   = tokenFor(mapProvider);
+  /* Strip API keys from unauthenticated responses — provider name and tile
+     config are always returned so the map can render with free-tier OSM tiles.
+     Authenticated requests (valid Bearer JWT) receive the full key set. */
+  const resolveToken = (t: string) => authenticated ? t : "";
+
+  const primaryToken   = resolveToken(tokenFor(mapProvider));
 
   /* searchToken: only the token for the configured search provider */
-  const searchToken = searchProvider === "locationiq" ? locationIqKey : (searchProvider === "google" ? googleKey : "");
+  const searchToken = authenticated
+    ? (searchProvider === "locationiq" ? locationIqKey : (searchProvider === "google" ? googleKey : ""))
+    : "";
 
   /* Geocode cache config */
   const rawTtl  = parseInt(s["geocode_cache_ttl_min"]  ?? "10",  10);
@@ -753,14 +775,13 @@ router.get("/config", async (req, res) => {
   const geocodeCacheTtlMin  = Number.isFinite(rawTtl)  ? Math.max(1, Math.min(1440, rawTtl))  : 10;
   const geocodeCacheMaxSize = Number.isFinite(rawSize) ? Math.max(10, Math.min(5000, rawSize)) : 200;
 
-  /* Build per-app overrides — token only included for the scoped app or all if no scope */
+  /* Build per-app overrides — token only included for authenticated requests */
   const buildAppOverrides = () => {
     const result: Record<string, { provider: string; token: string; override: string }> = {};
     for (const app of validApps) {
       const override = appOverrideKeys[app];
       const provider = resolveAppProvider(override);
-      /* Return token only for the scoped app, or for all if no scope (admin-panel use) */
-      const token = (scopedApp === null || scopedApp === app) ? tokenFor(provider) : "";
+      const token = authenticated && (scopedApp === null || scopedApp === app) ? tokenFor(provider) : "";
       result[app] = { provider, token, override };
     }
     return result;
@@ -773,7 +794,7 @@ router.get("/config", async (req, res) => {
     secondary:        secondaryProvider,
     /* secondaryToken is returned because DynamicTileLayer needs it for client-side failover.
        Both primary and secondary keys are domain-restricted by the provider. */
-    secondaryToken:   tokenFor(secondaryProvider),
+    secondaryToken:   resolveToken(tokenFor(secondaryProvider)),
     failoverEnabled,
 
     /* Backward-compatible aliases for existing consumers */
@@ -791,6 +812,9 @@ router.get("/config", async (req, res) => {
     /* Search/autocomplete */
     searchProvider,
     searchToken,
+
+    /* Indicate to the client whether it received full key config */
+    keysIncluded:     authenticated,
 
     /* Per-provider health/status — no tokens in this block */
     providers: {

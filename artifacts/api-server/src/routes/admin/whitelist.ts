@@ -27,6 +27,14 @@ router.post("/", async (req, res) => {
   const { identifier, label, bypassCode, expiresAt } = req.body;
 
   if (!identifier) { sendError(res, "identifier (phone or email) is required"); return; }
+  if (!bypassCode) { sendError(res, "bypassCode is required"); return; }
+
+  const isProduction = process.env.NODE_ENV === "production";
+  const insecureCodes = ["000000", "123456"];
+  if (isProduction && insecureCodes.includes(bypassCode)) {
+    sendError(res, `bypassCode '${bypassCode}' is not allowed in production — use a unique code`);
+    return;
+  }
 
   const id = generateId();
   try {
@@ -34,7 +42,7 @@ router.post("/", async (req, res) => {
       id,
       identifier: identifier.toLowerCase().trim(),
       label: label || null,
-      bypassCode: bypassCode ?? "000000",
+      bypassCode,
       isActive: true,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     }).returning();

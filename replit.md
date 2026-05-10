@@ -182,6 +182,28 @@ Generate production values with: `node -e "console.log(require('crypto').randomB
 **New platform setting:**
 - `security_suspicious_pattern_threshold` — integer, req/min per IP on sensitive paths before alert fires (default: 60).
 
+### Production Readiness Hardening (Task #5 — 2025)
+
+| Area | What changed |
+|---|---|
+| **Production start script** | `"start"` in `artifacts/api-server/package.json` now runs `node dist/index.js`. Dev stays on `tsx` via `pnpm dev`. |
+| **DB connection pool** | `lib/db/src/index.ts` and `artifacts/api-server/src/lib/db.ts` now set explicit `max`, `idleTimeoutMillis`, `connectionTimeoutMillis`. Configurable via `DB_POOL_MAX` env var. |
+| **Migration deduplicated** | `lib/db/migrations/0006_token_family_invalidation.sql` renamed to `0009_token_family_invalidation.sql` — no more duplicate prefix conflict. |
+| **OTP bypass security** | `"000000"` blocked in production alongside `"123456"`. The whitelist POST endpoint now requires `bypassCode` and rejects insecure codes in production. |
+| **Map API keys protected** | `GET /api/maps/config` now strips all API keys from unauthenticated responses. Only authenticated requests (valid Bearer JWT) receive Mapbox/Google/LocationIQ tokens. |
+| **Startup guards** | `REDIS_URL` added to `CRITICAL_VARS` (fatal in production). Dev placeholder JWT secrets trigger a fatal exit in production. |
+| **Replit decoupling** | `REPLIT_DOMAINS` replaced with `ALLOWED_DOMAINS` in Socket.IO CORS config (with Replit as optional fallback). `REPLIT_DEV_DOMAIN` replaced with `APP_BASE_URL` in admin password reset URL builder. |
+| **Sentry** | `@sentry/node` moved from `optionalDependencies` to `dependencies`. Init is now synchronous (top-level await in ESM entrypoint). |
+| **PM2 ecosystem** | `ecosystem.config.cjs` updated with all five apps: API server, admin (served by API), vendor, rider, and customer mobile-web. |
+| **Object storage guard** | Missing `STORAGE_BUCKET_URL` in production now throws a fatal error at module load time instead of just warning. |
+
+**New required env vars — add in Replit Secrets panel:**
+- `ALLOWED_DOMAINS` — comma-separated domain list (no scheme) for Socket.IO CORS in production (e.g. `example.com,www.example.com`). Falls back to `REPLIT_DOMAINS` for Replit-hosted environments.
+- `STORAGE_BUCKET_URL` — S3-compatible bucket URL required in production for file uploads (e.g. `https://bucket.s3.amazonaws.com`).
+
+**New optional env vars:**
+- `DB_POOL_MAX` — maximum PostgreSQL pool connections (default: `10`).
+
 ### Validation and Support Scripts
 The API server includes a `check-permissions` validation script used by the Replit workflow, and the monorepo includes launcher scripts for Replit, Codespaces, VPS, and local development.
 

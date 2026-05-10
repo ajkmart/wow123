@@ -5,27 +5,23 @@ import { execSync } from 'child_process';
 import { createServer, runStartupTasks } from "./app.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
 
-/* ── Sentry error tracking (optional) ───────────────────────────────────────
-   Initialized before anything else so it captures startup errors too.
-   Only activates when SENTRY_DSN is set; silently skipped otherwise.
-   Install:  pnpm --filter @workspace/api-server add @sentry/node
-   Then set SENTRY_DSN in the Replit Secrets panel. */
+/* ── Sentry error tracking ───────────────────────────────────────────────────
+   Imported directly (no dynamic import) so initialization happens synchronously
+   before any routes are registered, capturing startup errors too.
+   Initialization is gated on SENTRY_DSN — if unset, Sentry is a no-op.
+   Set SENTRY_DSN in the Replit Secrets panel to enable. */
+import * as Sentry from "@sentry/node";
 if (process.env.SENTRY_DSN) {
-  (async () => {
-    try {
-      const Sentry = await import("@sentry/node");
-      Sentry.init({
-        dsn: process.env.SENTRY_DSN,
-        environment: process.env.NODE_ENV ?? "development",
-        tracesSampleRate: parseFloat(process.env.SENTRY_SAMPLE_RATE ?? (process.env.NODE_ENV === "production" ? "0.2" : "0")),
-        integrations: [],
-      });
-      (globalThis as Record<string, unknown>)["__sentryInstance"] = Sentry;
-      logger.info("[sentry] Initialized successfully");
-    } catch {
-      logger.warn("[sentry] @sentry/node not installed — skipping. Run: pnpm --filter @workspace/api-server add @sentry/node");
-    }
-  })().catch(() => {});
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV ?? "development",
+    tracesSampleRate: parseFloat(
+      process.env.SENTRY_SAMPLE_RATE ?? (process.env.NODE_ENV === "production" ? "0.2" : "0")
+    ),
+    integrations: [],
+  });
+  (globalThis as Record<string, unknown>)["__sentryInstance"] = Sentry;
+  logger.info("[sentry] Initialized successfully");
 }
 
 process.on("unhandledRejection", (reason, promise) => {
@@ -37,7 +33,7 @@ process.on("uncaughtException", (err) => {
 });
 
 // ─── ENV FIRST-RUN CHECK ───────────────────────────────────────────────────
-const CRITICAL_VARS = ["DATABASE_URL", "JWT_SECRET", "ENCRYPTION_MASTER_KEY"] as const;
+const CRITICAL_VARS = ["DATABASE_URL", "JWT_SECRET", "ENCRYPTION_MASTER_KEY", "REDIS_URL"] as const;
 const IMPORTANT_VARS = [
   "ADMIN_ACCESS_TOKEN_SECRET",
   "ADMIN_REFRESH_TOKEN_SECRET",
@@ -45,11 +41,40 @@ const IMPORTANT_VARS = [
   "ERROR_REPORT_HMAC_SECRET",
 ] as const;
 
+/** Known dev placeholder JWT secret values — must not be used in production. */
+const DEV_PLACEHOLDER_SECRETS = new Set([
+  "70d7bbb271fc1cf1a6397e8407153c9212f0e27c4b1b38c3f56ec08701718bc3849fe94eebaaed82f47d1cd93830ca7fe3255983484582511c8860cbec76f7cb",
+  "0bf96d92374ef22e78a01b29ee69c0356a06e30e3e194c75fa2458704d296412833291a297210a3b6037fc99e5f1c1117b0b8b8c358ff9aa9561c8aa3029b186",
+  "e2f5a8b1c4d7e0f3a6b9c2d5e8f1a4b7c0d3e6f9a2b5c8d1e4f7a0b3c6d9e2",
+  "f9a2b5c8d1e4f7a0b3c6d9e2f5a8b1c4d7e0f3a6b9c2d5e8f1a4b7c0d3e6f9",
+]);
+const JWT_SECRET_VARS = [
+  "JWT_SECRET", "ADMIN_JWT_SECRET", "ADMIN_ACCESS_TOKEN_SECRET",
+  "ADMIN_REFRESH_TOKEN_SECRET", "ADMIN_REFRESH_SECRET", "ADMIN_SECRET",
+  "VENDOR_JWT_SECRET", "RIDER_JWT_SECRET",
+];
+
 function checkEnv(): void {
   const nodeEnv = process.env.NODE_ENV ?? "";
   const isProduction = ["production", "staging"].includes(nodeEnv);
   const missing = CRITICAL_VARS.filter((k) => !process.env[k]);
   const empty   = IMPORTANT_VARS.filter((k) => !process.env[k]);
+
+  /* Warn loudly (fatal in production) if dev placeholder JWT secrets are in use */
+  if (isProduction) {
+    const placeholderVars = JWT_SECRET_VARS.filter(
+      (k) => process.env[k] && DEV_PLACEHOLDER_SECRETS.has(process.env[k]!),
+    );
+    if (placeholderVars.length > 0) {
+      logger.fatal(
+        { vars: placeholderVars },
+        "[env:check] FATAL — dev placeholder JWT secrets detected in production. " +
+        "Generate new secrets: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\" " +
+        "and update them in the Replit Secrets panel before deploying.",
+      );
+      process.exit(1);
+    }
+  }
 
   if (missing.length === 0 && empty.length === 0) return;
 
