@@ -24,6 +24,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { LastUpdated } from "@/components/ui/LastUpdated";
 import { uploadAdminImageWithProgress } from "@/lib/api";
+import { productSchema, type ProductFormErrors } from "@/lib/validation";
 
 const errMsg = (e: unknown): string =>
   e instanceof Error ? e.message : typeof e === "string" ? e : "Unknown error";
@@ -387,6 +388,7 @@ export default function Products() {
   const [imagePreview, setImagePreview] = useState<string>("");
   const [imageUploading, setImageUploading] = useState(false);
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
+  const [formErrors, setFormErrors] = useState<ProductFormErrors>({});
   const imageBlobRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -438,6 +440,7 @@ export default function Products() {
     setFormData({ ...EMPTY_FORM });
     setImagePreview("");
     setCategorySearch("");
+    setFormErrors({});
     setIsFormOpen(true);
   }, []);
 
@@ -459,15 +462,23 @@ export default function Products() {
     });
     setImagePreview(prod.image || "");
     setCategorySearch(prod.category || "");
+    setFormErrors({});
     setIsFormOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.category.trim()) {
-      toast({ title: "Category required", description: "Please search and select a category from the dropdown", variant: "destructive" });
+    const parsed = productSchema.safeParse(formData);
+    if (!parsed.success) {
+      const errs: ProductFormErrors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] as keyof ProductFormErrors;
+        if (key && !errs[key]) errs[key] = issue.message;
+      }
+      setFormErrors(errs);
       return;
     }
+    setFormErrors({});
     const payload = {
       ...formData,
       price: Number(formData.price),
@@ -826,7 +837,13 @@ export default function Products() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold">Name *</label>
-              <Input required maxLength={120} value={formData.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, name: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. Fresh Milk" />
+              <Input
+                value={formData.name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFormData({...formData, name: e.target.value}); setFormErrors(prev => ({...prev, name: undefined})); }}
+                className={`h-11 rounded-xl ${formErrors.name ? "border-red-400" : ""}`}
+                placeholder="e.g. Fresh Milk"
+              />
+              {formErrors.name && <p className="text-xs text-red-600">{formErrors.name}</p>}
             </div>
             <div className="space-y-2 relative">
               <label className="text-sm font-semibold">Category *</label>
@@ -839,13 +856,14 @@ export default function Products() {
                     if (!e.target.value.trim()) {
                       setFormData(prev => ({ ...prev, category: "" }));
                     }
+                    setFormErrors(prev => ({...prev, category: undefined}));
                   }}
                   onFocus={() => setCategoryDropOpen(true)}
                   onBlur={() => setTimeout(() => {
                     setCategoryDropOpen(false);
                     if (!formData.category) setCategorySearch("");
                   }, 150)}
-                  className="h-11 rounded-xl pr-8"
+                  className={`h-11 rounded-xl pr-8 ${formErrors.category ? "border-red-400" : ""}`}
                   placeholder="Search and select a category..."
                 />
                 {formData.category && (
@@ -863,6 +881,7 @@ export default function Products() {
                         onMouseDown={() => {
                           setCategorySearch(cat.name);
                           setFormData(prev => ({ ...prev, category: cat.id }));
+                          setFormErrors(prev => ({...prev, category: undefined}));
                           setCategoryDropOpen(false);
                         }}
                       >
@@ -874,6 +893,7 @@ export default function Products() {
                   </div>
                 )}
               </div>
+              {formErrors.category && <p className="text-xs text-red-600">{formErrors.category}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Type *</label>
@@ -887,29 +907,67 @@ export default function Products() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Unit</label>
-              <Input maxLength={32} value={formData.unit} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, unit: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. 1 kg, 500ml" />
+              <Input
+                value={formData.unit}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFormData({...formData, unit: e.target.value}); setFormErrors(prev => ({...prev, unit: undefined})); }}
+                className={`h-11 rounded-xl ${formErrors.unit ? "border-red-400" : ""}`}
+                placeholder="e.g. 1 kg, 500ml"
+              />
+              {formErrors.unit && <p className="text-xs text-red-600">{formErrors.unit}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Price (Rs.) *</label>
-              {/* Cap retail price at 1,000,000 to catch typos before
-                  they reach the order/inventory pipeline. */}
-              <Input type="number" required min="1" max="1000000" step="0.01" value={formData.price} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, price: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. 250" />
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.price}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFormData({...formData, price: e.target.value}); setFormErrors(prev => ({...prev, price: undefined})); }}
+                className={`h-11 rounded-xl ${formErrors.price ? "border-red-400" : ""}`}
+                placeholder="e.g. 250"
+              />
+              {formErrors.price && <p className="text-xs text-red-600">{formErrors.price}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Original Price (Rs.)</label>
-              <Input type="number" min="1" max="1000000" step="0.01" value={formData.originalPrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, originalPrice: e.target.value})} className="h-11 rounded-xl" placeholder="optional (for sale)" />
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.originalPrice}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFormData({...formData, originalPrice: e.target.value}); setFormErrors(prev => ({...prev, originalPrice: undefined})); }}
+                className={`h-11 rounded-xl ${formErrors.originalPrice ? "border-red-400" : ""}`}
+                placeholder="optional (for sale)"
+              />
+              {formErrors.originalPrice && <p className="text-xs text-red-600">{formErrors.originalPrice}</p>}
             </div>
             <div className="space-y-2 col-span-2">
               <label className="text-sm font-semibold">Description</label>
-              <Input maxLength={500} value={formData.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, description: e.target.value})} className="h-11 rounded-xl" placeholder="Short description..." />
+              <Input
+                value={formData.description}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFormData({...formData, description: e.target.value}); setFormErrors(prev => ({...prev, description: undefined})); }}
+                className={`h-11 rounded-xl ${formErrors.description ? "border-red-400" : ""}`}
+                placeholder="Short description..."
+              />
+              {formErrors.description && <p className="text-xs text-red-600">{formErrors.description}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Vendor / Restaurant</label>
-              <Input maxLength={120} value={formData.vendorName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, vendorName: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. AJK Fresh Foods" />
+              <Input
+                value={formData.vendorName}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFormData({...formData, vendorName: e.target.value}); setFormErrors(prev => ({...prev, vendorName: undefined})); }}
+                className={`h-11 rounded-xl ${formErrors.vendorName ? "border-red-400" : ""}`}
+                placeholder="e.g. AJK Fresh Foods"
+              />
+              {formErrors.vendorName && <p className="text-xs text-red-600">{formErrors.vendorName}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold">Delivery Time</label>
-              <Input maxLength={48} value={formData.deliveryTime} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, deliveryTime: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. 30-45 min" />
+              <Input
+                value={formData.deliveryTime}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFormData({...formData, deliveryTime: e.target.value}); setFormErrors(prev => ({...prev, deliveryTime: undefined})); }}
+                className={`h-11 rounded-xl ${formErrors.deliveryTime ? "border-red-400" : ""}`}
+                placeholder="e.g. 30-45 min"
+              />
+              {formErrors.deliveryTime && <p className="text-xs text-red-600">{formErrors.deliveryTime}</p>}
             </div>
           </div>
           <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-xl border border-border/50">

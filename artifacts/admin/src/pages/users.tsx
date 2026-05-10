@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useUsers, useUpdateUser, useUpdateUserSecurity, useDeleteUser, useUserActivity, usePendingUsers, useApproveUser, useRejectUser, useRequestUserCorrection, useBulkBanUsers, useCreateUser, useAdminUserSessions, useRevokeUserSession, useRevokeAllUserSessions, useAdminForcePasswordReset, useAdminKycByUserId, useAdminKycApprove, useAdminKycReject, useWaiveDebt, useAdminResetOtp, useAdminViewOtp, useAdminVerifyContact, type CreateUserInput } from "@/hooks/use-admin";
+import { createUserSchema, type CreateUserFormErrors } from "@/lib/validation";
 import { WalletAdjustModal } from "@/components/WalletAdjustModal";
 import { useAdminAuth } from "@/lib/adminAuthContext";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/format";
@@ -309,36 +310,17 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
     setErrors({}); setCreatedTempPassword(null);
   };
 
-  const validate = (): boolean => {
-    const errs: Record<string, string> = {};
-    if (!name.trim() && !phone.trim()) {
-      errs.general = "Name ya phone mein se koi ek zaroor dein";
-    }
-    if (phone.trim() && !/^(\+?92|0)?3\d{9}$/.test(phone.trim().replace(/[\s\-()+]/g, ""))) {
-      errs.phone = "Valid Pakistani mobile number enter karein (e.g. 03001234567)";
-    }
-    if (email.trim() && !email.trim().includes("@")) {
-      errs.email = "Valid email address darj karein";
-    }
-    if (username.trim() && username.trim().replace(/[^a-z0-9_]/gi, "").length < 3) {
-      errs.username = "Username kam az kam 3 characters ka hona chahiye";
-    }
-    if (tempPassword.trim()) {
-      const pw = tempPassword.trim();
-      if (pw.length < 8) {
-        errs.tempPassword = "Password kam az kam 8 characters ka hona chahiye";
-      } else if (!/[A-Z]/.test(pw)) {
-        errs.tempPassword = "Password mein kam az kam ek capital letter hona chahiye";
-      } else if (!/[0-9]/.test(pw)) {
-        errs.tempPassword = "Password mein kam az kam ek number hona chahiye";
-      }
-    }
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
   const handleSubmit = () => {
-    if (!validate()) return;
+    const result = createUserSchema.safeParse({ name, phone, email, username, tempPassword, role, city, area });
+    if (!result.success) {
+      const errs: CreateUserFormErrors = {};
+      for (const issue of result.error.issues) {
+        const key = String(issue.path[0] ?? "general");
+        if (!errs[key]) errs[key] = issue.message;
+      }
+      setErrors(errs);
+      return;
+    }
     const payload: CreateUserInput = { role };
     if (name.trim())         payload.name         = name.trim();
     if (phone.trim())        payload.phone        = phone.trim();
