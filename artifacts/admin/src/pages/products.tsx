@@ -793,14 +793,14 @@ export default function Products() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Name *</label>
-                <Input required maxLength={120} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. Fresh Milk" />
+                <Input required maxLength={120} value={formData.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, name: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. Fresh Milk" />
               </div>
               <div className="space-y-2 relative">
                 <label className="text-sm font-semibold">Category *</label>
                 <div className="relative">
                   <Input
                     value={categorySearch}
-                    onChange={e => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       setCategorySearch(e.target.value);
                       setCategoryDropOpen(true);
                       if (!e.target.value.trim()) {
@@ -846,7 +846,7 @@ export default function Products() {
                 <label className="text-sm font-semibold">Type *</label>
                 <select
                   className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm"
-                  value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}
+                  value={formData.type} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, type: e.target.value})}
                 >
                   <option value="mart">Mart</option>
                   <option value="food">Food</option>
@@ -854,29 +854,29 @@ export default function Products() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Unit</label>
-                <Input maxLength={32} value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. 1 kg, 500ml" />
+                <Input maxLength={32} value={formData.unit} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, unit: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. 1 kg, 500ml" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Price (Rs.) *</label>
                 {/* Cap retail price at 1,000,000 to catch typos before
                     they reach the order/inventory pipeline. */}
-                <Input type="number" required min="1" max="1000000" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. 250" />
+                <Input type="number" required min="1" max="1000000" step="0.01" value={formData.price} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, price: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. 250" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Original Price (Rs.)</label>
-                <Input type="number" min="1" max="1000000" step="0.01" value={formData.originalPrice} onChange={e => setFormData({...formData, originalPrice: e.target.value})} className="h-11 rounded-xl" placeholder="optional (for sale)" />
+                <Input type="number" min="1" max="1000000" step="0.01" value={formData.originalPrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, originalPrice: e.target.value})} className="h-11 rounded-xl" placeholder="optional (for sale)" />
               </div>
               <div className="space-y-2 col-span-2">
                 <label className="text-sm font-semibold">Description</label>
-                <Input maxLength={500} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="h-11 rounded-xl" placeholder="Short description..." />
+                <Input maxLength={500} value={formData.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, description: e.target.value})} className="h-11 rounded-xl" placeholder="Short description..." />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Vendor / Restaurant</label>
-                <Input maxLength={120} value={formData.vendorName} onChange={e => setFormData({...formData, vendorName: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. AJK Fresh Foods" />
+                <Input maxLength={120} value={formData.vendorName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, vendorName: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. AJK Fresh Foods" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Delivery Time</label>
-                <Input maxLength={48} value={formData.deliveryTime} onChange={e => setFormData({...formData, deliveryTime: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. 30-45 min" />
+                <Input maxLength={48} value={formData.deliveryTime} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, deliveryTime: e.target.value})} className="h-11 rounded-xl" placeholder="e.g. 30-45 min" />
               </div>
             </div>
             <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-xl border border-border/50">
@@ -1095,7 +1095,7 @@ export default function Products() {
                 <Input
                   placeholder="Search by name or category..."
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
                   className="pl-9 h-11 rounded-xl"
                 />
               </div>
@@ -1104,7 +1104,7 @@ export default function Products() {
                 <Input
                   placeholder="Filter vendor..."
                   value={vendorFilter}
-                  onChange={e => setVendorFilter(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVendorFilter(e.target.value)}
                   className="pl-9 h-11 rounded-xl"
                 />
               </div>
@@ -1352,7 +1352,7 @@ export default function Products() {
                 max="1000000"
                 step="0.01"
                 value={bulkPrice}
-                onChange={e => setBulkPrice(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBulkPrice(e.target.value)}
                 placeholder="Leave blank to keep current price"
                 className="h-10 rounded-xl"
               />
@@ -1361,7 +1361,7 @@ export default function Products() {
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Category</label>
               <Input
                 value={bulkCategory}
-                onChange={e => setBulkCategory(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBulkCategory(e.target.value)}
                 placeholder="Leave blank to keep current category"
                 className="h-10 rounded-xl"
               />

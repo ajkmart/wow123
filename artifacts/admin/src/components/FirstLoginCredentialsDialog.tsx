@@ -177,14 +177,14 @@ export function FirstLoginCredentialsDialog() {
     >
       <DialogContent
         className="sm:max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl
-          [&>button[aria-label='Close\\ dialog']]:top-3.5 [&>button[aria-label='Close\\ dialog']]:right-3.5
-          [&>button[aria-label='Close\\ dialog']]:h-7 [&>button[aria-label='Close\\ dialog']]:w-7
-          [&>button[aria-label='Close\\ dialog']]:rounded-full
-          [&>button[aria-label='Close\\ dialog']]:bg-white/15
-          [&>button[aria-label='Close\\ dialog']]:text-white
-          [&>button[aria-label='Close\\ dialog']]:hover:bg-white/25
-          [&>button[aria-label='Close\\ dialog']]:hover:text-white
-          [&>button[aria-label='Close\\ dialog']]:backdrop-blur-sm"
+          [&_[data-dialog-close]]:top-3.5 [&_[data-dialog-close]]:right-3.5
+          [&_[data-dialog-close]]:h-7 [&_[data-dialog-close]]:w-7
+          [&_[data-dialog-close]]:rounded-full
+          [&_[data-dialog-close]]:bg-white/15
+          [&_[data-dialog-close]]:text-white
+          [&_[data-dialog-close]]:hover:bg-white/25
+          [&_[data-dialog-close]]:hover:text-white
+          [&_[data-dialog-close]]:backdrop-blur-sm"
         data-testid="dialog-first-login-credentials"
       >
         {/* ── Header ───────────────────────────────────────────── */}
@@ -235,7 +235,7 @@ export function FirstLoginCredentialsDialog() {
                 id="flcd-username"
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
                 placeholder={state.user?.username ?? "admin"}
                 autoComplete="username"
                 disabled={submitting}
@@ -280,7 +280,7 @@ export function FirstLoginCredentialsDialog() {
                       id="flcd-new"
                       type={showPasswords ? "text" : "password"}
                       value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
                       placeholder="Min 8 chars, 1 uppercase, 1 number"
                       autoComplete="new-password"
                       disabled={submitting}
@@ -332,7 +332,7 @@ export function FirstLoginCredentialsDialog() {
                     id="flcd-confirm"
                     type={showPasswords ? "text" : "password"}
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
                     placeholder="Re-enter the new password"
                     autoComplete="new-password"
                     disabled={submitting}
