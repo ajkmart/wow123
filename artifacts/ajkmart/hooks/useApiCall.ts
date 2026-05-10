@@ -49,14 +49,19 @@ export function useApiCall<T>(
   const maxRetries = options?.maxRetries ?? configMaxRetries;
   const backoffBaseMs = configBackoffBase;
 
-  const extractError = (e: any): string => {
+  const extractError = (e: unknown): string => {
     if (e instanceof Error) return e.message || "Something went wrong. Please try again.";
-    return (
-      e?.response?.data?.error ||
-      e?.data?.error ||
-      e?.message ||
-      "Something went wrong. Please try again."
-    );
+    if (typeof e === "object" && e !== null) {
+      const obj = e as Record<string, unknown>;
+      const nested = obj["response"] as Record<string, unknown> | undefined;
+      return (
+        (nested?.["data"] as Record<string, unknown>)?.["error"] as string ||
+        (obj["data"] as Record<string, unknown>)?.["error"] as string ||
+        obj["message"] as string ||
+        "Something went wrong. Please try again."
+      );
+    }
+    return "Something went wrong. Please try again.";
   };
 
   useEffect(() => {
@@ -110,7 +115,7 @@ export function useApiCall<T>(
           setRetryCount(0);
           options?.onSuccess?.(result);
           return result;
-        } catch (e: any) {
+        } catch (e: unknown) {
           if (controller.signal.aborted || !mountedRef.current) return null;
           const msg = extractError(e);
           if (attempt === maxRetries) {

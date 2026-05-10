@@ -434,7 +434,7 @@ export function PlatformConfigProvider({ children }: { children: React.ReactNode
         clearTimeout(timeoutId);
       }
       if (!res.ok) throw new Error("config fetch failed");
-      const raw = unwrapApiResponse(await res.json()) as Record<string, any>;
+      const raw = unwrapApiResponse(await res.json()) as Record<string, Record<string, unknown> & unknown[]>;
       const parsed: PlatformConfig = {
         appStatus: raw.platform?.appStatus === "maintenance"
           ? "maintenance"

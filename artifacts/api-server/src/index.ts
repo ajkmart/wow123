@@ -46,7 +46,8 @@ const IMPORTANT_VARS = [
 ] as const;
 
 function checkEnv(): void {
-  const isProduction = process.env.NODE_ENV === "production";
+  const nodeEnv = process.env.NODE_ENV ?? "";
+  const isProduction = ["production", "staging"].includes(nodeEnv);
   const missing = CRITICAL_VARS.filter((k) => !process.env[k]);
   const empty   = IMPORTANT_VARS.filter((k) => !process.env[k]);
 

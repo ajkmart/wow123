@@ -180,6 +180,16 @@ const VPN_CB_THRESHOLD = 3;          /* open after 3 consecutive failures */
 const VPN_CB_WINDOW_MS = 60_000;     /* within 60 seconds */
 const VPN_CB_RESET_MS  = 5 * 60_000; /* stay open for 5 minutes */
 
+/** Returns the current VPN-detection circuit-breaker status for observability. */
+export function getVpnCircuitBreakerStatus(): { status: "ok" | "degraded"; failures: number; openedAt: number | null } {
+  const isOpen = _vpnCbOpenedAt > 0 && Date.now() - _vpnCbOpenedAt < VPN_CB_RESET_MS;
+  return {
+    status: isOpen ? "degraded" : "ok",
+    failures: _vpnCbFailures,
+    openedAt: isOpen ? _vpnCbOpenedAt : null,
+  };
+}
+
 async function isVpnOrProxy(ip: string): Promise<boolean> {
   const cached = vpnCache.get(ip);
   if (cached && Date.now() - cached.cachedAt < VPN_CACHE_TTL_MS) {

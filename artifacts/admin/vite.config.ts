@@ -24,9 +24,15 @@ if (Number.isNaN(port) || port <= 0) {
 // Can be overridden via process.env.BASE_PATH
 const basePath = process.env.BASE_PATH || "/";
 
-// API proxy target for local development
-// Defaults to http://127.0.0.1:5000 (same machine, API server port)
-const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || "http://127.0.0.1:5000";
+// API proxy target — required in production, falls back to localhost in dev only.
+const _rawProxyTarget = process.env.VITE_API_PROXY_TARGET;
+if (!_rawProxyTarget && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "[admin/vite.config] VITE_API_PROXY_TARGET is not set. " +
+    "Set it to the API server URL (e.g. http://127.0.0.1:5000) before running a production build.",
+  );
+}
+const apiProxyTarget = _rawProxyTarget ?? "http://127.0.0.1:5000";
 
 
 export default defineConfig({

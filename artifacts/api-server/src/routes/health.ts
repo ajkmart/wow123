@@ -6,6 +6,7 @@ import { adminAuth } from "./admin-shared.js";
 import { getLastDriftReport, checkSchemaDrift } from "../services/schemaDrift.service.js";
 import { redisClient } from "../lib/redis.js";
 import { getP95Ms, getMemoryPct, getDiskPct } from "../lib/metrics/responseTime.js";
+import { getVpnCircuitBreakerStatus } from "../middleware/security.js";
 
 const router = Router();
 
@@ -86,6 +87,8 @@ router.get("/", async (_req, res) => {
     } catch { /* ignore — appVersion defaults to 1.0.0 */ }
   }
 
+  const vpnDetection = getVpnCircuitBreakerStatus();
+
   res.status(httpStatus).json({
     status: overallStatus,
     db: db2,
@@ -98,6 +101,7 @@ router.get("/", async (_req, res) => {
     dbQueryMs,
     memoryPct,
     diskPct,
+    vpnDetection: { status: vpnDetection.status },
   });
 });
 

@@ -702,7 +702,16 @@ function RootLayoutNav() {
 
   const installedVersion = Constants.expoConfig?.version ?? "1.0.0";
   const minAppVersion = config.compliance?.minAppVersion ?? "1.0.0";
-  const forceUpdate = !semverGte(installedVersion, minAppVersion);
+  let forceUpdate = false;
+  try {
+    const _min = typeof minAppVersion === "string" && minAppVersion.trim() ? minAppVersion.trim() : null;
+    const _cur = typeof installedVersion === "string" && installedVersion.trim() ? installedVersion.trim() : null;
+    if (_min && _cur) {
+      forceUpdate = !semverGte(_cur, _min);
+    }
+  } catch {
+    if (__DEV__) console.warn("[ForceUpdate] Malformed version string — skipping force-update check", { installedVersion, minAppVersion });
+  }
   const storeUrl = Platform.OS === "ios"
     ? (config.compliance?.appStoreUrl ?? "")
     : (config.compliance?.playStoreUrl ?? "");

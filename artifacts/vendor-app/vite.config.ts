@@ -17,7 +17,14 @@ if (rawPort && (Number.isNaN(port) || port <= 0)) {
    most common deployment (path-routed behind the Replit proxy). Standalone
    deployments or local quick-starts override via env. */
 const basePath = process.env.BASE_PATH || "/vendor/";
-const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || "http://127.0.0.1:5000";
+const _rawProxyTarget = process.env.VITE_API_PROXY_TARGET;
+if (!_rawProxyTarget && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "[vendor-app/vite.config] VITE_API_PROXY_TARGET is not set. " +
+    "Set it to the API server URL (e.g. http://127.0.0.1:5000) before running a production build.",
+  );
+}
+const apiProxyTarget = _rawProxyTarget ?? "http://127.0.0.1:5000";
 
 export default defineConfig({
   base: basePath,

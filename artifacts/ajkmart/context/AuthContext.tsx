@@ -600,7 +600,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         /* Other server error (5xx, etc.) — transient; do NOT disable biometrics */
         return "transient_error";
       }
-      const data = await res.json() as any;
+      const data = await res.json() as { token?: string; refreshToken?: string };
       if (!data.token) return null;
 
       const meRes = await fetch(`${base}/api/users/profile`, {
