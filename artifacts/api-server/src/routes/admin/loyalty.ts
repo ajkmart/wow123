@@ -288,11 +288,11 @@ router.post("/campaigns", async (req, res) => {
     id: generateId(),
     name: String(body.name).trim(),
     description: String(body.description),
-    pointsReward: Number(body.pointsReward),
-    minOrderAmount: body.minOrderAmount !== null ? Number(body.minOrderAmount).toFixed(2) : null,
+    type: "bonus_multiplier",
+    bonusMultiplier: body.pointsReward != null ? String(Number(body.pointsReward)) : "1.00",
     startDate: new Date(startDate),
     endDate: new Date(endDate),
-    isActive: Boolean(body.isActive),
+    status: body.isActive !== false ? "active" : "inactive",
   }).returning();
 
   addAuditEntry({
@@ -317,11 +317,11 @@ router.put("/campaigns/:id", async (req, res) => {
   const body = {
     name: req.body.name ?? existing.name,
     description: req.body.description ?? existing.description,
-    pointsReward: req.body.pointsReward ?? existing.pointsReward,
-    minOrderAmount: req.body.minOrderAmount ?? existing.minOrderAmount,
+    pointsReward: req.body.pointsReward ?? existing.bonusMultiplier,
+    minOrderAmount: req.body.minOrderAmount ?? null,
     startDate: req.body.startDate ?? existing.startDate,
     endDate: req.body.endDate ?? existing.endDate,
-    isActive: req.body.isActive ?? existing.isActive,
+    isActive: req.body.isActive ?? (existing.status === "active"),
   };
 
   const errors = validateCampaignInput(body);
@@ -340,11 +340,10 @@ router.put("/campaigns/:id", async (req, res) => {
   const [campaign] = await db.update(loyaltyCampaignsTable).set({
     name: String(body.name).trim(),
     description: String(body.description),
-    pointsReward: Number(body.pointsReward),
-    minOrderAmount: body.minOrderAmount !== null ? Number(body.minOrderAmount).toFixed(2) : null,
+    bonusMultiplier: body.pointsReward != null ? String(Number(body.pointsReward)) : "1.00",
     startDate: new Date(startDate),
     endDate: new Date(endDate),
-    isActive: Boolean(body.isActive),
+    status: body.isActive !== false ? "active" : "inactive",
     updatedAt: new Date(),
   }).where(eq(loyaltyCampaignsTable.id, id)).returning();
 

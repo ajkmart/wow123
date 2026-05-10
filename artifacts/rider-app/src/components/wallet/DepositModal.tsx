@@ -278,7 +278,7 @@ export default function DepositModal({
                 <div className="border-t border-teal-200 pt-2 mt-2">
                   <p className="text-xs text-teal-700">
                     {selectedMethod.manualInstructions || selectedMethod.instructions ||
-                      `${fc(amount, currencySymbol)} transfer karein aur Transaction ID yahan daalen.`}
+                      `${fc(amount)} transfer karein aur Transaction ID yahan daalen.`}
                   </p>
                 </div>
               </div>

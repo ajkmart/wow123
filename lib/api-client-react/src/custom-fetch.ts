@@ -356,6 +356,8 @@ async function parseSuccessBody(
 
 type TokenRefreshResult = { token: string; newRefreshToken: string };
 
+let _refreshPromise: Promise<TokenRefreshResult | null> | null = null;
+
 async function attemptTokenRefresh(baseUrl: string | null): Promise<TokenRefreshResult | null> {
   if (!_refreshTokenGetter) return null;
   const refreshToken = await _refreshTokenGetter();
@@ -471,7 +473,10 @@ export async function customFetch<T = unknown>(
     }
 
     if (response.status === 401 && !_isRetry) {
-      const refreshResult = await attemptTokenRefresh(_baseUrl);
+      if (!_refreshPromise) {
+        _refreshPromise = attemptTokenRefresh(_baseUrl).finally(() => { _refreshPromise = null; });
+      }
+      const refreshResult = await _refreshPromise;
       if (refreshResult) {
         const { token: newToken, newRefreshToken } = refreshResult;
         setAuthTokenGetter(() => newToken);

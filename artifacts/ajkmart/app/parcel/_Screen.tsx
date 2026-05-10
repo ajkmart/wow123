@@ -262,7 +262,7 @@ function ParcelScreenInner() {
     setFareError(false);
     estimateParcel({ parcelType, weight: chargeableWeight > 0 ? chargeableWeight : undefined })
       .then(data => {
-        if (data.fare != null) { setEstimatedFare(data.fare); setFareError(false); }
+        if (data.fare != null) { setEstimatedFare(Number(data.fare)); setFareError(false); }
         else { setFareError(true); setEstimatedFare(null); }
       })
       .catch(() => { setFareError(true); setEstimatedFare(null); })
@@ -275,7 +275,7 @@ function ParcelScreenInner() {
     setFareError(false);
     estimateParcel({ parcelType, weight: chargeableWeight > 0 ? chargeableWeight : undefined })
       .then(data => {
-        if (data.fare != null) { setEstimatedFare(data.fare); setFareError(false); }
+        if (data.fare != null) { setEstimatedFare(Number(data.fare)); setFareError(false); }
         else { setFareError(true); setEstimatedFare(null); }
       })
       .catch(() => { setFareError(true); setEstimatedFare(null); })
@@ -405,10 +405,10 @@ function ParcelScreenInner() {
       };
       const data = await createParcelBooking(payload);
       if (payMethod === "wallet" && user) {
-        updateUser({ walletBalance: (user.walletBalance ?? 0) - data.fare });
+        updateUser({ walletBalance: String(Number(user.walletBalance ?? 0) - Number(data.fare)) });
       }
       setConfirmedId(data.id);
-      setConfirmedFare(data.fare);
+      setConfirmedFare(Number(data.fare));
       setConfirmed(true);
     } catch (err: unknown) {
       const errMsg = (err as { message?: string })?.message;

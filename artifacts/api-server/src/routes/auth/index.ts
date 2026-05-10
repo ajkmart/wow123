@@ -1269,7 +1269,7 @@ router.post("/verify-otp", otpLimiter, verifyCaptcha, sharedValidateBody(verifyO
         const remaining = maxAttempts - updated.attempts;
         addAuditEntry({ action: "verify_otp_failed", ip, details: `Wrong OTP for phone: ${phone}, attempt ${updated.attempts}/${maxAttempts}`, result: "fail" });
         writeAuthAuditLog("otp_failed", { userId: user.id, ip, userAgent: req.headers["user-agent"] ?? undefined });
-        if (updated.lockedUntil) {
+        if (updated.locked) {
           addSecurityEvent({ type: "account_locked", ip, userId: user.id, details: `Account locked after ${maxAttempts} failed OTP attempts`, severity: "high" });
           sendErrorWithData(res, `Too many failed attempts. Account locked for ${lockoutMinutes} minutes.`, { lockedMinutes: lockoutMinutes }, 429);
         } else {
@@ -2005,7 +2005,7 @@ router.post("/verify-email-otp", verifyCaptcha, async (req, res) => {
     const updated = await recordFailedAttempt(normalized, maxAttempts, lockoutMinutes);
     const remaining = maxAttempts - updated.attempts;
     addAuditEntry({ action: "email_otp_failed", ip, details: `Wrong email OTP for: ${normalized}`, result: "fail" });
-    if (updated.lockedUntil) {
+    if (updated.locked) {
       sendTooManyRequests(res, `Too many failed attempts. Locked for ${lockoutMinutes} minutes.`);
     } else {
       sendErrorWithData(res, `Invalid OTP. ${remaining} attempt(s) remaining.`, { attemptsRemaining: remaining }, 401);
@@ -2181,7 +2181,7 @@ async function handleUnifiedLogin(req: Request, res: any) {
     /* recordFailedAttempt is a no-op when admin toggle security_lockout_enabled='off' */
     const updated = await recordFailedAttempt(lockoutKey, maxAttempts, lockoutMinutes);
     addAuditEntry({ action: "unified_login_failed", ip, details: `Wrong password (${idType}): ${lookupKey}`, result: "fail" });
-    if (lockoutEnabled && updated.lockedUntil) {
+    if (lockoutEnabled && updated.locked) {
       sendTooManyRequests(res, `Too many failed attempts. Locked for ${lockoutMinutes} minutes.`);
     } else if (lockoutEnabled) {
       sendUnauthorized(res, `Invalid credentials. ${Math.max(0, maxAttempts - updated.attempts)} attempt(s) remaining.`);
@@ -2332,7 +2332,7 @@ router.post("/login/verify-otp", async (req, res) => {
     /* recordFailedAttempt is a no-op when admin toggle security_lockout_enabled='off' */
     const updated = await recordFailedAttempt(lockoutKey, maxAttempts, lockoutMinutes);
     writeAuthAuditLog("otp_failed", { userId: user.id, ip, userAgent: req.headers["user-agent"] ?? undefined, metadata: { method: "password_login_otp" } });
-    if (lockoutEnabled && updated.lockedUntil) {
+    if (lockoutEnabled && updated.locked) {
       sendTooManyRequests(res, `Too many failed attempts. Account locked for ${lockoutMinutes} minutes.`);
     } else if (lockoutEnabled) {
       const remaining = Math.max(0, maxAttempts - updated.attempts);

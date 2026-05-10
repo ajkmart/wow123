@@ -434,7 +434,7 @@ export function PlatformConfigProvider({ children }: { children: React.ReactNode
         clearTimeout(timeoutId);
       }
       if (!res.ok) throw new Error("config fetch failed");
-      interface RawConfigSection { [key: string]: unknown }
+      interface RawConfigSection { [key: string]: any }
       interface RawPlatformConfigResponse {
         platform?: RawConfigSection;
         features?: RawConfigSection;
@@ -473,21 +473,21 @@ export function PlatformConfigProvider({ children }: { children: React.ReactNode
           ? "limited"
           : "active",
         features: {
-          mart:         raw.features?.mart         ?? true,
-          food:         raw.features?.food         ?? true,
-          rides:        raw.features?.rides        ?? true,
-          pharmacy:     raw.features?.pharmacy     ?? true,
-          parcel:       raw.features?.parcel       ?? true,
-          van:          raw.features?.van          ?? true,
-          wallet:       raw.features?.wallet       ?? true,
-          referral:     raw.features?.referral     ?? true,
-          newUsers:     raw.features?.newUsers     ?? true,
-          chat:         raw.features?.chat         ?? false,
-          liveTracking: raw.features?.liveTracking ?? true,
-          reviews:      raw.features?.reviews      ?? true,
-          sos:          raw.features?.sos          ?? true,
-          weather:      raw.features?.weather      ?? true,
-          school:       raw.features?.school       ?? false,
+          mart:         raw.features?.mart         !== false,
+          food:         raw.features?.food         !== false,
+          rides:        raw.features?.rides        !== false,
+          pharmacy:     raw.features?.pharmacy     !== false,
+          parcel:       raw.features?.parcel       !== false,
+          van:          raw.features?.van          !== false,
+          wallet:       raw.features?.wallet       !== false,
+          referral:     raw.features?.referral     !== false,
+          newUsers:     raw.features?.newUsers     !== false,
+          chat:         raw.features?.chat         === true,
+          liveTracking: raw.features?.liveTracking !== false,
+          reviews:      raw.features?.reviews      !== false,
+          sos:          raw.features?.sos          !== false,
+          weather:      raw.features?.weather      !== false,
+          school:       raw.features?.school       === true,
         },
         content: {
           trackerBannerEnabled: raw.content?.trackerBannerEnabled ?? true,
@@ -657,7 +657,7 @@ export function PlatformConfigProvider({ children }: { children: React.ReactNode
             : DEFAULT.language.enabledLanguages,
         },
         cities: Array.isArray(raw.cities) && raw.cities.length > 0
-          ? raw.cities
+          ? raw.cities as string[]
           : DEFAULT.cities,
         network: {
           apiTimeoutMs:              raw.network?.apiTimeoutMs              ?? DEFAULT.network.apiTimeoutMs,
@@ -698,7 +698,7 @@ export function PlatformConfigProvider({ children }: { children: React.ReactNode
           appStoreUrl:   raw.compliance?.appStoreUrl   ?? "",
           playStoreUrl:  raw.compliance?.playStoreUrl  ?? "",
         },
-        releaseNotes: Array.isArray(raw.releaseNotes) ? raw.releaseNotes : [],
+        releaseNotes: Array.isArray(raw.releaseNotes) ? raw.releaseNotes as { id: string; version: string; releaseDate: string; notes: string[]; sortOrder: number }[] : [],
         uploads: raw.uploads ? {
           maxImageMb:           raw.uploads.maxImageMb           ?? undefined,
           maxVideoMb:           raw.uploads.maxVideoMb           ?? undefined,

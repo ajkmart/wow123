@@ -312,7 +312,7 @@ export function RideTracker({
 
   const openUnifiedCancelModal = () => {
     const riderAssigned = ["accepted", "arrived", "in_transit"].includes(ride?.status || "");
-    setCancelModalTarget({ id: rideId, type: "ride", status: ride?.status || "searching", fare: ride?.fare, paymentMethod: ride?.paymentMethod, riderAssigned });
+    setCancelModalTarget({ id: rideId, type: "ride", status: ride?.status || "searching", fare: ride?.fare != null ? Number(ride.fare) : undefined, paymentMethod: ride?.paymentMethod, riderAssigned });
   };
 
   const openInMaps = () => {
@@ -359,13 +359,13 @@ export function RideTracker({
     return (
       <NegotiationScreen
         rideId={rideId}
-        ride={ride as Parameters<typeof NegotiationScreen>[0]["ride"]}
-        setRide={(updater) => setRide((prev) => updater(prev as Parameters<typeof NegotiationScreen>[0]["ride"]) as LiveRide | null)}
+        ride={ride as unknown as Parameters<typeof NegotiationScreen>[0]["ride"]}
+        setRide={(updater) => setRide((prev) => updater(prev as unknown as Parameters<typeof NegotiationScreen>[0]["ride"]) as LiveRide | null)}
         elapsed={elapsed}
         cancellationFee={effectiveCancellationFee}
         token={token}
         broadcastTimeoutSec={ride?.broadcastTimeoutSec ?? 300}
-        estimatedFare={ride?.estimatedFare ?? ride?.fare}
+        estimatedFare={ride?.estimatedFare ?? (ride?.fare != null ? Number(ride.fare) : undefined)}
         minOffer={ride?.minOffer}
       />
     );

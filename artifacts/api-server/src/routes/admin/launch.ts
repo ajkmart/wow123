@@ -103,7 +103,7 @@ const AI_RECOMMENDED_DEFAULTS: Record<string, string> = {
 type SettingRow = {
   key: string;
   value: string;
-  label: string;
+  label?: string | null;
   category: string;
   updatedAt: Date;
 };
@@ -206,7 +206,7 @@ router.post("/reset-defaults", async (req, res) => {
   const aiOverrides: Record<string, string> = { ...AI_RECOMMENDED_DEFAULTS, ...AI_RECOMMENDED };
   const resetMap: Record<string, { value: string; label: string; category: string }> = {};
   for (const d of DEFAULT_PLATFORM_SETTINGS) {
-    resetMap[d.key] = { value: aiOverrides[d.key] ?? d.value, label: d.label, category: d.category };
+    resetMap[d.key] = { value: aiOverrides[d.key] ?? d.value, label: d.key, category: d.category };
   }
   for (const [key, value] of Object.entries(aiOverrides)) {
     if (!resetMap[key]) resetMap[key] = { value, label: key, category: "general" };

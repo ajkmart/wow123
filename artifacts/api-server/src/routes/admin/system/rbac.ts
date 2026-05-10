@@ -270,7 +270,7 @@ router.post("/simulate",
         adminId,
         permissions: perms,
         roleNames: (roles as { name: string }[]).map(r => r.name),
-        isSuperAdmin: perms.includes("*"),
+        isSuperAdmin: (perms as string[]).includes("*"),
       });
     } catch (err) {
       if (err instanceof z.ZodError) return sendValidationError(res, err.message);

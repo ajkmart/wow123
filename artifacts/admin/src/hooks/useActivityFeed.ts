@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { io, type Socket } from "socket.io-client";
+import { type Socket } from "socket.io-client";
 import { useAdminAuth } from "@/lib/adminAuthContext";
+import { getAdminSocket } from "@/lib/adminSocket";
 
 export type ActivityEventType =
   | "order:new"
@@ -144,21 +145,15 @@ export function useActivityFeed() {
   useEffect(() => {
     if (!state.accessToken) return;
 
-    const socket = io(window.location.origin, {
-      path: "/api/socket.io",
-      query: { rooms: "admin-fleet" },
-      auth: (cb: (data: Record<string, string>) => void) =>
-        cb({ token: state.accessToken || "" }),
-      transports: ["websocket", "polling"],
-    });
+    const socket = getAdminSocket(state.accessToken);
     socketRef.current = socket;
 
-    socket.on("connect", () => {
-      socket.emit("join", "admin-fleet");
-      setConnected(true);
-    });
-    socket.on("disconnect", () => setConnected(false));
-    socket.on("connect_error", () => setConnected(false));
+    const onConnect = () => setConnected(true);
+    const onDisconnect = () => setConnected(false);
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onDisconnect);
+    if (socket.connected) setConnected(true);
 
     function push(type: ActivityEventType, payload: unknown) {
       const safe = (payload && typeof payload === "object"
@@ -174,12 +169,18 @@ export function useActivityFeed() {
       });
     }
 
-    FEED_EVENTS.forEach((ev) =>
-      socket.on(ev, (payload: unknown) => push(ev, payload)),
-    );
+    const handlers = new Map<ActivityEventType, (payload: unknown) => void>();
+    FEED_EVENTS.forEach((ev) => {
+      const handler = (payload: unknown) => push(ev, payload);
+      handlers.set(ev, handler);
+      socket.on(ev, handler);
+    });
 
     return () => {
-      socket.disconnect();
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onDisconnect);
+      handlers.forEach((handler, ev) => socket.off(ev, handler));
       socketRef.current = null;
       setConnected(false);
     };

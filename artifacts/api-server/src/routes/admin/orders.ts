@@ -19,7 +19,7 @@ import {
   ensureDefaultRideServices, ensureDefaultLocations, formatSvc,
   type AdminRequest, revokeAllUserSessions,
 } from "../admin-shared.js";
-import { sendSuccess, sendError, sendNotFound, sendValidationError, sendErrorWithData } from "../../lib/response.js";
+import { sendSuccess, sendCreated, sendError, sendNotFound, sendValidationError, sendErrorWithData } from "../../lib/response.js";
 import { buildCursorPage, decodeCursor } from "../../lib/pagination/cursor.js";
 import {
   ORDER_VALID_STATUSES, RIDE_VALID_STATUSES, PARCEL_VALID_STATUSES, PHARMACY_ORDER_VALID_STATUSES,
@@ -617,7 +617,7 @@ router.post("/orders/:id/return", async (req, res) => {
   const existing = await loadJson<ReturnRecord>(`return_log_${orderId}`);
   await saveJson(`return_log_${orderId}`, [...existing, entry]);
   addAuditEntry({ action: "order_return_logged", ip: getClientIp(req), adminId: (req as AdminRequest).adminId, details: `Return logged for order ${orderId}: ${entry.reason}`, result: "success" });
-  sendSuccess(res, entry, 201);
+  sendCreated(res, entry, "Return logged successfully");
 });
 
 router.patch("/orders/:id/returns/:returnId", async (req, res) => {
@@ -645,7 +645,7 @@ router.post("/orders/:id/dispute", async (req, res) => {
   const existing = await loadJson<DisputeRecord>(`dispute_log_${orderId}`);
   await saveJson(`dispute_log_${orderId}`, [...existing, entry]);
   addAuditEntry({ action: "order_dispute_logged", ip: getClientIp(req), adminId: (req as AdminRequest).adminId, details: `Dispute logged for order ${orderId}: ${entry.note}`, result: "success" });
-  sendSuccess(res, entry, 201);
+  sendCreated(res, entry, "Dispute logged successfully");
 });
 
 router.patch("/orders/:id/disputes/:disputeId", async (req, res) => {

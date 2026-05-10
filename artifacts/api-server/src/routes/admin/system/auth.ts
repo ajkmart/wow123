@@ -27,7 +27,7 @@ import {
   getUserLanguage,
   t,
   sendUserNotification,
-} from "../../../admin-shared.js";
+} from "../../admin-shared.js";
 import {
   getCachedSettings,
   getAdminSecret,
@@ -160,7 +160,7 @@ router.post("/auth", adminAuthLimiter, async (req, res) => {
 
   /* ── Regular Sub-Admin Login (database-backed) ── */
   try {
-    const result = await UserService.authenticateAdmin(username, password, ip);
+    const result = await (UserService as unknown as { authenticateAdmin: (u: string, p: string, ip: string) => Promise<{ requiresMfa?: boolean; tempToken?: string; success?: boolean; admin?: { id: string; role: string; name: string; permissions: string[] }; error?: string }> }).authenticateAdmin(username, password, ip);
 
     if (result.requiresMfa) {
       res.json({
@@ -209,30 +209,31 @@ router.post("/auth", adminAuthLimiter, async (req, res) => {
   }
 });
 
-router.post("/refresh", async (req, res) => {
+router.post("/refresh", async (req, res): Promise<void> => {
   const { refreshToken } = req.body;
-  if (!refreshToken) return res.status(400).json({ error: "Refresh token required" });
+  if (!refreshToken) { res.status(400).json({ error: "Refresh token required" }); return; }
 
   try {
     const { verifyRefreshToken } = await import("../../../utils/admin-jwt.js");
     const payload = verifyRefreshToken(refreshToken);
-    if (!payload) return res.status(401).json({ error: "Invalid or expired refresh token" });
+    if (!payload) { res.status(401).json({ error: "Invalid or expired refresh token" }); return; }
 
     // For super admin
-    if (payload.role === "super") {
+    if ((payload as unknown as { role?: string }).role === "super") {
       const newToken = signAdminJwt(null, "super", "Super Admin", ADMIN_TOKEN_TTL_HRS, ["*"]);
       const newRefresh = signAdminRefreshToken(null, "super");
-      return res.json({ token: newToken, refreshToken: newRefresh });
+      res.json({ token: newToken, refreshToken: newRefresh });
+      return;
     }
 
     // For sub-admins
     const [admin] = await db
       .select()
       .from(adminAccountsTable)
-      .where(and(eq(adminAccountsTable.id, payload.adminId), eq(adminAccountsTable.isActive, true)))
+      .where(and(eq(adminAccountsTable.id, (payload as unknown as { adminId?: string }).adminId ?? payload.sub), eq(adminAccountsTable.isActive, true)))
       .limit(1);
 
-    if (!admin) return res.status(401).json({ error: "Admin account no longer active" });
+    if (!admin) { res.status(401).json({ error: "Admin account no longer active" }); return; }
 
     const perms = await resolveAdminPermissions(admin.id, admin.role);
     const newToken = signAdminJwt(admin.id, admin.role, admin.name, ADMIN_TOKEN_TTL_HRS, perms);
@@ -248,7 +249,7 @@ const forgotPasswordSchema = z.object({
   username: z.string().min(1, "Username is required"),
 });
 
-router.post("/forgot-password", async (req, res) => {
+router.post("/forgot-password", async (req, res): Promise<void> => {
   const genericResponse = {
     success: true,
     message: "If an account exists with that username, a reset link has been sent to the associated email address.",
@@ -256,7 +257,7 @@ router.post("/forgot-password", async (req, res) => {
 
   try {
     const parsed = forgotPasswordSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
+    if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
 
     const { username } = parsed.data;
     const [admin] = await db
@@ -274,8 +275,8 @@ router.post("/forgot-password", async (req, res) => {
     const { issueAdminPasswordResetToken } = await import("../../../services/admin-password.service.js");
     const { sendAdminPasswordResetLinkEmail } = await import("../../../services/email.js");
 
-    const issued = await issueAdminPasswordResetToken(admin.id);
-    const resetUrl = `${process.env.ADMIN_URL || "http://localhost:3000"}/reset-password?token=${issued.token}`;
+    const issued = await issueAdminPasswordResetToken({ adminId: admin.id, requestedBy: "self" });
+    const resetUrl = `${process.env.ADMIN_URL || "http://localhost:3000"}/reset-password?token=${issued.rawToken}`;
 
     const sendResult = await sendAdminPasswordResetLinkEmail(admin.email, {
       resetUrl,
@@ -290,6 +291,7 @@ router.post("/forgot-password", async (req, res) => {
       adminId: admin.id,
       ip: getClientIp(req),
       userAgent: req.headers["user-agent"] ?? undefined,
+      result: "success",
       metadata: {
         username,
         expiresAt: issued.expiresAt.toISOString(),

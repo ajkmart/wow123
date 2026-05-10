@@ -9,7 +9,8 @@ import { useQuery } from "@tanstack/react-query";
 import Colors, { spacing, shadows } from "@/constants/colors";
 import { Font } from "@/constants/typography";
 import { SkeletonBlock } from "@/components/user-shared";
-import { getBanners, type Banner } from "@workspace/api-client-react";
+import { getBanners, type Banner as _Banner } from "@workspace/api-client-react";
+type Banner = _Banner & { linkType?: string; linkValue?: string; gradient1?: string; gradient2?: string; subtitle?: string; icon?: string };
 import { SERVICE_REGISTRY } from "@/constants/serviceRegistry";
 
 const C = Colors.light;
@@ -161,7 +162,9 @@ export function DynamicBannerCarousel() {
           onScroll={(e) => setActive(Math.round(e.nativeEvent.contentOffset.x / BANNER_W))}
           scrollEventThrottle={16}
         >
-          {items.map((b) => (
+          {items.map((_b) => {
+            const b = _b as Banner;
+            return (
             <TouchableOpacity activeOpacity={0.7}
               key={b.id}
               onPress={() => handleBannerPress(b)}
@@ -209,7 +212,7 @@ export function DynamicBannerCarousel() {
                 </LinearGradient>
               )}
             </TouchableOpacity>
-          ))}
+          );})}
         </ScrollView>
         {items.length > 1 && (
           <View style={ban.dotsRow}>

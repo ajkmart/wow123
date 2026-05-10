@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   db, ridesTable, rideBidsTable, rideRatingsTable, rideEventLogsTable,
-  liveLocationsTable, riderProfilesTable, usersTable, notificationsTable,
+  liveLocationsTable, riderProfilesTable, usersTable, notificationsTable, rideNotifiedRidersTable,
   and, asc, eq, sql, gte, count,
   generateId, getCachedSettings, logger,
   customerAuth, riderAuth, adminAuth,

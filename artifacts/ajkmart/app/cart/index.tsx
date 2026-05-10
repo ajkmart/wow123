@@ -898,7 +898,8 @@ function CartScreenInner() {
           type: (cartType === "mixed" ? "mart" : cartType) as CreateOrderRequestType,
           items: items.map(i => ({
             productId: i.productId, name: i.name,
-            price: i.price, quantity: i.quantity, image: i.image,
+            price: String(i.price), quantity: i.quantity, image: i.image,
+            type: i.type,
           })),
           deliveryAddress: deliveryLine,
           paymentMethod: finalPayMethod as CreateOrderRequestPaymentMethod,
@@ -935,7 +936,7 @@ function CartScreenInner() {
       const parsed = rawServerTotal != null ? parseFloat(String(rawServerTotal)) : NaN;
       const serverDeducted = !isNaN(parsed) && parsed > 0 ? parsed : grandTotal;
       if (isNaN(parsed) && __DEV__) console.warn("[Cart] wallet deduction: server total missing/invalid, using grandTotal fallback");
-      updateUser({ walletBalance: (user?.walletBalance ?? 0) - serverDeducted });
+      updateUser({ walletBalance: String(Number(user?.walletBalance ?? 0) - serverDeducted) });
     }
 
     (async () => {
@@ -1113,7 +1114,7 @@ function CartScreenInner() {
     }
 
     if (effectivePayMethod === "wallet") {
-      if ((user?.walletBalance ?? 0) < grandTotal) {
+      if (Number(user?.walletBalance ?? 0) < grandTotal) {
         showToast(`Wallet has Rs. ${user?.walletBalance ?? 0} — Rs. ${grandTotal} required`, "error");
         return;
       }
@@ -1832,9 +1833,9 @@ function CartScreenInner() {
                     <Text style={[styles.payLabel, sel && { color: C.text }]}>{method.label}</Text>
                   </View>
                   {method.id === "wallet" ? (
-                    <Text style={[styles.paySub, user && (user?.walletBalance ?? 0) < grandTotal && { color: C.danger }]}>
+                    <Text style={[styles.paySub, user && Number(user?.walletBalance ?? 0) < grandTotal && { color: C.danger }]}>
                       Balance: Rs. {user?.walletBalance?.toLocaleString() || 0}
-                      {user && (user?.walletBalance ?? 0) < grandTotal ? " (insufficient)" : ""}
+                      {user && Number(user?.walletBalance ?? 0) < grandTotal ? " (insufficient)" : ""}
                     </Text>
                   ) : (
                     <Text style={styles.paySub}>{method.description}</Text>

@@ -340,7 +340,7 @@ function PharmacyScreenInner() {
   useEffect(() => {
     if (codSwitchingRef.current) { codSwitchingRef.current = false; return; }
     if (payMethod === "cash" && cartTotal > config.orderRules.maxCodAmount) {
-      const walletBalance = user?.walletBalance ?? 0;
+      const walletBalance = Number(user?.walletBalance ?? 0);
       if (config.features.wallet && walletBalance >= cartTotal) {
         codSwitchingRef.current = true;
         setPayMethod("wallet");
@@ -497,7 +497,7 @@ function PharmacyScreenInner() {
       if (payMethod === "wallet" && user) {
         const dataAny = data as typeof data & { total?: number | string };
         const serverTotal = typeof dataAny.total === "number" ? dataAny.total : parseFloat(String(dataAny.total ?? ""));
-        updateUser({ walletBalance: (user?.walletBalance ?? 0) - (Number.isFinite(serverTotal) ? serverTotal : cartTotal) });
+        updateUser({ walletBalance: String(Number(user?.walletBalance ?? 0) - (Number.isFinite(serverTotal) ? serverTotal : cartTotal)) });
       }
       setConfirmedOrderId(data.id);
       setConfirmed(true);

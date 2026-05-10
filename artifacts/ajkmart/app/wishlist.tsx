@@ -33,8 +33,9 @@ const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN ?? ""}/api`;
 
 function WishlistCard({ item, onRemove }: { item: WishlistItem; onRemove: (productId: string) => void }) {
   const p = item.product;
-  const origPrice = p.originalPrice || 0;
-  const discount = origPrice > p.price ? Math.round(((origPrice - p.price) / origPrice) * 100) : 0;
+  const origPrice = Number(p.originalPrice || 0);
+  const pPrice = Number(p.price);
+  const discount = origPrice > pPrice ? Math.round(((origPrice - pPrice) / origPrice) * 100) : 0;
   const removeScale = useRef(new Animated.Value(1)).current;
 
   const handleRemove = () => {
@@ -69,11 +70,11 @@ function WishlistCard({ item, onRemove }: { item: WishlistItem; onRemove: (produ
         </View>
         <View style={styles.cardBody}>
           <Text style={styles.cardName} numberOfLines={2}>{p.name}</Text>
-          {p.unit && <Text style={styles.cardUnit}>{p.unit}</Text>}
+          {(p as unknown as { unit?: string }).unit && <Text style={styles.cardUnit}>{(p as unknown as { unit?: string }).unit}</Text>}
           <View style={styles.cardFooter}>
             <View>
               <Text style={styles.cardPrice}>Rs. {p.price.toLocaleString()}</Text>
-              {origPrice > p.price && (
+              {origPrice > pPrice && (
                 <Text style={styles.cardOrigPrice}>Rs. {origPrice.toLocaleString()}</Text>
               )}
             </View>
@@ -84,7 +85,7 @@ function WishlistCard({ item, onRemove }: { item: WishlistItem; onRemove: (produ
               </View>
             )}
           </View>
-          {!p.inStock && (
+          {!(p as unknown as { inStock?: boolean }).inStock && (
             <View style={styles.oosBadge}>
               <Text style={styles.oosTxt}>Out of Stock</Text>
             </View>

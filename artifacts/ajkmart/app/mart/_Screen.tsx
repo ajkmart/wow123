@@ -148,8 +148,9 @@ const FlashCard = React.memo(function FlashCard({ product }: { product: FlashDea
   const [added, setAdded] = useState(false);
   const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const origPrice = Number(product.originalPrice) || 0;
-  const discount = origPrice > 0 && origPrice > product.price
-    ? Math.round(((origPrice - product.price) / origPrice) * 100)
+  const productPrice = Number(product.price);
+  const discount = origPrice > 0 && origPrice > productPrice
+    ? Math.round(((origPrice - productPrice) / origPrice) * 100)
     : product.discountPercent || 0;
   const dealStock = product.dealStock ?? null;
   const soldCount = product.soldCount ?? 0;
@@ -161,7 +162,7 @@ const FlashCard = React.memo(function FlashCard({ product }: { product: FlashDea
   const { requireCustomerRole, roleBlockProps } = useRoleGate();
 
   const doAdd = () => {
-    addItem({ productId: product.id, name: product.name, price: product.price, quantity: 1, image: product.image ?? undefined, type: "mart" });
+    addItem({ productId: product.id, name: product.name, price: productPrice, quantity: 1, image: product.image ?? undefined, type: "mart" });
     setAdded(true);
     if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
     addedTimerRef.current = setTimeout(() => { setAdded(false); addedTimerRef.current = null; }, 1500);
@@ -190,7 +191,7 @@ const FlashCard = React.memo(function FlashCard({ product }: { product: FlashDea
         targetService="Mart"
         currentService={cartType === "pharmacy" ? "Pharmacy" : cartType === "food" ? "Food" : "Another service"}
         onCancel={() => setShowSwitchModal(false)}
-        onConfirm={() => { setShowSwitchModal(false); clearCartAndAdd({ productId: product.id, name: product.name, price: product.price, quantity: 1, image: product.image ?? undefined, type: "mart" }); }}
+        onConfirm={() => { setShowSwitchModal(false); clearCartAndAdd({ productId: product.id, name: product.name, price: productPrice, quantity: 1, image: product.image ?? undefined, type: "mart" }); }}
       />
       <View style={styles.flashImg}>
         {product.image
@@ -481,7 +482,7 @@ function MartScreenInner() {
               onPress={() => handleSelectCat(cat.id)}
               style={[styles.catChip, selectedCat === cat.id && styles.catChipActive]}
             >
-              <Ionicons name={cat.icon as keyof typeof Ionicons.glyphMap} size={14} color={selectedCat === cat.id ? C.textInverse : C.primary} />
+              <Ionicons name={((cat as unknown as { icon?: string }).icon ?? "apps-outline") as keyof typeof Ionicons.glyphMap} size={14} color={selectedCat === cat.id ? C.textInverse : C.primary} />
               <Text style={[styles.catChipTxt, selectedCat === cat.id && styles.catChipTxtActive]}>{cat.name}</Text>
             </TouchableOpacity>
           ))}
@@ -583,7 +584,7 @@ function MartScreenInner() {
               </View>
             ) : (
               <View style={styles.productsGrid}>
-                {allProducts.map(p => <ProductCard key={p.id} product={p} />)}
+                {allProducts.map(p => <ProductCard key={p.id} product={p as unknown as MartProduct} />)}
               </View>
             )}
           </>

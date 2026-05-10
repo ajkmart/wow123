@@ -637,7 +637,7 @@ router.post("/full", devSeedAuth, async (req, res) => {
   const expectedKey   = (process.env.ADMIN_SEED_KEY ?? process.env.DEV_SEED_KEY ?? "local-dev-seed-ajkmart").trim();
   const presentedKey  = (req.headers["x-admin-seed-key"] as string | undefined ?? "").trim();
   const isDevBypass   = process.env.ALLOW_DEV_SEED === "true" && presentedKey === expectedKey && expectedKey.length > 0;
-  const isAdminAuthed = !!(req as Record<string, unknown>)["adminId"] || !!(req as Record<string, unknown>)["adminRole"];
+  const isAdminAuthed = !!(req as unknown as Record<string, unknown>)["adminId"] || !!(req as unknown as Record<string, unknown>)["adminRole"];
 
   if (!isDevBypass && !isAdminAuthed) {
     logger.warn("[SECURITY] Unauthorized seed attempt", { ip: req.ip });

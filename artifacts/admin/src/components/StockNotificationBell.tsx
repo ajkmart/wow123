@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Bell, Package, AlertTriangle, TrendingDown, X, RefreshCw, ExternalLink } from "lucide-react";
-import { io, type Socket } from "socket.io-client";
+import { type Socket } from "socket.io-client";
 import { useAdminAuth } from "@/lib/adminAuthContext";
+import { getAdminSocket } from "@/lib/adminSocket";
 import { usePermissions } from "@/hooks/usePermissions";
 import { adminFetch } from "@/lib/adminFetcher";
 import { toast } from "@/hooks/use-toast";
@@ -119,16 +120,12 @@ export function StockNotificationBell() {
 
   useEffect(() => {
     if (!state.accessToken) return;
-    const socket = io(window.location.origin, {
-      path: "/api/socket.io",
-      query: { rooms: "admin-fleet" },
-      auth: (cb: (d: Record<string, string>) => void) => cb({ token: state.accessToken || "" }),
-      transports: ["websocket", "polling"],
-    });
+    const socket = getAdminSocket(state.accessToken);
     socketRef.current = socket;
-    socket.on("connect", () => socket.emit("join", "admin-fleet"));
 
-    socket.on("product:stock_low", (payload: { productId: string; productName?: string; vendorId: string; stock: number; inStock: boolean }) => {
+    type StockPayload = { productId: string; productName?: string; vendorId: string; stock: number; inStock: boolean };
+
+    const onStockLow = (payload: StockPayload) => {
       const isOut = payload.stock <= 0;
       toast({
         title: isOut ? "⚠️ Out of Stock" : "⚠️ Low Stock Alert",
@@ -152,9 +149,9 @@ export function StockNotificationBell() {
       };
       setNotifications(prev => [synthetic, ...prev].slice(0, 60));
       setUnreadCount(c => c + 1);
-    });
+    };
 
-    socket.on("product:stock_updated", (payload: { productId: string; productName?: string; vendorId: string; stock: number; inStock: boolean }) => {
+    const onStockUpdated = (payload: StockPayload) => {
       const isOut = payload.stock <= 0;
       const isLow = !isOut && payload.stock < LOW_STOCK_THRESHOLD;
       if (!isLow && !isOut) return;
@@ -182,9 +179,16 @@ export function StockNotificationBell() {
         }
         return [synthetic, ...prev].slice(0, 60);
       });
-    });
+    };
 
-    return () => { socket.disconnect(); socketRef.current = null; };
+    socket.on("product:stock_low", onStockLow);
+    socket.on("product:stock_updated", onStockUpdated);
+
+    return () => {
+      socket.off("product:stock_low", onStockLow);
+      socket.off("product:stock_updated", onStockUpdated);
+      socketRef.current = null;
+    };
   }, [state.accessToken]);
 
   useEffect(() => {

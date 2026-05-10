@@ -270,7 +270,16 @@ export default function Transactions() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="h-32 text-center text-muted-foreground">{T("loading")}</TableCell></TableRow>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><div className="h-4 w-16 bg-muted animate-pulse rounded" /></TableCell>
+                    <TableCell><div className="h-4 w-32 bg-muted animate-pulse rounded" /></TableCell>
+                    <TableCell><div className="h-4 w-40 bg-muted animate-pulse rounded" /></TableCell>
+                    <TableCell><div className="h-5 w-16 bg-muted animate-pulse rounded-full" /></TableCell>
+                    <TableCell className="text-right"><div className="h-4 w-20 bg-muted animate-pulse rounded ml-auto" /></TableCell>
+                    <TableCell className="text-right"><div className="h-4 w-24 bg-muted animate-pulse rounded ml-auto" /></TableCell>
+                  </TableRow>
+                ))
               ) : sortedFiltered.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="h-32 text-center text-muted-foreground">{T("noTransactions")}</TableCell></TableRow>
               ) : (

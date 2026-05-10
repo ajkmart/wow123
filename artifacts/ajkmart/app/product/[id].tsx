@@ -532,7 +532,7 @@ function ProductDetailScreenInner() {
         id: product.id,
         name: product.name,
         image: product.image || null,
-        price: product.price,
+        price: Number(product.price),
       }).catch(() => {});
     }, [product?.id, product?.name, product?.image, product?.price]),
   );
@@ -622,7 +622,7 @@ function ProductDetailScreenInner() {
   }, []);
 
   const baseOrigPrice = Number(product?.originalPrice) || 0;
-  const basePrice = product?.price || 0;
+  const basePrice = Number(product?.price || 0);
   const selectedVariantObj = variants?.find((v: any) => v.id === selectedVariant) ?? null;
   const price = selectedVariantObj ? Number(selectedVariantObj.price) : basePrice;
   const origPrice = selectedVariantObj
@@ -1200,7 +1200,8 @@ function ProductDetailScreenInner() {
                 <View style={styles.relatedGrid}>
                   {relatedProducts.map(rp => {
                     const rpOrig = Number(rp.originalPrice) || 0;
-                    const rpDiscount = rpOrig > rp.price ? Math.round(((rpOrig - rp.price) / rpOrig) * 100) : 0;
+                    const rpPrice = Number(rp.price);
+                    const rpDiscount = rpOrig > rpPrice ? Math.round(((rpOrig - rpPrice) / rpOrig) * 100) : 0;
                     return (
                       <TouchableOpacity activeOpacity={0.7}
                         key={rp.id}

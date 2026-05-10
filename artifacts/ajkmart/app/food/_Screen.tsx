@@ -414,7 +414,7 @@ function FoodScreenInner() {
           </TouchableOpacity>
           {categories.map(c => (
             <TouchableOpacity activeOpacity={0.7} key={c.id} onPress={() => handleSelectCat(c.id)} style={[styles.catChip, selectedCat === c.id && styles.catChipActive]}>
-              <Ionicons name={c.icon as keyof typeof Ionicons.glyphMap} size={14} color={selectedCat === c.id ? C.textInverse : C.food} />
+              <Ionicons name={((c as unknown as { icon?: string }).icon ?? "apps-outline") as keyof typeof Ionicons.glyphMap} size={14} color={selectedCat === c.id ? C.textInverse : C.food} />
               <Text style={[styles.catChipText, selectedCat === c.id && styles.catChipTextActive]}>{c.name}</Text>
             </TouchableOpacity>
           ))}

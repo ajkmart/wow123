@@ -56,6 +56,15 @@ function localRemove(): void {
 function getToken(): string  { return _inMemoryAccessToken; }
 function getRefreshToken(): string { return localGet(); }
 
+function readCsrfFromCookie(): string {
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : "";
+  } catch {
+    return "";
+  }
+}
+
 function clearTokens() {
   _inMemoryAccessToken  = "";
   _inMemoryRefreshToken = "";
@@ -136,10 +145,14 @@ export async function apiFetch(path: string, opts: RequestInit & { _timeoutMs?: 
   }
 
   const isFormData = opts.body instanceof FormData;
+  const method = (opts.method ?? "GET").toUpperCase();
+  const isStateMutating = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+  const csrfToken = isStateMutating ? readCsrfFromCookie() : "";
   const mergedOpts: RequestInit & { _timeoutMs?: number } = {
     ...opts,
     headers: {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
       ...(opts.headers as Record<string, string> || {}),
     },
   };

@@ -643,12 +643,11 @@ router.patch("/admin/:id", adminAuth, async (req, res) => {
       /* Push notification */
       sendPushToUser(record.userId, { title: notifTitle, body: notifBody, tag: "kyc-update", data: { type: "kyc_status", status } }).catch(() => {});
 
-      logAdminAudit({
+      void logAdminAudit(`kyc_review_${status}`, {
         adminId,
         ip: getClientIp(req),
-        action: `kyc_review_${status}`,
-        details: `KYC for user ${record.userId} reviewed as ${status}. Reason: ${rejectionReason || 'N/A'}`,
-        affectedUserId: record.userId,
+        result: 'success',
+        metadata: { userId: record.userId, status, reason: rejectionReason || 'N/A' },
       });
     });
 

@@ -3060,8 +3060,6 @@ router.post("/sos", async (req, res) => {
     phone:     riderUser.phone ?? null,
     latitude:  validCoords ? parsedLat! : null,
     longitude: validCoords ? parsedLng! : null,
-    rideId:    rideId ?? null,
-    sentAt:    now.toISOString(),
   });
 
   /* New lifecycle event — drives admin SOS alert panel and sidebar badge */
@@ -3158,7 +3156,7 @@ const aiChatSchema = z.object({
   history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })).max(20).optional(),
 });
 
-router.post("/ai-chat", verifyUserJwt, async (req, res) => {
+router.post("/ai-chat", verifyUserJwt, async (req: Request, res: Response) => {
   const parse = aiChatSchema.safeParse(req.body);
   if (!parse.success) { sendError(res, "Invalid request", 400); return; }
   const { message, history = [] } = parse.data;

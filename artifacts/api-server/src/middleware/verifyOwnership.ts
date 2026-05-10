@@ -84,7 +84,7 @@ export function verifyOwnership(resourceType: OwnershipResourceType) {
           const [row] = await db
             .select({ userId: riderProfilesTable.userId })
             .from(riderProfilesTable)
-            .where(eq(riderProfilesTable.id, resourceId))
+            .where(eq(riderProfilesTable.userId, resourceId))
             .limit(1);
           ownerId = row?.userId ?? null;
           if (!ownerId) {
@@ -102,7 +102,7 @@ export function verifyOwnership(resourceType: OwnershipResourceType) {
           const [row] = await db
             .select({ userId: vendorProfilesTable.userId })
             .from(vendorProfilesTable)
-            .where(eq(vendorProfilesTable.id, resourceId))
+            .where(eq(vendorProfilesTable.userId, resourceId))
             .limit(1);
           ownerId = row?.userId ?? null;
           if (!ownerId) {

@@ -223,7 +223,9 @@ interface ApiEnvelope<T = unknown> {
    from the OpenAPI spec). RiderOrder / RiderRide have all rider-facing fields
    with monetary values typed as string for precision safety. They are re-exported
    here as `Order` / `Ride` so existing consumers (Home.tsx etc.) need no changes. */
-export type { RiderOrder as Order, RiderRide as Ride, RiderRequestsResponse } from "@workspace/api-zod";
+export interface Order { id: string; status: string; total?: string | number; type?: string; createdAt?: string; [key: string]: unknown; }
+export interface Ride  { id: string; status: string; fare?: string | number;  type?: string; createdAt?: string; [key: string]: unknown; }
+export interface RiderRequestsResponse { orders: Order[]; rides: Ride[]; _serverTime: string | null; }
 
 export async function apiFetch(path: string, opts: RequestInit = {}, _returnEnvelope = false, _5xxRetries = CB_DEFAULT_RETRIES): Promise<any> {
   /* Guard: reject immediately if this endpoint's circuit is open.

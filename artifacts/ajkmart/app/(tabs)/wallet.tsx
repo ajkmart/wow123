@@ -1493,7 +1493,7 @@ function WalletScreenInner() {
 
   const [walletFrozen, setWalletFrozen] = useState(false);
   const [socketBalance, setSocketBalance] = useState<number | null>(null);
-  const prevUserBalanceRef = useRef<number | undefined>(user?.walletBalance);
+  const prevUserBalanceRef = useRef<number | undefined>(user?.walletBalance != null ? Number(user.walletBalance) : undefined);
 
   const { data: rawData, isLoading, isFetching, isError: walletError, error: walletErrorObj, refetch } = useGetWallet(
     { userId: user?.id || "" },
@@ -1514,10 +1514,10 @@ function WalletScreenInner() {
   }, [dataUpdatedAt]);
 
   useEffect(() => {
-    const current = user?.walletBalance;
+    const current = user?.walletBalance != null ? Number(user.walletBalance) : undefined;
     if (current !== undefined && current !== prevUserBalanceRef.current) {
       prevUserBalanceRef.current = current;
-      if (data?.balance !== undefined && current !== data.balance) {
+      if (data?.balance !== undefined && current !== Number(data.balance)) {
         setSocketBalance(current);
       }
     }
@@ -1765,7 +1765,7 @@ function WalletScreenInner() {
         showToast(data.error || "Transfer failed", "error");
         setSendLoading(false); return;
       }
-      updateUser({ walletBalance: data.newBalance });
+      updateUser({ walletBalance: String(data.newBalance) });
       qc.invalidateQueries({ queryKey: walletQueryKey });
       closeSendModal();
       showToast(`${currencySymbol} ${num.toLocaleString()} sent to ${data.receiverName || sendPhone}!`, "success");
@@ -1776,7 +1776,7 @@ function WalletScreenInner() {
   };
 
   /* Fix: socket-first priority — real-time socket balance wins if available */
-  const balance      = socketBalance ?? data?.balance ?? user?.walletBalance ?? 0;
+  const balance      = socketBalance ?? (data?.balance != null ? Number(data.balance) : undefined) ?? (user?.walletBalance != null ? Number(user.walletBalance) : undefined) ?? 0;
   const transactions = data?.transactions ?? [];
   const filtered     = txFilter === "all"
     ? transactions

@@ -1108,14 +1108,14 @@ export function requireRole(
     if (options?.vendorApprovalCheck && tokenRole === "vendor") {
       try {
         const { db } = await import("@workspace/db");
-        const { vendorProfilesTable } = await import("@workspace/db/schema");
+        const { usersTable: _usersTable } = await import("@workspace/db/schema");
         const { eq } = await import("drizzle-orm");
         const [profile] = await db
-          .select({ approved: vendorProfilesTable.approved })
-          .from(vendorProfilesTable)
-          .where(eq(vendorProfilesTable.userId, payload.userId))
+          .select({ approvalStatus: _usersTable.approvalStatus })
+          .from(_usersTable)
+          .where(eq(_usersTable.id, payload.userId))
           .limit(1);
-        if (!profile || !profile.approved) {
+        if (!profile || profile.approvalStatus !== "approved") {
           res.status(403).json({ error: "Vendor account not approved" });
           return;
         }

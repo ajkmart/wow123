@@ -427,7 +427,7 @@ router.patch("/products/:id", async (req, res) => {
     addAuditEntry({
       action: "stock:updated",
       ip: getClientIp(req),
-      adminId: adminReq.admin?.id,
+      adminId: adminReq.adminId,
       adminName: adminReq.admin?.name,
       details: `Admin manually set stock for "${product.name}" (${product.id}) → ${product.stock ?? 0} units`,
       result: "success",

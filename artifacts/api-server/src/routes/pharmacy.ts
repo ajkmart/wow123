@@ -315,7 +315,7 @@ router.post("/", customerAuth, async (req, res) => {
   let hasRxItem = alwaysRx;
 
   if (!hasRxItem) {
-    const itemIds = (items as PharmacyItem[]).map((it) => it.id).filter(Boolean);
+    const itemIds = (items as PharmacyItem[]).map((it) => String(it.id)).filter(Boolean) as string[];
     if (itemIds.length > 0) {
       try {
         const dbProducts = await db

@@ -668,7 +668,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const handleWalletBalance = (payload: { balance: number }) => {
       if (typeof payload?.balance === "number") {
-        setUser(prev => prev ? { ...prev, walletBalance: payload.balance } : prev);
+        setUser(prev => prev ? { ...prev, walletBalance: String(payload.balance) } : prev);
         AsyncStorage.getItem(USER_KEY).then(stored => {
           if (!stored) return;
           try {

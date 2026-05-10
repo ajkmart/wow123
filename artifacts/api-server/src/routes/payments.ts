@@ -495,21 +495,16 @@ router.post("/reconcile", adminAuth, async (req, res) => {
     return;
   }
   const newPaymentStatus = forcedStatus as "success" | "failed";
-  const updates: Record<string, unknown> = {
+  await db.update(ordersTable).set({
     paymentStatus: newPaymentStatus,
     updatedAt: new Date(),
-  };
-
-  if (newPaymentStatus === "success" && order.status === "pending") {
-    updates["status"] = "confirmed";
-  }
-
-  await db.update(ordersTable).set(updates as Parameters<typeof db.update>[0]).where(eq(ordersTable.id, order.id));
+    ...(newPaymentStatus === "success" && order.status === "pending" ? { status: "confirmed" as const } : {}),
+  }).where(eq(ordersTable.id, order.id));
 
   sendSuccess(res, {
     orderId: order.id,
     paymentStatus: newPaymentStatus,
-    status: updates["status"] ?? order.status,
+    status: newPaymentStatus === "success" && order.status === "pending" ? "confirmed" : order.status,
     txnRef: order.txnRef,
     notes: notes ?? null,
   }, "Payment reconciled successfully");

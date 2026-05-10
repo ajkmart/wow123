@@ -49,10 +49,43 @@ export const ADMIN_LOCKOUT_TIME = 15;
 
 /* ── NOTIFICATION KEYS ─────────────────────────────────────────────────── */
 
-export const ORDER_NOTIF_KEYS = ["order_placed", "order_confirmed", "order_assigned", "order_picked", "order_delivered", "order_cancelled"];
-export const RIDE_NOTIF_KEYS  = ["ride_requested", "ride_accepted", "ride_started", "ride_completed", "ride_cancelled"];
-export const PHARMACY_NOTIF_KEYS = ["pharmacy_order_placed", "pharmacy_order_confirmed", "pharmacy_order_ready", "pharmacy_order_delivered"];
-export const PARCEL_NOTIF_KEYS   = ["parcel_booked", "parcel_picked", "parcel_delivered", "parcel_cancelled"];
+export interface NotifKeyEntry {
+  titleKey: string;
+  bodyKey: string;
+  icon: string;
+}
+
+export const ORDER_NOTIF_KEYS: Record<string, NotifKeyEntry> = {
+  confirmed:        { titleKey: "notifOrderConfirmed",        bodyKey: "notifOrderConfirmedBody",        icon: "checkmark-circle" },
+  preparing:        { titleKey: "notifOrderPreparing",        bodyKey: "notifOrderPreparingBody",        icon: "restaurant-outline" },
+  out_for_delivery: { titleKey: "notifOrderOutForDelivery",   bodyKey: "notifOrderOutForDeliveryBody",   icon: "bicycle-outline" },
+  delivered:        { titleKey: "notifOrderDelivered",        bodyKey: "notifOrderDeliveredBody",        icon: "checkmark-done-circle" },
+  cancelled:        { titleKey: "notifOrderCancelled",        bodyKey: "notifOrderCancelledBody",        icon: "close-circle" },
+};
+
+export const RIDE_NOTIF_KEYS: Record<string, NotifKeyEntry> = {
+  accepted:         { titleKey: "notifRideAccepted",          bodyKey: "notifRideAcceptedBody",          icon: "car-outline" },
+  arrived:          { titleKey: "notifRideArrived",           bodyKey: "notifRideArrivedBody",           icon: "location-outline" },
+  in_transit:       { titleKey: "notifRideInTransit",         bodyKey: "notifRideInTransitBody",         icon: "navigate-outline" },
+  completed:        { titleKey: "notifRideCompleted",         bodyKey: "notifRideCompletedBody",         icon: "star-outline" },
+  cancelled:        { titleKey: "notifRideCancelled",         bodyKey: "notifRideCancelledBody",         icon: "close-circle" },
+};
+
+export const PHARMACY_NOTIF_KEYS: Record<string, NotifKeyEntry> = {
+  confirmed:        { titleKey: "notifPharmacyOrderConfirmed",  bodyKey: "notifPharmacyOrderConfirmedBody",  icon: "checkmark-circle" },
+  ready:            { titleKey: "notifPharmacyOrderReady",      bodyKey: "notifPharmacyOrderReadyBody",      icon: "bag-check-outline" },
+  out_for_delivery: { titleKey: "notifPharmacyOrderOutForDelivery", bodyKey: "notifPharmacyOrderOutForDeliveryBody", icon: "bicycle-outline" },
+  delivered:        { titleKey: "notifPharmacyOrderDelivered",  bodyKey: "notifPharmacyOrderDeliveredBody",  icon: "checkmark-done-circle" },
+  cancelled:        { titleKey: "notifPharmacyOrderCancelled",  bodyKey: "notifPharmacyOrderCancelledBody",  icon: "close-circle" },
+};
+
+export const PARCEL_NOTIF_KEYS: Record<string, NotifKeyEntry> = {
+  confirmed:        { titleKey: "notifParcelConfirmed",        bodyKey: "notifParcelConfirmedBody",        icon: "checkmark-circle" },
+  picked_up:        { titleKey: "notifParcelPickedUp",         bodyKey: "notifParcelPickedUpBody",         icon: "cube-outline" },
+  in_transit:       { titleKey: "notifParcelInTransit",        bodyKey: "notifParcelInTransitBody",        icon: "navigate-outline" },
+  delivered:        { titleKey: "notifParcelDelivered",        bodyKey: "notifParcelDeliveredBody",        icon: "checkmark-done-circle" },
+  cancelled:        { titleKey: "notifParcelCancelled",        bodyKey: "notifParcelCancelledBody",        icon: "close-circle" },
+};
 
 /* ── DEFAULT PLATFORM SETTINGS ─────────────────────────────────────────── */
 

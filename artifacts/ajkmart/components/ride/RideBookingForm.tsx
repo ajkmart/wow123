@@ -406,9 +406,9 @@ export function RideBookingForm({ onBooked, prefillPickup, prefillDrop, prefillT
           setServicesError(true);
           return;
         }
-        setServices(data.services);
+        setServices(data.services as unknown as ServiceType[]);
         setServicesError(false);
-        setRideType((prev) => data.services.find((s: ServiceType) => s.key === prev) ? prev : data.services[0]!.key);
+        setRideType((prev) => (data.services as unknown as ServiceType[]).find((s: ServiceType) => s.key === prev) ? prev : data.services[0]!.key);
       })
       .catch(() => {
         setServicesError(true);
@@ -508,16 +508,16 @@ export function RideBookingForm({ onBooked, prefillPickup, prefillDrop, prefillT
       } as EstimateFareRequest)
         .then((data) => {
           if (cancelled || !data) return;
-          const ext = data as typeof data & { baseFare?: number; gstAmount?: number; bargainEnabled?: boolean; minOffer?: number };
+          const ext = data as typeof data & { baseFare?: number | string; gstAmount?: number; bargainEnabled?: boolean; minOffer?: number | string };
           setEstimateForType(data.type ?? rideType);
           setEstimateAt(Date.now());
           setEstimateAgeMinutes(0);
           setEstimate({
-            fare: data.fare, dist: data.distance, dur: data.duration,
-            baseFare: ext.baseFare ?? data.fare,
+            fare: Number(data.fare), dist: data.distance, dur: data.duration,
+            baseFare: Number(ext.baseFare ?? data.fare),
             gstAmount: ext.gstAmount ?? 0,
             bargainEnabled: ext.bargainEnabled ?? false,
-            minOffer: ext.minOffer ?? data.fare,
+            minOffer: Number(ext.minOffer ?? data.fare),
           });
         })
         .catch(() => { if (!cancelled) { setEstimate(null); setEstimateForType(null); } })
@@ -575,11 +575,11 @@ export function RideBookingForm({ onBooked, prefillPickup, prefillDrop, prefillT
     if (parsedDate < today) { showToast("Start date cannot be in the past", "error"); return; }
     setSubscribing(true);
     try {
-      const subscribePayload: SchoolSubscribeRequestWithNotes = {
+      const subscribePayload = {
         routeId: selectedRoute.id,
         studentName: schoolStudent.trim(),
-        studentClass: schoolClass.trim(),
-        paymentMethod: payMethod as SchoolSubscribeRequest["paymentMethod"],
+        ...(schoolClass.trim() ? { grade: schoolClass.trim() } : {}),
+        paymentMethod: payMethod as string,
         shift: schoolShift,
         startDate: schoolStartDate,
         recurring: schoolRecurring,
@@ -653,7 +653,7 @@ export function RideBookingForm({ onBooked, prefillPickup, prefillDrop, prefillT
       if (parsedOffer > estimate.fare) { showToast(`Offer cannot exceed the platform fare of Rs. ${estimate.fare}`, "error"); return; }
     }
     const effectiveFare = parsedOffer ?? estimate.fare;
-    if (payMethod === "wallet" && (user?.walletBalance ?? 0) < effectiveFare) {
+    if (payMethod === "wallet" && Number(user?.walletBalance ?? 0) < effectiveFare) {
       showToast(`Wallet balance Rs. ${user?.walletBalance ?? 0} — insufficient. Please top up.`, "error"); return;
     }
     setBooking(true);
@@ -679,9 +679,9 @@ export function RideBookingForm({ onBooked, prefillPickup, prefillDrop, prefillT
         ...(isScheduled && { isScheduled: true, scheduledAt: new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString() }),
         ...(isPoolRide && { isPoolRide: true }),
       } as BookRideRequest);
-      const bookedRide = rideData as BookedRide;
+      const bookedRide = rideData as unknown as BookedRide;
       if (payMethod === "wallet" && !bookedRide.isBargaining) {
-        updateUser({ walletBalance: (user?.walletBalance ?? 0) - (bookedRide.effectiveFare ?? bookedRide.fare ?? 0) });
+        updateUser({ walletBalance: String(Number(user?.walletBalance ?? 0) - (Number(bookedRide.effectiveFare ?? bookedRide.fare ?? 0))) });
       }
       onBooked(bookedRide);
       (async () => {
@@ -1305,7 +1305,7 @@ export function RideBookingForm({ onBooked, prefillPickup, prefillDrop, prefillT
                   const isWallet = pm.id === "wallet";
                   const pmColor = isCash ? "#10B981" : isWallet ? "#3B82F6" : "#FCD34D";
                   const balanceLabel = isWallet ? ` · Rs. ${(user?.walletBalance ?? 0).toLocaleString()}` : "";
-                  const insufficient = isWallet && estimate && (user?.walletBalance ?? 0) < (offeredFare ? parseFloat(offeredFare) : estimate.fare);
+                  const insufficient = isWallet && estimate && Number(user?.walletBalance ?? 0) < (offeredFare ? parseFloat(offeredFare) : estimate.fare);
                   return (
                     <TouchableOpacity key={pm.id} onPress={() => setPayMethod(pm.id)} activeOpacity={0.7}
                       style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 24, borderWidth: 1.5, borderColor: active ? pmColor : colorScheme === "dark" ? "rgba(255,255,255,0.1)" : "#E2E8F0", backgroundColor: active ? `${pmColor}10` : "transparent" }}

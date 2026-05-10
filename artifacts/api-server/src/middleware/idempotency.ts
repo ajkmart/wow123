@@ -31,7 +31,7 @@ import { generateId } from "../lib/id.js";
 import { IDEMPOTENCY_TTL_MS } from "../lib/cleanupIdempotencyKeys.js";
 import { logger } from "../lib/logger.js";
 
-declare module "express-serve-static-core" {
+declare module "express" {
   interface Response {
     /** Store the successful response body so the next identical request replays it. */
     idempotencyResolve?: (statusCode: number, body: unknown) => Promise<void>;

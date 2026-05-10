@@ -9,7 +9,7 @@ import {
 import { eq, and, or, isNull, lte, gte, count, sql, desc } from "drizzle-orm";
 import { z } from "zod";
 import { verifyUserJwt } from "../middleware/security.js";
-import { sendSuccess, sendValidationError, sendError } from "../lib/response.js";
+import { sendSuccess, sendCreated, sendValidationError, sendError } from "../lib/response.js";
 import { generateId } from "../lib/id.js";
 import { ai } from "@workspace/integrations-gemini-ai";
 
@@ -257,14 +257,15 @@ Respond ONLY with valid JSON (no markdown, no code blocks) with these exact fiel
 Ensure the colors match the tone (e.g., urgent=red tones, luxury=gold/silver, friendly=soft blues/greens).`;
 
     // Call Gemini API
-    const response = await ai.models.generateContent("gemini-2.0-flash", {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
     // Extract and validate response
-    const rawResponse = response.response.candidates?.[0]?.content?.parts?.[0]?.text;
+    const rawResponse = response.text;
     if (!rawResponse) {
-      sendError(res, 500, "No response from AI model");
+      sendError(res, "No response from AI model", 500);
       return;
     }
 
@@ -276,7 +277,7 @@ Ensure the colors match the tone (e.g., urgent=red tones, luxury=gold/silver, fr
       // Fallback: extract JSON from potential markdown blocks
       const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        sendError(res, 500, "Failed to parse AI response");
+        sendError(res, "Failed to parse AI response", 500);
         return;
       }
       popupContent = JSON.parse(jsonMatch[0]);
@@ -284,7 +285,7 @@ Ensure the colors match the tone (e.g., urgent=red tones, luxury=gold/silver, fr
 
     // Validate parsed content
     if (!popupContent.title || !popupContent.body || !popupContent.ctaText) {
-      sendError(res, 500, "AI generated incomplete popup content");
+      sendError(res, "AI generated incomplete popup content", 500);
       return;
     }
 
@@ -306,10 +307,10 @@ Ensure the colors match the tone (e.g., urgent=red tones, luxury=gold/silver, fr
       colorTo: popupContent.colorTo || "#4F46E5",
       animation: popupContent.animation || "fade",
       textColor: "#FFFFFF",
-      targeting: { audiences: [targetAudience], goal },
+      targeting: targetAudience === "new_users" ? { newUsers: true } : { roles: [targetAudience] },
     }).returning();
 
-    sendSuccess(res, {
+    sendCreated(res, {
       id: campaign.id,
       title: campaign.title,
       body: campaign.body,
@@ -320,11 +321,10 @@ Ensure the colors match the tone (e.g., urgent=red tones, luxury=gold/silver, fr
       colorFrom: campaign.colorFrom,
       colorTo: campaign.colorTo,
       status: campaign.status,
-      message: "Popup generated successfully. Review and customize before going live.",
-    }, 201);
+    }, "Popup generated successfully. Review and customize before going live.");
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    sendError(res, 500, `AI generation failed: ${message}`);
+    sendError(res, `AI generation failed: ${message}`, 500);
   }
 });
 

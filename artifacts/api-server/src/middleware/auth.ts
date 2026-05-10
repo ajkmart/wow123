@@ -34,7 +34,7 @@ export async function verifyTokenFamily(req: Request, res: Response, next: NextF
       return;
     }
 
-    const tokenFamilyId = (payload as Record<string, unknown>)["tokenFamilyId"] as string | undefined;
+    const tokenFamilyId = (payload as unknown as Record<string, unknown>)["tokenFamilyId"] as string | undefined;
 
     if (!tokenFamilyId) {
       next();

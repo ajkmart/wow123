@@ -193,7 +193,7 @@ export default function UniversalSearchScreen() {
             products: data.products.map((p) => ({
               id: p.id,
               name: p.name,
-              price: p.price,
+              price: Number(p.price),
               image: p.image,
               category: p.category,
               originalPrice: p.originalPrice,
