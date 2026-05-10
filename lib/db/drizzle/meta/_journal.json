@@ -64,6 +64,13 @@
       "when": 1778389787424,
       "tag": "0008_soft_delete_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778450000000,
+      "tag": "0009_soft_delete_users",
+      "breakpoints": true
     }
   ]
 }
