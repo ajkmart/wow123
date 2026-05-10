@@ -135,33 +135,37 @@ async function migrateLegacyInsecureTokens(): Promise<boolean> {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function decodeJwtExp(tok: string): number | null {
+interface JwtClaims { exp: number; iat: number }
+
+function decodeJwtClaims(tok: string): JwtClaims | null {
   try {
     const parts = tok.split(".");
     if (parts.length !== 3) return null;
-    
-    // Normalize base64url to base64
+
     const b64Padded = (parts[1] ?? "")
       .replace(/-/g, "+")
       .replace(/_/g, "/")
       .padEnd((parts[1]?.length ?? 0) + ((4 - ((parts[1]?.length ?? 0) % 4)) % 4), "=");
-    
+
     let jsonStr: string;
     if (typeof atob === "function") {
-      // UTF-8 safe decode: atob returns Latin-1, decode via TextDecoder
       const bytes = new Uint8Array(atob(b64Padded).split("").map(c => c.charCodeAt(0)));
-      const decoder = new TextDecoder();
-      jsonStr = decoder.decode(bytes);
+      jsonStr = new TextDecoder().decode(bytes);
     } else {
-      // Node.js fallback
       jsonStr = Buffer.from(b64Padded, "base64").toString("utf8");
     }
-    
+
     const payload = JSON.parse(jsonStr);
-    return typeof payload.exp === "number" ? payload.exp : null;
+    if (typeof payload.exp !== "number" || typeof payload.iat !== "number") return null;
+    return { exp: payload.exp, iat: payload.iat };
   } catch {
     return null;
   }
+}
+
+/** Decode only the exp claim (for expiry checks). */
+function decodeJwtExp(tok: string): number | null {
+  return decodeJwtClaims(tok)?.exp ?? null;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -197,14 +201,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshingRef = useRef(false);
 
+  // Maximum clock skew tolerated when checking stored-token expiry (5 minutes).
+  const CLOCK_SKEW_TOLERANCE_MS = 5 * 60 * 1000;
+
   const scheduleProactiveRefresh = (tok: string, backoffMs?: number) => {
     clearRefreshTimer();
-    const exp = decodeJwtExp(tok);
-    if (!exp) return;
-    const expiresAt = exp * 1000;
-    
-    // If no backoff specified, use time until expiry minus 1min buffer (min 10s)
-    let refreshIn = backoffMs ?? Math.max((expiresAt - Date.now()) - 60_000, 10_000);
+
+    let refreshIn: number;
+
+    if (backoffMs !== undefined) {
+      // Retry/backoff path — use the explicit backoff delay as-is.
+      refreshIn = backoffMs;
+    } else {
+      const claims = decodeJwtClaims(tok);
+      if (!claims) return;
+
+      const { exp, iat } = claims;
+      const lifetimeMs = (exp - iat) * 1000; // Server-stated duration — device-clock-independent
+      if (lifetimeMs <= 0) return; // Defensive: invalid token
+
+      // Primary: 85% of the server-stated token lifetime from now.
+      // This is a pure duration — unaffected by device clock skew.
+      const lifetimeBased = lifetimeMs * 0.85;
+      // Safety ceiling: never schedule past (expiry − 60 s) per device clock.
+      // Device clock is used only as a ceiling here, not as the primary source.
+      const clockCap = Math.max(exp * 1000 - Date.now() - 60_000, 10_000);
+      refreshIn = Math.max(Math.min(lifetimeBased, clockCap), 10_000);
+    }
     
     refreshTimerRef.current = setTimeout(async () => {
       if (refreshingRef.current) return;
@@ -395,7 +418,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (storedUser && storedToken) {
           const parsedUser = JSON.parse(storedUser);
           const exp = decodeJwtExp(storedToken);
-          const isExpired = exp ? exp * 1000 < Date.now() : false;
+          // Tolerate up to CLOCK_SKEW_TOLERANCE_MS of device clock drift before
+          // treating a stored token as expired; avoids false-expiry on skewed clocks.
+          const isExpired = exp ? exp * 1000 < Date.now() - CLOCK_SKEW_TOLERANCE_MS : false;
 
           if (isExpired && storedRefresh) {
             try {
