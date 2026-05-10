@@ -1,0 +1,23 @@
+Add Missing Zod Validation
+What & Why
+Four endpoints accept request body input without Zod validation, leaving them open to bad data or mass-assignment. Add proper schemas to close the gaps.
+
+Done looks like
+PATCH /condition-rules/:id rejects unrecognised fields and validates types before touching the DB.
+POST /conditions/bulk validates ids as a non-empty string array and action as an enum before executing bulk updates.
+POST /assign in experiments.ts validates userId and experimentId as non-empty strings via Zod.
+POST /estimate in parcel.ts validates parcelType as an optional string and weight as an optional non-negative number via Zod.
+All four endpoints return a consistent 400/422 validation error response when input is invalid.
+Out of scope
+Moving schemas to a centralised validation/schemas.ts file (inline schemas match the existing pattern in this codebase).
+Adding validation to GET or DELETE endpoints that have no body.
+Changing business logic in any of these routes.
+Steps
+PATCH /condition-rules/:id — Define a patchConditionRuleSchema (all fields optional: name, description, targetRole, metric, operator enum, threshold, conditionType, severity, cooldownHours, modeApplicability, isActive). Replace the raw req.body spread with safeParse and pick only validated fields for the DB update.
+POST /conditions/bulk — Define a bulkConditionSchema (ids non-empty string array, action enum of "lift" | "delete", reason optional string). Replace the manual ad-hoc checks with safeParse.
+POST /assign in experiments.ts — Define an assignExperimentSchema (userId non-empty string, experimentId non-empty string). Replace the manual if (!userId || !experimentId) check with safeParse.
+POST /estimate in parcel.ts — Define a parcelEstimateSchema (parcelType optional string max 50, weight optional non-negative number max 500). Apply safeParse and use validated data in the handler.
+Relevant files
+artifacts/api-server/src/routes/admin/conditions.ts:529-578
+artifacts/api-server/src/routes/experiments.ts:78-130
+artifacts/api-server/src/routes/parcel.ts:75-89
