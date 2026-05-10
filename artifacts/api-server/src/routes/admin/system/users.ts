@@ -554,7 +554,7 @@ router.delete("/users/:id", requirePermission("users.delete"), async (req, res) 
 /* ── User Activity (orders + rides summary) ── */
 router.get("/users/:id/activity", async (req, res) => {
   const uid = req.params["id"]!;
-  const orders = await db.select().from(ordersTable).where(eq(ordersTable.userId, uid)).orderBy(desc(ordersTable.createdAt)).limit(10);
+  const orders = await db.select().from(ordersTable).where(and(eq(ordersTable.userId, uid), isNull(ordersTable.deletedAt))).orderBy(desc(ordersTable.createdAt)).limit(10);
   const rides = await db.select().from(ridesTable).where(eq(ridesTable.userId, uid)).orderBy(desc(ridesTable.createdAt)).limit(10);
   const pharmacy = await db.select().from(pharmacyOrdersTable).where(eq(pharmacyOrdersTable.userId, uid)).orderBy(desc(pharmacyOrdersTable.createdAt)).limit(5);
   const parcels = await db.select().from(parcelBookingsTable).where(eq(parcelBookingsTable.userId, uid)).orderBy(desc(parcelBookingsTable.createdAt)).limit(5);

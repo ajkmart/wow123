@@ -629,13 +629,13 @@ router.get("/revenue-trend", async (_req: Request, res: Response) => {
     return Promise.all([
       db.select({ total: sum(ordersTable.total) })
         .from(ordersTable)
-        .where(and(eq(ordersTable.status, "delivered"), gte(ordersTable.createdAt, from), lte(ordersTable.createdAt, to))),
+        .where(and(eq(ordersTable.status, "delivered"), isNull(ordersTable.deletedAt), gte(ordersTable.createdAt, from), lte(ordersTable.createdAt, to))),
       db.select({ total: sum(ridesTable.fare) })
         .from(ridesTable)
         .where(and(eq(ridesTable.status, "completed"), gte(ridesTable.createdAt, from), lte(ridesTable.createdAt, to))),
       db.select({ cnt: count() })
         .from(ordersTable)
-        .where(and(eq(ordersTable.status, "delivered"), gte(ordersTable.createdAt, from), lte(ordersTable.createdAt, to))),
+        .where(and(eq(ordersTable.status, "delivered"), isNull(ordersTable.deletedAt), gte(ordersTable.createdAt, from), lte(ordersTable.createdAt, to))),
       db.select({ cnt: count() })
         .from(ridesTable)
         .where(and(eq(ridesTable.status, "completed"), gte(ridesTable.createdAt, from), lte(ridesTable.createdAt, to))),
@@ -719,9 +719,9 @@ router.get("/dashboard-export", async (_req: Request, res: Response) => {
   const now = new Date();
   const [[userCount], [orderCount], [rideCount], [revenue], [rideRev]] = await Promise.all([
     db.select({ count: count() }).from(usersTable),
-    db.select({ count: count() }).from(ordersTable),
+    db.select({ count: count() }).from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select({ count: count() }).from(ridesTable),
-    db.select({ total: sum(ordersTable.total) }).from(ordersTable).where(eq(ordersTable.status, "delivered")),
+    db.select({ total: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.status, "delivered"), isNull(ordersTable.deletedAt))),
     db.select({ total: sum(ridesTable.fare) }).from(ridesTable).where(eq(ridesTable.status, "completed")),
   ]);
 
@@ -734,11 +734,11 @@ router.get("/dashboard-export", async (_req: Request, res: Response) => {
     const dateStr = d.toISOString().slice(0, 10);
     return Promise.all([
       db.select({ total: sum(ordersTable.total) }).from(ordersTable)
-        .where(and(eq(ordersTable.status, "delivered"), gte(ordersTable.createdAt, from), lte(ordersTable.createdAt, to))),
+        .where(and(eq(ordersTable.status, "delivered"), isNull(ordersTable.deletedAt), gte(ordersTable.createdAt, from), lte(ordersTable.createdAt, to))),
       db.select({ total: sum(ridesTable.fare) }).from(ridesTable)
         .where(and(eq(ridesTable.status, "completed"), gte(ridesTable.createdAt, from), lte(ridesTable.createdAt, to))),
       db.select({ cnt: count() }).from(ordersTable)
-        .where(and(eq(ordersTable.status, "delivered"), gte(ordersTable.createdAt, from), lte(ordersTable.createdAt, to))),
+        .where(and(eq(ordersTable.status, "delivered"), isNull(ordersTable.deletedAt), gte(ordersTable.createdAt, from), lte(ordersTable.createdAt, to))),
       db.select({ cnt: count() }).from(ridesTable)
         .where(and(eq(ridesTable.status, "completed"), gte(ridesTable.createdAt, from), lte(ridesTable.createdAt, to))),
       db.select({ cnt: count() }).from(notificationsTable)

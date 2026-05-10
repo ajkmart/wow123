@@ -2,7 +2,7 @@ import { logger } from "../../lib/logger.js";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { platformSettingsTable, vendorPlansTable, adminRolePresetsTable, demoBackupsTable, vendorProfilesTable, ordersTable, productsTable } from "@workspace/db/schema";
-import { eq, asc, desc, count } from "drizzle-orm";
+import { eq, asc, desc, count, isNull } from "drizzle-orm";
 import { sendSuccess, sendError, sendNotFound, sendValidationError } from "../../lib/response.js";
 import { addAuditEntry, getClientIp, invalidatePlatformSettingsCache, invalidateSettingsCache, DEFAULT_PLATFORM_SETTINGS, type AdminRequest } from "../admin-shared.js";
 
@@ -463,7 +463,7 @@ router.post("/mode", async (req, res) => {
        idempotently so switching back to demo can restore them from the backup. */
     const allSettings = await db.select().from(platformSettingsTable);
     const [vendorCount] = await db.select({ c: count() }).from(vendorProfilesTable);
-    const [orderCount]  = await db.select({ c: count() }).from(ordersTable);
+    const [orderCount]  = await db.select({ c: count() }).from(ordersTable).where(isNull(ordersTable.deletedAt));
     const [productCount] = await db.select({ c: count() }).from(productsTable);
     const { getDemoSnapshot } = await import("../../lib/demo-snapshot.js");
     const demoSnap = await getDemoSnapshot();

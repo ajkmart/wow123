@@ -504,6 +504,7 @@ router.delete("/delete-account", async (req, res) => {
       .where(and(
         eq(ordersTable.userId, userId),
         sql`${ordersTable.status} NOT IN ('delivered', 'cancelled', 'completed')`,
+        isNull(ordersTable.deletedAt),
       ));
 
     if (activeOrders[0] && activeOrders[0].c > 0) {

@@ -57,6 +57,13 @@
       "when": 1778330600168,
       "tag": "0007_reflective_grey_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1778389787424,
+      "tag": "0008_soft_delete_orders",
+      "breakpoints": true
     }
   ]
 }

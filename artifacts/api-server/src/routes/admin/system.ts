@@ -61,28 +61,28 @@ router.get("/stats", async (_req, res) => {
     [failedPaymentCount],
   ] = await Promise.all([
     db.select({ count: count() }).from(usersTable),
-    db.select({ count: count() }).from(ordersTable),
+    db.select({ count: count() }).from(ordersTable).where(isNull(ordersTable.deletedAt)),
     db.select({ count: count() }).from(ridesTable),
     db.select({ count: count() }).from(pharmacyOrdersTable),
     db.select({ count: count() }).from(parcelBookingsTable),
     db.select({ count: count() }).from(productsTable),
     /* pending orders only */
-    db.select({ count: count() }).from(ordersTable).where(eq(ordersTable.status, "pending")),
+    db.select({ count: count() }).from(ordersTable).where(and(eq(ordersTable.status, "pending"), isNull(ordersTable.deletedAt))),
     /* active rides: searching / accepted / active */
     db.select({ count: count() }).from(ridesTable)
       .where(or(eq(ridesTable.status, "searching"), eq(ridesTable.status, "accepted"), eq(ridesTable.status, "active"))),
     /* active SOS: pending (unhandled) or acknowledged (in progress) — not yet resolved */
     db.select({ count: count() }).from(notificationsTable)
       .where(and(eq(notificationsTable.type, "sos"), or(eq(notificationsTable.sosStatus, "pending"), eq(notificationsTable.sosStatus, "acknowledged")))),
-    db.select({ total: sum(ordersTable.total) }).from(ordersTable).where(eq(ordersTable.status, "delivered")),
+    db.select({ total: sum(ordersTable.total) }).from(ordersTable).where(and(eq(ordersTable.status, "delivered"), isNull(ordersTable.deletedAt))),
     db.select({ total: sum(ridesTable.fare) }).from(ridesTable).where(eq(ridesTable.status, "completed")),
     db.select({ total: sum(pharmacyOrdersTable.total) }).from(pharmacyOrdersTable).where(eq(pharmacyOrdersTable.status, "delivered")),
-    db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)).limit(5),
+    db.select().from(ordersTable).where(isNull(ordersTable.deletedAt)).orderBy(desc(ordersTable.createdAt)).limit(5),
     db.select().from(ridesTable).orderBy(desc(ridesTable.createdAt)).limit(5),
     db.select({ count: count() }).from(riderProfilesTable),
     db.select({ count: count() }).from(vendorProfilesTable),
     /* failed payments: orders where paymentStatus = 'failed' */
-    db.select({ count: count() }).from(ordersTable).where(eq(ordersTable.paymentStatus, "failed")),
+    db.select({ count: count() }).from(ordersTable).where(and(eq(ordersTable.paymentStatus, "failed"), isNull(ordersTable.deletedAt))),
   ]);
 
   sendSuccess(res, {
@@ -594,8 +594,8 @@ router.get("/app-overview", async (_req, res) => {
     db.select({ c: count() }).from(usersTable),
     db.select({ c: count() }).from(usersTable).where(eq(usersTable.isActive, true)),
     db.select({ c: count() }).from(usersTable).where(eq(usersTable.isBanned, true)),
-    db.select({ c: count() }).from(ordersTable),
-    db.select({ c: count() }).from(ordersTable).where(eq(ordersTable.status, "pending")),
+    db.select({ c: count() }).from(ordersTable).where(isNull(ordersTable.deletedAt)),
+    db.select({ c: count() }).from(ordersTable).where(and(eq(ordersTable.status, "pending"), isNull(ordersTable.deletedAt))),
     db.select({ c: count() }).from(ridesTable),
     db.select({ c: count() }).from(ridesTable).where(eq(ridesTable.status, "ongoing")),
     db.select({ c: count() }).from(pharmacyOrdersTable),
@@ -1113,6 +1113,7 @@ router.get("/search", async (req, res) => {
               ilike(ordersTable.status, pattern),
             ),
             ordersStatusCond,
+            isNull(ordersTable.deletedAt),
           ))
           .orderBy(desc(ordersTable.createdAt))
           .limit(8)
@@ -2164,6 +2165,7 @@ router.get("/fleet/vendors", async (_req, res) => {
               eq(ordersTable.status, "ready"),
               eq(ordersTable.status, "out_for_delivery"),
             ),
+            isNull(ordersTable.deletedAt),
           )
         )
         .groupBy(ordersTable.vendorId);

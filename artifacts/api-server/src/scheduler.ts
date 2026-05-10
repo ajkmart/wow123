@@ -7,6 +7,7 @@ import {
   pendingOtpsTable,
   userSessionsTable,
   liveLocationsTable,
+  locationHistoryTable,
   loginHistoryTable,
 } from "@workspace/db/schema";
 import { sql, lt, isNotNull, or } from "drizzle-orm";
@@ -28,8 +29,9 @@ import { startDispatchEngine, stopDispatchEngine } from "./routes/rides/dispatch
      5. Magic link token cleanup    — delete expired magic_link_tokens rows (every 30 min)
      6. Pending OTP cleanup         — delete expired pending_otps rows (every 15 min)
      7. User session cleanup        — delete expired/revoked user_sessions rows (every 60 min)
-     8. Stale location cleanup      — delete live_locations older than 4 hours (every 30 min)
+     8. Stale location cleanup      — delete live_locations older than 2 hours (every 30 min)
      9. Login history archival      — delete login_history older than 90 days (every 24 hours)
+    10. Location history cleanup    — delete location_history older than 30 days (every 24 hours)
 ══════════════════════════════════════════════════════════════════════════ */
 
 const _timers: ReturnType<typeof setInterval>[] = [];
@@ -135,7 +137,7 @@ async function purgeExpiredUserSessions(): Promise<void> {
 }
 
 async function purgeStaleLocations(): Promise<void> {
-  const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000);
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
   const deleted = await db
     .delete(liveLocationsTable)
     .where(
@@ -146,6 +148,19 @@ async function purgeStaleLocations(): Promise<void> {
     logger.info({ count: deleted.length }, "[scheduler] purged stale live location rows for inactive riders");
   } else {
     logger.debug("[scheduler] live-location cleanup ran, 0 rows removed");
+  }
+}
+
+async function purgeOldLocationHistory(): Promise<void> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const deleted = await db
+    .delete(locationHistoryTable)
+    .where(lt(locationHistoryTable.createdAt, cutoff))
+    .returning({ id: locationHistoryTable.id });
+  if (deleted.length > 0) {
+    logger.info({ count: deleted.length }, "[scheduler] purged old location_history rows (>30 days)");
+  } else {
+    logger.debug("[scheduler] location-history cleanup ran, 0 rows removed");
   }
 }
 
@@ -174,6 +189,7 @@ const ALL_JOBS = [
   "user-session-cleanup",
   "live-location-cleanup",
   "login-history-archival",
+  "location-history-cleanup",
 ];
 
 export function startScheduler(): void {
@@ -186,6 +202,7 @@ export function startScheduler(): void {
   register("user-session-cleanup",      purgeExpiredUserSessions,     60 * 60_000);
   register("live-location-cleanup",     purgeStaleLocations,          30 * 60_000);
   register("login-history-archival",    archiveOldLoginHistory,       24 * 60 * 60_000);
+  register("location-history-cleanup", purgeOldLocationHistory,      24 * 60 * 60_000);
   startDispatchEngine();
   logger.info({ jobs: ALL_JOBS }, "[scheduler] started (dispatch engine active)");
 }

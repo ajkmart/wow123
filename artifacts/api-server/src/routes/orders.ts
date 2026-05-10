@@ -361,14 +361,14 @@ async function validatePromoCode(
         return { valid: false, discount: 0, discountType: null, error: "This offer is for new users only." };
       }
       const [orderCountRow] = await db.select({ c: count() }).from(ordersTable)
-        .where(eq(ordersTable.userId, userId));
+        .where(and(eq(ordersTable.userId, userId), isNull(ordersTable.deletedAt)));
       const totalOrders = Number(orderCountRow?.c ?? 0);
       if (rules.returningUsersOnly && totalOrders === 0) {
         return { valid: false, discount: 0, discountType: null, error: "This offer is for returning customers only." };
       }
       if (rules.highValueUser) {
         const [spendRow] = await db.select({ s: sum(ordersTable.total) }).from(ordersTable)
-          .where(eq(ordersTable.userId, userId));
+          .where(and(eq(ordersTable.userId, userId), isNull(ordersTable.deletedAt)));
         const totalSpend = parseFloat(String(spendRow?.s ?? "0"));
         if (totalSpend < 5000) {
           return { valid: false, discount: 0, discountType: null, error: "This offer is for high-value customers only." };
