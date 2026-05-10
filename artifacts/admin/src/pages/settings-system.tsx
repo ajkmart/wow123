@@ -592,66 +592,69 @@ export function SystemSection() {
         </div>
       </div>
 
-      <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-gradient-to-br from-slate-50 to-white p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Database size={16} className="text-slate-600" />
-          <p className="font-bold text-base text-slate-800">Data Management</p>
-          <p className="text-[11px] text-slate-400 flex items-center gap-1 ml-auto">
-            <Clock size={10} /> All actions create undo snapshots for 30 min
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button
-            onClick={() => { setConfirmDialog({ type: "remove" }); setConfirmText(""); }}
-            disabled={!!actionLoading}
-            className="group relative flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-all disabled:opacity-50"
-          >
-            <div className="w-12 h-12 rounded-xl bg-red-100 group-hover:bg-red-200 flex items-center justify-center transition-all">
-              <Trash2 size={22} className="text-red-600" />
-            </div>
-            <p className="font-bold text-sm text-red-800">Remove All</p>
-            <p className="text-[10px] text-red-600 text-center leading-tight">
-              Wipe all data (users, orders, products...). Admin accounts & settings preserved.
+      {import.meta.env.DEV && (
+        <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-gradient-to-br from-slate-50 to-white p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Database size={16} className="text-slate-600" />
+            <p className="font-bold text-base text-slate-800">Data Management</p>
+            <span className="ml-1 text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Dev only</span>
+            <p className="text-[11px] text-slate-400 flex items-center gap-1 ml-auto">
+              <Clock size={10} /> All actions create undo snapshots for 30 min
             </p>
-          </button>
+          </div>
 
-          <button
-            onClick={() => { setConfirmDialog({ type: "demo" }); setConfirmText(""); }}
-            disabled={!!actionLoading}
-            className="group relative flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300 transition-all disabled:opacity-50"
-          >
-            {actionLoading === "seed-demo" && (
-              <div className="absolute inset-0 rounded-xl bg-white/60 flex items-center justify-center z-10">
-                <Loader2 size={24} className="animate-spin text-emerald-600" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              onClick={() => { setConfirmDialog({ type: "remove" }); setConfirmText(""); }}
+              disabled={!!actionLoading}
+              className="group relative flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-all disabled:opacity-50"
+            >
+              <div className="w-12 h-12 rounded-xl bg-red-100 group-hover:bg-red-200 flex items-center justify-center transition-all">
+                <Trash2 size={22} className="text-red-600" />
               </div>
-            )}
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 group-hover:bg-emerald-200 flex items-center justify-center transition-all">
-              <FlaskConical size={22} className="text-emerald-600" />
-            </div>
-            <p className="font-bold text-sm text-emerald-800">Load Demo Data</p>
-            <p className="text-[10px] text-emerald-600 text-center leading-tight">
-              Populate with 22 users, 38+ products, 24 orders, 15 rides, reviews & more.
-            </p>
-          </button>
+              <p className="font-bold text-sm text-red-800">Remove All</p>
+              <p className="text-[10px] text-red-600 text-center leading-tight">
+                Wipe all data (users, orders, products...). Admin accounts & settings preserved.
+              </p>
+            </button>
 
-          <button
-            onClick={() => { setCustomFormOpen(customFormOpen ? null : "user"); setFormData({}); }}
-            disabled={!!actionLoading}
-            className="group relative flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all disabled:opacity-50"
-          >
-            <div className="w-12 h-12 rounded-xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-all">
-              <Plus size={22} className="text-blue-600" />
-            </div>
-            <p className="font-bold text-sm text-blue-800">Add Custom Data</p>
-            <p className="text-[10px] text-blue-600 text-center leading-tight">
-              Manually add individual users, products, promo codes or banners.
-            </p>
-          </button>
+            <button
+              onClick={() => { setConfirmDialog({ type: "demo" }); setConfirmText(""); }}
+              disabled={!!actionLoading}
+              className="group relative flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300 transition-all disabled:opacity-50"
+            >
+              {actionLoading === "seed-demo" && (
+                <div className="absolute inset-0 rounded-xl bg-white/60 flex items-center justify-center z-10">
+                  <Loader2 size={24} className="animate-spin text-emerald-600" />
+                </div>
+              )}
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 group-hover:bg-emerald-200 flex items-center justify-center transition-all">
+                <FlaskConical size={22} className="text-emerald-600" />
+              </div>
+              <p className="font-bold text-sm text-emerald-800">Load Demo Data</p>
+              <p className="text-[10px] text-emerald-600 text-center leading-tight">
+                Populate with 22 users, 38+ products, 24 orders, 15 rides, reviews & more.
+              </p>
+            </button>
+
+            <button
+              onClick={() => { setCustomFormOpen(customFormOpen ? null : "user"); setFormData({}); }}
+              disabled={!!actionLoading}
+              className="group relative flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all disabled:opacity-50"
+            >
+              <div className="w-12 h-12 rounded-xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-all">
+                <Plus size={22} className="text-blue-600" />
+              </div>
+              <p className="font-bold text-sm text-blue-800">Add Custom Data</p>
+              <p className="text-[10px] text-blue-600 text-center leading-tight">
+                Manually add individual users, products, promo codes or banners.
+              </p>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {customFormOpen && (
+      {import.meta.env.DEV && customFormOpen && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             {CUSTOM_FORM_OPTIONS.map(opt => (
@@ -754,10 +757,11 @@ export function SystemSection() {
       </div>
 
       {/* ── Demo Backup & Restore ── */}
-      <div>
+      {import.meta.env.DEV && <div>
         <div className="flex items-center gap-2 mb-3">
           <BookCopy size={15} className="text-indigo-500" />
           <p className="font-semibold text-sm text-slate-700">Demo Data Snapshots</p>
+          <span className="ml-1 text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Dev only</span>
           <span className="ml-auto text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-medium">Server-side</span>
         </div>
         <p className="text-[11px] text-slate-500 mb-3">Save the current database state as a named snapshot. Restore anytime in one click — no file upload needed.</p>
@@ -845,48 +849,51 @@ export function SystemSection() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      <div>
-        <button
-          onClick={() => setShowOldActions(!showOldActions)}
-          className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 mb-2"
-        >
-          {showOldActions ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          <span className="font-semibold">Advanced Reset Actions</span>
-        </button>
+      {import.meta.env.DEV && (
+        <div>
+          <button
+            onClick={() => setShowOldActions(!showOldActions)}
+            className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 mb-2"
+          >
+            {showOldActions ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            <span className="font-semibold">Advanced Reset Actions</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Dev only</span>
+          </button>
 
-        {showOldActions && (
-          <div className="space-y-2 mt-2">
-            {[
-              { endpoint: "/reset-demo", label: "Reset Demo Content", desc: "Clear transactional data + reseed products", color: "border-amber-200 bg-amber-50", btnColor: "bg-amber-500 hover:bg-amber-600", icon: <FlaskConical size={14} /> },
-              { endpoint: "/reset-transactional", label: "Clear Transactional Data", desc: "Clear orders, rides, reviews. Keep users/products.", color: "border-orange-200 bg-orange-50", btnColor: "bg-orange-500 hover:bg-orange-600", icon: <RotateCcw size={14} /> },
-              { endpoint: "/reset-products", label: "Reseed Products", desc: "Delete all products and insert fresh demo products.", color: "border-violet-200 bg-violet-50", btnColor: "bg-violet-500 hover:bg-violet-600", icon: <RefreshCcw size={14} /> },
-              { endpoint: "/reset-settings", label: "Reset Platform Settings", desc: "Delete all settings. Factory defaults on next visit.", color: "border-red-200 bg-red-50", btnColor: "bg-red-500 hover:bg-red-600", icon: <Settings size={14} /> },
-              { endpoint: "/reset-all", label: "Full Database Reset", desc: "Delete ALL users, orders, rides, products. Preserves settings.", color: "border-red-300 bg-red-50", btnColor: "bg-red-700 hover:bg-red-800", icon: <Trash2 size={14} /> },
-            ].map(action => (
-              <div key={action.endpoint} className={`rounded-xl border p-3 flex items-center justify-between gap-3 ${action.color}`}>
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-slate-600">{action.icon}</span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-xs text-slate-800">{action.label}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{action.desc}</p>
+          {showOldActions && (
+            <div className="space-y-2 mt-2">
+              {[
+                { endpoint: "/reset-demo", label: "Reset Demo Content", desc: "Clear transactional data + reseed products", color: "border-amber-200 bg-amber-50", btnColor: "bg-amber-500 hover:bg-amber-600", icon: <FlaskConical size={14} /> },
+                { endpoint: "/reset-transactional", label: "Clear Transactional Data", desc: "Clear orders, rides, reviews. Keep users/products.", color: "border-orange-200 bg-orange-50", btnColor: "bg-orange-500 hover:bg-orange-600", icon: <RotateCcw size={14} /> },
+                { endpoint: "/reset-products", label: "Reseed Products", desc: "Delete all products and insert fresh demo products.", color: "border-violet-200 bg-violet-50", btnColor: "bg-violet-500 hover:bg-violet-600", icon: <RefreshCcw size={14} /> },
+                { endpoint: "/reset-settings", label: "Reset Platform Settings", desc: "Delete all settings. Factory defaults on next visit.", color: "border-red-200 bg-red-50", btnColor: "bg-red-500 hover:bg-red-600", icon: <Settings size={14} /> },
+                { endpoint: "/reset-all", label: "Full Database Reset", desc: "Delete ALL users, orders, rides, products. Preserves settings.", color: "border-red-300 bg-red-50", btnColor: "bg-red-700 hover:bg-red-800", icon: <Trash2 size={14} /> },
+              ].map(action => (
+                <div key={action.endpoint} className={`rounded-xl border p-3 flex items-center justify-between gap-3 ${action.color}`}>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-slate-600">{action.icon}</span>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-slate-800">{action.label}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{action.desc}</p>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => handleOldAction(action.endpoint, action.label)}
+                    disabled={!!actionLoading}
+                    className={`shrink-0 text-white text-xs font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 ${action.btnColor}`}
+                  >
+                    {actionLoading === action.endpoint ? <Loader2 size={12} className="animate-spin" /> : "Run"}
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleOldAction(action.endpoint, action.label)}
-                  disabled={!!actionLoading}
-                  className={`shrink-0 text-white text-xs font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 ${action.btnColor}`}
-                >
-                  {actionLoading === action.endpoint ? <Loader2 size={12} className="animate-spin" /> : "Run"}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      {confirmDialog && (
+      {import.meta.env.DEV && confirmDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             <div className={`px-6 py-4 ${confirmDialog.type === "remove" ? "bg-red-600" : "bg-emerald-600"} text-white`}>

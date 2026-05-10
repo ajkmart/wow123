@@ -1,5 +1,6 @@
 packages:
   - artifacts/*
+  - '!artifacts/mockup-sandbox'
   - lib/*
   - lib/integrations/*
   - scripts

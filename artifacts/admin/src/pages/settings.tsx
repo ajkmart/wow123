@@ -337,14 +337,14 @@ export default function SettingsPage() {
   const getPlaceholder = (key: string) => {
     if (key.includes("_url")) return "https://...";
     if (key === "content_announcement") return "Leave empty to hide the bar in all apps";
-    if (key === "content_banner") return "Free delivery on your first order! 🎉";
-    if (key === "content_maintenance_msg") return "We're performing scheduled maintenance. Back soon!";
-    if (key === "content_support_msg") return "Need help? Chat with us on WhatsApp!";
-    if (key === "content_vendor_notice") return "Leave empty to hide. E.g. New settlement policy starting May 1.";
-    if (key === "content_rider_notice") return "Leave empty to hide. E.g. Bonus Rs.200 for 10+ deliveries today!";
-    if (key === "content_refund_policy_url") return "https://ajkmart.pk/refund-policy";
-    if (key === "content_faq_url") return "https://ajkmart.pk/help";
-    if (key === "content_about_url") return "https://ajkmart.pk/about";
+    if (key === "content_banner") return "";
+    if (key === "content_maintenance_msg") return "";
+    if (key === "content_support_msg") return "";
+    if (key === "content_vendor_notice") return "Leave empty to hide";
+    if (key === "content_rider_notice") return "Leave empty to hide";
+    if (key === "content_refund_policy_url") return "https://...";
+    if (key === "content_faq_url") return "https://...";
+    if (key === "content_about_url") return "https://...";
     return "";
   };
 
