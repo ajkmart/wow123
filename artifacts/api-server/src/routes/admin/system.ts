@@ -3199,7 +3199,7 @@ router.get("/system/diagnostics", async (_req, res) => {
     { name: "Admin Panel",  key: "admin",   port: 3000, path: "/admin/"     },
     { name: "Vendor App",   key: "vendor",  port: 3002, path: "/vendor/"    },
     { name: "Rider App",    key: "rider",   port: 3003, path: "/rider/"     },
-    { name: "Customer App", key: "ajkmart", port: 4200, path: "/"           },
+    { name: "Customer App", key: "ajkmart", port: 19006, path: "/"           },
   ];
 
   const serviceResults: ServiceResult[] = await Promise.all(
@@ -3219,25 +3219,25 @@ router.get("/system/diagnostics", async (_req, res) => {
     }),
   );
 
-  /* ── Process snapshot via ps ── */
-  interface ProcRow { pid: string; cpu: string; mem: string; comm: string }
+  /* ── Process snapshot via ps (use full args so node/vite/expo/tsx are distinguishable) ── */
+  interface ProcRow { pid: string; args: string }
   let rawProcs: ProcRow[] = [];
   try {
     const out = execSync(
-      `ps -eo pid,pcpu,pmem,comm --no-headers 2>/dev/null | grep -E "node|tsx|vite|metro|expo" | head -40 || true`,
+      `ps -eo pid,args --no-headers 2>/dev/null | grep -E "node|tsx|vite|metro|expo" | grep -v grep | head -40 || true`,
       { encoding: "utf8", timeout: 2000 },
     );
     rawProcs = out.split("\n").filter(Boolean).map((line) => {
       const parts = line.trim().split(/\s+/);
-      return { pid: parts[0] ?? "", cpu: parts[1] ?? "0", mem: parts[2] ?? "0", comm: parts.slice(3).join(" ") };
+      return { pid: parts[0] ?? "", args: parts.slice(1).join(" ") };
     });
   } catch { /* non-fatal */ }
 
   const processCounts = {
-    nodeTotal: rawProcs.filter(p => p.comm.includes("node")).length,
-    tsx:       rawProcs.filter(p => p.comm.includes("tsx")).length,
-    vite:      rawProcs.filter(p => p.comm.includes("vite")).length,
-    expo:      rawProcs.filter(p => p.comm.includes("expo") || p.comm.includes("metro")).length,
+    nodeTotal: rawProcs.filter(p => p.args.includes("node")).length,
+    tsx:       rawProcs.filter(p => p.args.includes("tsx")).length,
+    vite:      rawProcs.filter(p => p.args.includes("vite")).length,
+    expo:      rawProcs.filter(p => p.args.includes("expo") || p.args.includes("metro")).length,
   };
 
   sendSuccess(res, {

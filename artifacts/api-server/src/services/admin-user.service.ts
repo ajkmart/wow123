@@ -30,9 +30,10 @@ import { recordAdminPasswordSnapshot } from "./admin-password-watch.service.js";
 import { verifyTotpToken, generateTotpSecret, generateTotpQr } from "./totp.js";
 import { canonicalizePhone } from "@workspace/phone-utils";
 import { logger } from "../lib/logger.js";
-import { getPlatformSettings, invalidateSettingsCache } from "../routes/admin-shared.js";
+import { getPlatformSettings, invalidateSettingsCache, signAdminJwt } from "../routes/admin-shared.js";
 import { generateSecureOtp } from "./password.js";
 import { createHash } from "crypto";
+import { resolveAdminPermissions } from "./permissions.service.js";
 
 export interface CreateUserInput {
   phone?: string;
@@ -643,5 +644,67 @@ export class UserService {
       .where(eq(usersTable.id, userId));
 
     return { otp, expiresAt: otpExpiry.toISOString(), phone: user.phone };
+  }
+
+  /**
+   * Authenticate a sub-admin by username + password.
+   * Returns MFA challenge if TOTP is enabled, or success with admin info.
+   */
+  static async authenticateAdmin(
+    username: string,
+    password: string,
+    _ip: string,
+  ): Promise<{
+    requiresMfa?: boolean;
+    tempToken?: string;
+    success?: boolean;
+    admin?: { id: string; role: string; name: string; permissions: string[] };
+    error?: string;
+  }> {
+    if (!username || !password) {
+      return { success: false, error: "Username and password are required" };
+    }
+
+    const [admin] = await db
+      .select()
+      .from(adminAccountsTable)
+      .where(
+        and(
+          eq(adminAccountsTable.username, username),
+          eq(adminAccountsTable.isActive, true),
+        ),
+      )
+      .limit(1);
+
+    if (!admin) {
+      return { success: false, error: "Invalid credentials" };
+    }
+
+    const passwordOk = verifyAdminSecret(password, admin.secret);
+    if (!passwordOk) {
+      return { success: false, error: "Invalid credentials" };
+    }
+
+    if (admin.totpEnabled && admin.totpSecret) {
+      const tempToken = signAdminJwt(admin.id, "mfa_challenge", admin.name, 5 / 60);
+      return { requiresMfa: true, tempToken };
+    }
+
+    await db
+      .update(adminAccountsTable)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(adminAccountsTable.id, admin.id));
+
+    const permissions = await resolveAdminPermissions(admin.id, admin.role);
+
+    return {
+      success: true,
+      admin: {
+        id: admin.id,
+        role: admin.role,
+        name: admin.name,
+        permissions,
+      },
+    };
   }
 }

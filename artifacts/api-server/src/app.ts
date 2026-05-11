@@ -388,8 +388,26 @@ export function createServer() {
         Registered BEFORE helmet so the proxied responses carry the
         upstream Vite headers untouched. ─────────────────────────────────── */
   if (process.env.NODE_ENV !== "production") {
+    const adminTarget = `http://127.0.0.1:${process.env.ADMIN_DEV_PORT ?? "23744"}`;
+    // Vite injects absolute paths like /@vite/client and /@replit/... into the page.
+    // When these are fetched from the root origin (port 5000) they miss the sub-path
+    // proxy rules. Forward all /@... paths to the admin Vite server so the browser
+    // receives JavaScript with the correct MIME type instead of a 404/text-plain.
+    const vitePrefixes = ["/@replit", "/@vite", "/@fs", "/__vite_ping", "/node_modules/.vite"];
+    for (const vp of vitePrefixes) {
+      app.use(
+        createProxyMiddleware({
+          target: adminTarget,
+          changeOrigin: true,
+          logger: undefined,
+          pathFilter: (pathname) => pathname === vp || pathname.startsWith(vp + "/") || pathname.startsWith(vp + "?"),
+          on: { error: (_err, _req, _res) => { /* silently ignore – dev banner is cosmetic */ } },
+        }) as unknown as express.RequestHandler,
+      );
+    }
+
     const devProxies: Array<{ prefix: string; target: string; ws?: boolean; rewriteToRoot?: boolean }> = [
-      { prefix: "/admin",    target: `http://127.0.0.1:${process.env.ADMIN_DEV_PORT  ?? "23744"}`, ws: true },
+      { prefix: "/admin",    target: adminTarget, ws: true },
       { prefix: "/vendor",   target: `http://127.0.0.1:${process.env.VENDOR_DEV_PORT ?? "3002"}`, ws: true },
       { prefix: "/rider",    target: `http://127.0.0.1:${process.env.RIDER_DEV_PORT  ?? "3001"}`, ws: true },
       { prefix: "/__mockup", target: `http://127.0.0.1:${process.env.MOCKUP_DEV_PORT ?? "8081"}`,  ws: true },
