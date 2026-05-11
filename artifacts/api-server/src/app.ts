@@ -213,10 +213,19 @@ function validateCORS(): string[] {
     .map(o => o.trim())
     .filter(Boolean);
 
-  // Always include the Replit dev domain if running on Replit
+  // Always include the Replit dev domain if running on Replit.
+  // Also add port variants for each Vite dev server / Expo web server that
+  // Replit proxies on an external port (e.g. admin on :3000, vendor on :3002,
+  // rider on :3003, customer on :5000, expo on :5173/:19006).
   const replitDomain = process.env.REPLIT_DEV_DOMAIN;
   const replitOrigins = replitDomain
-    ? [`https://${replitDomain}`]
+    ? [
+        `https://${replitDomain}`,
+        // External port variants mapped in .replit [[ports]] blocks
+        ...[3000, 3001, 3002, 3003, 4200, 5000, 5173, 19006, 23744].map(
+          p => `https://${replitDomain}:${p}`
+        ),
+      ]
     : [];
 
   if (fromEnv.length > 0) {

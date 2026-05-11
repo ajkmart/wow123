@@ -225,10 +225,13 @@ function applyReplitOverrides(apiPort, adminPort, vendorPort, riderPort, ajkPort
 
   if (domain) {
     const replitOrigin = `https://${domain}`;
-    const existing     = (process.env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
-    if (!existing.includes(replitOrigin)) {
-      process.env.ALLOWED_ORIGINS = [...existing, replitOrigin].filter(Boolean).join(",");
-    }
+    // Include port variants so admin (:3000), vendor (:3002), rider (:3003),
+    // customer (:5000/:4200) and Expo web (:5173/:19006) panels can reach the API.
+    const portVariants = [3000, 3001, 3002, 3003, 4200, 5000, 5173, 19006, 23744]
+      .map(p => `https://${domain}:${p}`);
+    const existing = (process.env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
+    const merged   = [...new Set([...existing, replitOrigin, ...portVariants])];
+    process.env.ALLOWED_ORIGINS = merged.join(",");
     if (!process.env.APP_BASE_URL || process.env.APP_BASE_URL.includes("localhost")) {
       process.env.APP_BASE_URL = replitOrigin;
     }
