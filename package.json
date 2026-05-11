@@ -4,7 +4,7 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "prepare": "node scripts/install-hooks.mjs",
+    "prepare": "husky && node scripts/install-hooks.mjs",
     "install-hooks": "node scripts/install-hooks.mjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
@@ -54,8 +54,7 @@
     "decrypt-env": "node scripts/env-manager.mjs decrypt",
     "encrypt-env": "node scripts/env-manager.mjs encrypt",
     "setup-env": "node scripts/env-manager.mjs setup",
-    "reset-env": "node scripts/env-manager.mjs reset",
-    "prepare": "husky"
+    "reset-env": "node scripts/env-manager.mjs reset"
   },
   "lint-staged": {
     "artifacts/admin/src/**/*.{ts,tsx}": [

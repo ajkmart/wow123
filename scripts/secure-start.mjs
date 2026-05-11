@@ -263,20 +263,33 @@ function killPort(port) {
 
 /**
  * On Replit: kill stale processes then continue.
+ *   - API port is always claimed by us — kill whatever holds it.
+ *   - Frontend ports (admin/vendor/rider/ajkmart) may already be held by
+ *     Replit artifact workflows. If occupied, skip starting them here to
+ *     avoid a kill-restart loop where two copies of each app run and all
+ *     ports above the base get consumed.
  * On Codespaces/Local: assert ports are free (user must stop conflicting processes).
+ * Returns an array of service names that are already running and should be skipped.
  */
 async function handlePorts(ports) {
   if (IS_REPLIT) {
+    const alreadyRunning = [];
     for (const { name, port } of ports) {
       const occupied = !(await isPortFree(port));
-      if (occupied) {
+      if (!occupied) continue;
+      if (name === "api") {
+        // We own the API port — always reclaim it
         log(`Port ${port} (${name}) occupied — killing stale process…`);
         killPort(port);
         await new Promise(r => setTimeout(r, 600));
+      } else {
+        // A Replit artifact workflow already owns this frontend port — leave it alone
+        log(`Port ${port} (${name}) already managed by artifact workflow — skipping`);
+        alreadyRunning.push(name);
       }
     }
-    ok("Ports cleared");
-    return;
+    ok(`Ports ready${alreadyRunning.length ? ` — skipping artifact-managed: ${alreadyRunning.join(", ")}` : ""}`);
+    return alreadyRunning;
   }
 
   const inUse = [];
@@ -288,6 +301,7 @@ async function handlePorts(ports) {
     err("Stop those processes then re-run, or set different PORT env vars.");
     process.exit(1);
   }
+  return [];
 }
 
 // ── Health check ──────────────────────────────────────────────────────────────
@@ -414,7 +428,7 @@ async function main() {
   buildLibs();
 
   // ── Step 6: Handle ports ──────────────────────────────────────────────────
-  await handlePorts([
+  const alreadyRunning = await handlePorts([
     { name: "api",     port: apiPort    },
     { name: "admin",   port: adminPort  },
     { name: "vendor",  port: vendorPort },
@@ -489,15 +503,21 @@ async function main() {
     },
   ];
 
-  for (const svc of services) {
+  const servicesToStart = services.filter(svc => !alreadyRunning.includes(svc.name));
+
+  for (const svc of servicesToStart) {
     const proc = startService(svc.name, svc.args, svc.env);
     if (proc) children.push(proc);
   }
 
-  log("All services launched — running health checks in parallel…");
+  if (alreadyRunning.length) {
+    ok(`Skipped launching (already running via artifact workflows): ${alreadyRunning.join(", ")}`);
+  }
+
+  log(`Launched ${servicesToStart.length} service(s) — running health checks in parallel…`);
 
   await Promise.all(
-    services.map(svc => healthCheck(svc.name, svc.healthUrl, svc.retries ?? 30, svc.delayMs ?? 2000))
+    servicesToStart.map(svc => healthCheck(svc.name, svc.healthUrl, svc.retries ?? 30, svc.delayMs ?? 2000))
   );
 
   // ── Step 8: Print summary ─────────────────────────────────────────────────
