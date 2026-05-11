@@ -1,212 +1,214 @@
 modules = ["nodejs-20"]
 
-# Smart Launch: Workflow logic integrated into one run command
-run = """
-# 1. Clean old processes
-echo "🧹 Cleaning environment..."
-fuser -k 5000/tcp 23744/tcp 3002/tcp 3003/tcp 4200/tcp || true
+  # Smart Launch: Workflow logic integrated into one run command
+  run = """
+  # 1. Clean old processes
+  echo "🧹 Cleaning environment..."
+  fuser -k 5000/tcp 23744/tcp 3002/tcp 3003/tcp 4200/tcp || true
 
-# 2. Performance & Path Setup
-export NODE_OPTIONS="--max-old-space-size=4096"
-export PNPM_HOME="/home/runner/.local/share/pnpm"
-export PATH="$PNPM_HOME:$PATH"
+  # 2. Performance & Path Setup
+  export NODE_OPTIONS="--max-old-space-size=4096"
+  export PNPM_HOME="/home/runner/.local/share/pnpm"
+  export PATH="$PNPM_HOME:$PATH"
 
-# 3. Environment Variable Injection (From your Userenv)
-export NODE_ENV="development"
-export JWT_SECRET="7f3ec5deb5570aed1fe360dc1fa0c3ebb088ea2b62ffd9004f72a6dd5ebcdc3fc91f13f4e61ff5122b7b5f5f5299093f"
-export ENCRYPTION_MASTER_KEY="81eece1b2f16cf732a2af17068a9052dfaf363102b41903779f2a82ef658f049"
-export ADMIN_SECRET="iyH2XN2ni8PoonWRusJqM7uJ2pEocXDN"
-export VITE_API_PROXY_TARGET="http://127.0.0.1:5000"
+  # 3. Environment Variable Injection (From your Userenv)
+  export NODE_ENV="development"
+  export JWT_SECRET="7f3ec5deb5570aed1fe360dc1fa0c3ebb088ea2b62ffd9004f72a6dd5ebcdc3fc91f13f4e61ff5122b7b5f5f5299093f"
+  export ENCRYPTION_MASTER_KEY="81eece1b2f16cf732a2af17068a9052dfaf363102b41903779f2a82ef658f049"
+  export ADMIN_SECRET="iyH2XN2ni8PoonWRusJqM7uJ2pEocXDN"
+  export VITE_API_PROXY_TARGET="http://127.0.0.1:5000"
 
-# 4. Dependency Check
-STAMP="node_modules/.nix-install-stamp"
-if [ ! -d "node_modules" ] || [ "pnpm-lock.yaml" -nt "$STAMP" ]; then
-  echo "📦 Installing workspace dependencies..."
-  pnpm install --no-frozen-lockfile && touch "$STAMP"
-fi
+  # 4. Dependency Check
+  STAMP="node_modules/.nix-install-stamp"
+  if [ ! -d "node_modules" ] || [ "pnpm-lock.yaml" -nt "$STAMP" ]; then
+    echo "📦 Installing workspace dependencies..."
+    pnpm install --no-frozen-lockfile && touch "$STAMP"
+  fi
 
-echo "🚀 Starting Project Workflows..."
+  echo "🚀 Starting Project Workflows..."
 
-# 5. Parallel Microservices Launch (As per your workflow tasks)
-(
-  # API Server (Using your secure-start script)
-  PORT=5000 node scripts/secure-start.mjs & \
+  # 5. Parallel Microservices Launch (As per your workflow tasks)
+  (
+    # API Server (Using your secure-start script)
+    PORT=5000 node scripts/secure-start.mjs & \
+    
+    # Admin Panel (Using your specific port 23744)
+    ADMIN_PORT_OVERRIDE=23744 ADMIN_DEV_PORT=23744 BASE_PATH=/admin/ pnpm --filter @workspace/admin dev & \
+    
+    # Vendor App
+    VENDOR_DEV_PORT=3002 BASE_PATH=/vendor/ pnpm --filter @workspace/vendor-app dev & \
+    
+    # Rider App
+    RIDER_DEV_PORT=3003 BASE_PATH=/rider/ pnpm --filter @workspace/rider-app dev & \
+    
+    # Customer App
+    PORT=4200 BASE_PATH=/ EXPO_PUBLIC_DOMAIN=$REPLIT_EXPO_DEV_DOMAIN pnpm --filter @workspace/ajkmart dev:web
+  )
+  """
+
+  # Deployment and Artifacts settings
+  [deployment]
+  run = ["pnpm", "start"]
+  deploymentTarget = "autoscale"
+
+  [deployment.postBuild]
+  args = ["pnpm", "store", "prune"]
+  env = { "CI" = "true" }
+
+  [nix]
+  channel = "stable-24_05"
+  guessImports = true
+
+  [workflows]
+  runButton = "Project"
+
+  [[workflows.workflow]]
+  name = "Project"
+  mode = "parallel"
+  author = "agent"
+
+  [[workflows.workflow.tasks]]
+  task = "workflow.run"
+  args = "Start application"
+
+  [[workflows.workflow.tasks]]
+  task = "workflow.run"
+  args = "Admin Panel"
+
+  [[workflows.workflow.tasks]]
+  task = "workflow.run"
+  args = "Vendor App"
+
+  [[workflows.workflow.tasks]]
+  task = "workflow.run"
+  args = "Rider App"
+
+  [[workflows.workflow]]
+  name = "Start application"
+  author = "agent"
+
+  [workflows.workflow.metadata]
+  outputType = "webview"
+
+  [[workflows.workflow.tasks]]
+  task = "shell.exec"
+  args = "pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server dev"
+  waitForPort = 5000
+
+  [[workflows.workflow]]
+  name = "Admin Panel"
+  author = "agent"
+
+  [[workflows.workflow.tasks]]
+  task = "shell.exec"
+  args = "ADMIN_PORT_OVERRIDE=3000 ADMIN_DEV_PORT=3000 pnpm --filter @workspace/admin dev"
+  waitForPort = 3000
+
+  [workflows.workflow.metadata]
+  outputType = "console"
+
+  [[workflows.workflow]]
+  name = "Vendor App"
+  author = "agent"
+
+  [[workflows.workflow.tasks]]
+  task = "shell.exec"
+  args = "VENDOR_DEV_PORT=3001 BASE_PATH=/vendor/ pnpm --filter @workspace/vendor-app dev"
+  waitForPort = 3001
+
+  [workflows.workflow.metadata]
+  outputType = "console"
+
+  [[workflows.workflow]]
+  name = "Rider App"
+  author = "agent"
+
+  [[workflows.workflow.tasks]]
+  task = "shell.exec"
+  args = "RIDER_DEV_PORT=3002 BASE_PATH=/rider/ pnpm --filter @workspace/rider-app dev"
+  waitForPort = 3002
+
+  [workflows.workflow.metadata]
+  outputType = "console"
+
+  [[ports]]
+  localPort = 3000
+  externalPort = 3000
+
+  [[ports]]
+  localPort = 3001
+  externalPort = 3002
+
+  [[ports]]
+  localPort = 3002
+  externalPort = 5173
+
+  [[ports]]
+  localPort = 3004
+  externalPort = 8008
+
+  [[ports]]
+  localPort = 3005
+  externalPort = 4200
+
+  [[ports]]
+  localPort = 4200
+  externalPort = 5000
+
+  [[ports]]
+  localPort = 5000
+  externalPort = 80
+
+  [[ports]]
+  localPort = 20716
+  externalPort = 8000
+
+  [[ports]]
+  localPort = 23744
+  externalPort = 3000
+
+  [[ports]]
+  localPort = 23745
+  externalPort = 6800
+
+  [agent]
+  expertMode = true
+  stack = "BEST_EFFORT_FALLBACK"
+
+  [userenv]
+
+  [userenv.shared]
+  VITE_API_PROXY_TARGET = "http://127.0.0.1:5000"
+  NODE_ENV = "development"
+  PORT = "5000"
+  ADMIN_DEV_PORT = "3000"
+  ADMIN_PORT_OVERRIDE = "3000"
+  VENDOR_DEV_PORT = "3001"
+  RIDER_DEV_PORT = "3002"
+  JWT_ISSUER = "ajkmart-dev"
+  ADMIN_SEED_USERNAME = "superadmin"
+  ADMIN_SEED_PASSWORD = "Admin@123"
+  ADMIN_SEED_EMAIL = "admin@ajkmart.com"
+  ADMIN_SEED_NAME = "Super Admin"
+  LOG_LEVEL = "debug"
+  PORT_FALLBACK_ENABLE = "true"
+  PORT_MAX_RETRIES = "10"
+  ALLOW_DEV_SEED = "true"
+  ADMIN_SEED_KEY = "local-dev-seed-ajkmart"
+  JWT_SECRET = "41e8aa4a05161ca9063872eaaea956dcb7186482be06f467d6bf26800ca943994648897f1051daf96154e9930c56493d3d724c24cee9be56c1db48f6bca1ffb7"
+  ENCRYPTION_MASTER_KEY = "c1edd9ea696cfd3e8f672864a38015edd25dfa0b1a1e9938bcd3b2b833cb2e50"
+  ADMIN_SECRET = "ca2dcff90128cf2783f53746b4af688b"
+  ADMIN_JWT_SECRET = "27fe53fb69f18a7959b9f816b6460a72d1274ef4ae9d5d13e5df1e4c75ea20f818580bc7e8ec129fd5c63640db881edd9424739cd910a0f7f2ab24bda848b0f9"
+  ADMIN_ACCESS_TOKEN_SECRET = "f3e67a28e2789129bdfd997fd72539c6ccb5e444249eb7d273a81cb85f584528416cbaa103f1935027a14530cd6b6cf99f9595a7dfe20ecfa5b099692a752ae8"
+  ADMIN_REFRESH_TOKEN_SECRET = "63cee7280fb22c3762e5e5a2e3b660200e87a4b77f137eee4fb01b2da6510021e713d845b1e87d46dd75092bcef468586c99b08758d3f2b322323b78964800cf"
+  ADMIN_CSRF_SECRET = "701a305391e737642847c99feac9658ece3f08b4e5400764390f77bb1c7e8f35"
+  ADMIN_REFRESH_SECRET = "609a01aedbd6d54e8a1b7cdc30d65e7e2533cecd659a9c6410a978389c6c2a1d463598cd6694da2c5e7b681a985b7a3eefce593a59446da8053eef82d2d0418f"
+  VENDOR_JWT_SECRET = "7d16756f6c44a958b95cfe2d8747599cfef2648eae91eb80493396890800e430a2a13ff860a13a8d2e6aafbe070d518d35241d6e9a4b6b1884c573f7d3a7548f"
+  RIDER_JWT_SECRET = "4702772f63a217933bb7a323356db541f909e3e4a3c84d860d8525fc6668586e2fbec0a4f0efbc4a4f8094fb43dc94da4dadb4d3952130b95e36992f76e208e4"
+  ERROR_REPORT_HMAC_SECRET = "9cbb600a34f0b33f88e4fd6a1e271f8dead0f010b20ed09e8c3b0f73f27aa917"
+  DATABASE_URL = "postgresql://neondb_owner:npg_8CZnNQxSivM4@ep-withered-pond-aod3mqmg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
+  [postMerge]
+  path = "scripts/post-merge.sh"
+  timeoutMs = 180000
   
-  # Admin Panel (Using your specific port 23744)
-  ADMIN_PORT_OVERRIDE=23744 ADMIN_DEV_PORT=23744 BASE_PATH=/admin/ pnpm --filter @workspace/admin dev & \
-  
-  # Vendor App
-  VENDOR_DEV_PORT=3002 BASE_PATH=/vendor/ pnpm --filter @workspace/vendor-app dev & \
-  
-  # Rider App
-  RIDER_DEV_PORT=3003 BASE_PATH=/rider/ pnpm --filter @workspace/rider-app dev & \
-  
-  # Customer App
-  PORT=4200 BASE_PATH=/ EXPO_PUBLIC_DOMAIN=$REPLIT_EXPO_DEV_DOMAIN pnpm --filter @workspace/ajkmart dev:web
-)
-"""
-
-# Deployment and Artifacts settings
-[deployment]
-run = ["pnpm", "start"]
-deploymentTarget = "autoscale"
-
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
-
-[nix]
-channel = "stable-24_05"
-
-[workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Admin Panel"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Vendor App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Rider App"
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server dev"
-waitForPort = 5000
-
-[[workflows.workflow]]
-name = "Admin Panel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "ADMIN_PORT_OVERRIDE=3000 ADMIN_DEV_PORT=3000 pnpm --filter @workspace/admin dev"
-waitForPort = 3000
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Vendor App"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "VENDOR_DEV_PORT=3001 BASE_PATH=/vendor/ pnpm --filter @workspace/vendor-app dev"
-waitForPort = 3001
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Rider App"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "RIDER_DEV_PORT=3002 BASE_PATH=/rider/ pnpm --filter @workspace/rider-app dev"
-waitForPort = 3002
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[ports]]
-localPort = 3000
-externalPort = 3000
-
-[[ports]]
-localPort = 3001
-externalPort = 3002
-
-[[ports]]
-localPort = 3002
-externalPort = 5173
-
-[[ports]]
-localPort = 3004
-externalPort = 8008
-
-[[ports]]
-localPort = 3005
-externalPort = 4200
-
-[[ports]]
-localPort = 4200
-externalPort = 5000
-
-[[ports]]
-localPort = 5000
-externalPort = 80
-
-[[ports]]
-localPort = 20716
-externalPort = 8000
-
-[[ports]]
-localPort = 23744
-externalPort = 3000
-
-[[ports]]
-localPort = 23745
-externalPort = 6800
-
-[agent]
-expertMode = true
-stack = "BEST_EFFORT_FALLBACK"
-
-[userenv]
-
-[userenv.shared]
-VITE_API_PROXY_TARGET = "http://127.0.0.1:5000"
-NODE_ENV = "development"
-PORT = "5000"
-ADMIN_DEV_PORT = "3000"
-ADMIN_PORT_OVERRIDE = "3000"
-VENDOR_DEV_PORT = "3001"
-RIDER_DEV_PORT = "3002"
-JWT_ISSUER = "ajkmart-dev"
-ADMIN_SEED_USERNAME = "superadmin"
-ADMIN_SEED_PASSWORD = "Admin@123"
-ADMIN_SEED_EMAIL = "admin@ajkmart.com"
-ADMIN_SEED_NAME = "Super Admin"
-LOG_LEVEL = "debug"
-PORT_FALLBACK_ENABLE = "true"
-PORT_MAX_RETRIES = "10"
-ALLOW_DEV_SEED = "true"
-ADMIN_SEED_KEY = "local-dev-seed-ajkmart"
-JWT_SECRET = "41e8aa4a05161ca9063872eaaea956dcb7186482be06f467d6bf26800ca943994648897f1051daf96154e9930c56493d3d724c24cee9be56c1db48f6bca1ffb7"
-ENCRYPTION_MASTER_KEY = "c1edd9ea696cfd3e8f672864a38015edd25dfa0b1a1e9938bcd3b2b833cb2e50"
-ADMIN_SECRET = "ca2dcff90128cf2783f53746b4af688b"
-ADMIN_JWT_SECRET = "27fe53fb69f18a7959b9f816b6460a72d1274ef4ae9d5d13e5df1e4c75ea20f818580bc7e8ec129fd5c63640db881edd9424739cd910a0f7f2ab24bda848b0f9"
-ADMIN_ACCESS_TOKEN_SECRET = "f3e67a28e2789129bdfd997fd72539c6ccb5e444249eb7d273a81cb85f584528416cbaa103f1935027a14530cd6b6cf99f9595a7dfe20ecfa5b099692a752ae8"
-ADMIN_REFRESH_TOKEN_SECRET = "63cee7280fb22c3762e5e5a2e3b660200e87a4b77f137eee4fb01b2da6510021e713d845b1e87d46dd75092bcef468586c99b08758d3f2b322323b78964800cf"
-ADMIN_CSRF_SECRET = "701a305391e737642847c99feac9658ece3f08b4e5400764390f77bb1c7e8f35"
-ADMIN_REFRESH_SECRET = "609a01aedbd6d54e8a1b7cdc30d65e7e2533cecd659a9c6410a978389c6c2a1d463598cd6694da2c5e7b681a985b7a3eefce593a59446da8053eef82d2d0418f"
-VENDOR_JWT_SECRET = "7d16756f6c44a958b95cfe2d8747599cfef2648eae91eb80493396890800e430a2a13ff860a13a8d2e6aafbe070d518d35241d6e9a4b6b1884c573f7d3a7548f"
-RIDER_JWT_SECRET = "4702772f63a217933bb7a323356db541f909e3e4a3c84d860d8525fc6668586e2fbec0a4f0efbc4a4f8094fb43dc94da4dadb4d3952130b95e36992f76e208e4"
-ERROR_REPORT_HMAC_SECRET = "9cbb600a34f0b33f88e4fd6a1e271f8dead0f010b20ed09e8c3b0f73f27aa917"
-DATABASE_URL = "postgresql://neondb_owner:npg_8CZnNQxSivM4@ep-withered-pond-aod3mqmg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 180000
