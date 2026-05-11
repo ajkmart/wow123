@@ -108,16 +108,16 @@ localPort = 4200
 externalPort = 5000
 
 [[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
 localPort = 19006
 externalPort = 5173
 
 [[ports]]
 localPort = 23744
 externalPort = 3000
-
-[[ports]]
-localPort = 5000
-externalPort = 80
 
 [agent]
 expertMode = true
@@ -151,3 +151,5 @@ ADMIN_SEED_NAME = "Super Admin"
 LOG_LEVEL = "debug"
 PORT_FALLBACK_ENABLE = "true"
 PORT_MAX_RETRIES = "10"
+ALLOW_DEV_SEED = "true"
+ADMIN_SEED_KEY = "local-dev-seed-ajkmart"

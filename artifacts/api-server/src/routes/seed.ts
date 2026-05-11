@@ -203,7 +203,7 @@ const DEMO_BANNERS = [
   { title: "Ride & Save", subtitle: "Book rides at lowest fares", colorFrom: "#38A169", colorTo: "#68D391", icon: "car", placement: "home", sortOrder: 4, linkType: "service", linkValue: "ride", targetService: "ride" },
 ];
 
-router.post("/products", adminAuth, async (req, res) => {
+router.post("/products", devSeedAuth, async (req, res) => {
   await ensureSystemVendor();
   const existingMart = await db.select().from(productsTable).where(eq(productsTable.type, "mart")).limit(1);
   const existingFood = await db.select().from(productsTable).where(eq(productsTable.type, "food")).limit(1);

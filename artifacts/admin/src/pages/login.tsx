@@ -19,7 +19,7 @@ export default function Login() {
   const { state, login, clearError } = useAdminAuth();
   const { toast } = useToast();
 
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState("superadmin");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
