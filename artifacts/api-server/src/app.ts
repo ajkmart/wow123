@@ -620,6 +620,9 @@ export function createServer() {
     }
   });
 
+  /* ── Favicon: return 204 so browsers stop logging 502 errors ─────────── */
+  app.get("/favicon.ico", (_req, res) => { res.status(204).end(); });
+
   /* ── Dev-only fallback: proxy any remaining non-/api request to the
         Expo (customer / ajkmart) dev server, which serves the customer app
         at the root path. Only kicks in in development, AFTER the
