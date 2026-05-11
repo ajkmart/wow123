@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import { platformSettingsTable, vendorPlansTable, adminRolePresetsTable, demoBackupsTable, vendorProfilesTable, ordersTable, productsTable } from "@workspace/db/schema";
 import { eq, asc, desc, count, isNull } from "drizzle-orm";
 import { sendSuccess, sendError, sendNotFound, sendValidationError } from "../../lib/response.js";
-import { addAuditEntry, getClientIp, invalidatePlatformSettingsCache, invalidateSettingsCache, DEFAULT_PLATFORM_SETTINGS, type AdminRequest } from "../admin-shared.js";
+import { addAuditEntry, getClientIp, invalidatePlatformSettingsCache, invalidateSettingsCache, DEFAULT_PLATFORM_SETTINGS, generateId, type AdminRequest } from "../admin-shared.js";
 
 const router = Router();
 
@@ -421,6 +421,114 @@ router.delete("/vendor-plans/:id", async (req, res) => {
     result: "success",
   });
   sendSuccess(res, { deleted: true });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   GET /api/admin/launch/role-presets
+   Returns all admin role presets
+───────────────────────────────────────────────────────────── */
+router.get("/role-presets", async (_req, res) => {
+  try {
+    const presets = await db.select().from(adminRolePresetsTable).orderBy(asc(adminRolePresetsTable.name));
+    sendSuccess(res, {
+      presets: presets.map(p => ({
+        ...p,
+        permissions: JSON.parse(p.permissionsJson || "[]"),
+      })),
+    });
+  } catch (e) {
+    sendError(res, "Failed to load role presets", 500);
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/admin/launch/role-presets
+   Create a new role preset
+───────────────────────────────────────────────────────────── */
+router.post("/role-presets", async (req, res) => {
+  try {
+    const body = req.body as RolePresetBody;
+    if (!body.name || !body.slug) {
+      sendValidationError(res, "name and slug are required");
+      return;
+    }
+    const id = generateId();
+    const [preset] = await db.insert(adminRolePresetsTable).values({
+      id,
+      name: body.name,
+      slug: body.slug,
+      description: body.description ?? "",
+      permissionsJson: JSON.stringify(body.permissions ?? []),
+      role: body.role ?? "manager",
+      isBuiltIn: false,
+    }).returning();
+    addAuditEntry({
+      action: "role_preset_create",
+      ip: getClientIp(req),
+      adminId: (req as AdminRequest).adminId,
+      details: `Created role preset ${body.name}`,
+      result: "success",
+    });
+    sendSuccess(res, { ...preset, permissions: body.permissions ?? [] }, undefined, 201);
+  } catch (e: any) {
+    if (e?.code === "23505") { sendError(res, "A preset with that slug already exists", 409); return; }
+    sendError(res, "Failed to create role preset", 500);
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   PUT /api/admin/launch/role-presets/:id
+   Update a role preset
+───────────────────────────────────────────────────────────── */
+router.put("/role-presets/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body as RolePresetBody;
+    const [existing] = await db.select().from(adminRolePresetsTable).where(eq(adminRolePresetsTable.id, id!)).limit(1);
+    if (!existing) { sendNotFound(res, "Role preset not found"); return; }
+    if (existing.isBuiltIn) { sendError(res, "Built-in presets cannot be modified", 403); return; }
+    const updates: Record<string, any> = {};
+    if (body.name        !== undefined) updates["name"]           = body.name;
+    if (body.slug        !== undefined) updates["slug"]           = body.slug;
+    if (body.description !== undefined) updates["description"]    = body.description;
+    if (body.permissions !== undefined) updates["permissionsJson"] = JSON.stringify(body.permissions);
+    if (body.role        !== undefined) updates["role"]           = body.role;
+    const [updated] = await db.update(adminRolePresetsTable).set(updates).where(eq(adminRolePresetsTable.id, id!)).returning();
+    addAuditEntry({
+      action: "role_preset_update",
+      ip: getClientIp(req),
+      adminId: (req as AdminRequest).adminId,
+      details: `Updated role preset ${id}`,
+      result: "success",
+    });
+    sendSuccess(res, { ...updated, permissions: JSON.parse(updated.permissionsJson || "[]") });
+  } catch (e) {
+    sendError(res, "Failed to update role preset", 500);
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   DELETE /api/admin/launch/role-presets/:id
+   Delete a role preset
+───────────────────────────────────────────────────────────── */
+router.delete("/role-presets/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [existing] = await db.select().from(adminRolePresetsTable).where(eq(adminRolePresetsTable.id, id!)).limit(1);
+    if (!existing) { sendNotFound(res, "Role preset not found"); return; }
+    if (existing.isBuiltIn) { sendError(res, "Built-in presets cannot be deleted", 403); return; }
+    await db.delete(adminRolePresetsTable).where(eq(adminRolePresetsTable.id, id!));
+    addAuditEntry({
+      action: "role_preset_delete",
+      ip: getClientIp(req),
+      adminId: (req as AdminRequest).adminId,
+      details: `Deleted role preset ${id}`,
+      result: "success",
+    });
+    sendSuccess(res, { deleted: true });
+  } catch (e) {
+    sendError(res, "Failed to delete role preset", 500);
+  }
 });
 
 /* ─────────────────────────────────────────────────────────────

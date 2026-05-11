@@ -144,7 +144,7 @@ function TransactionsPanel() {
     if (!ids.length) return;
     setBulkProcessing(true);
     try {
-      await Promise.all(ids.map(id => adminFetch(`/wallets/transfers/${id}/approve`, { method: "POST" })));
+      await Promise.all(ids.map(id => adminFetch(`/wallet/transfers/${id}/approve`, { method: "POST" })));
       toast({ title: "Approved", description: `Successfully approved ${ids.length} transfers` });
       setSelectedIds(new Set());
       qc.invalidateQueries({ queryKey: ["admin-wallet-transfers"] });

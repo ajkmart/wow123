@@ -255,4 +255,111 @@ router.delete("/popups/:id", async (req, res) => {
   }
 });
 
+/* ── POST /popups/clone/:id — duplicate a campaign ── */
+router.post("/popups/clone/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [existing] = await db.select().from(popupCampaignsTable).where(eq(popupCampaignsTable.id, id)).limit(1);
+    if (!existing) { sendNotFound(res, "Campaign not found"); return; }
+
+    const { id: _id, createdAt: _ca, updatedAt: _ua, ...rest } = existing;
+    const [cloned] = await db.insert(popupCampaignsTable).values({
+      ...rest,
+      id: generateId(),
+      title: `${existing.title} (Copy)`,
+      status: "draft",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+
+    sendSuccess(res, { campaign: { ...cloned, computedStatus: computeStatus(cloned) } });
+  } catch (err) {
+    logger.error({ err }, "[admin/popups] clone error");
+    sendError(res, "Failed to clone campaign", 500);
+  }
+});
+
+/* ── GET /popups/:id/analytics — per-campaign analytics ── */
+router.get("/popups/:id/analytics", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rows = await db
+      .select({
+        action: popupImpressionsTable.action,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(popupImpressionsTable)
+      .where(eq(popupImpressionsTable.popupId, id))
+      .groupBy(popupImpressionsTable.action);
+
+    const views  = rows.find(r => r.action === "view")?.count  ?? 0;
+    const clicks = rows.find(r => r.action === "click")?.count ?? 0;
+    const closes = rows.find(r => r.action === "close")?.count ?? 0;
+
+    sendSuccess(res, {
+      views, clicks, closes,
+      ctr: views > 0 ? Math.round((clicks / views) * 100) : 0,
+    });
+  } catch (err) {
+    logger.error({ err }, "[admin/popups] analytics error");
+    sendError(res, "Failed to fetch analytics", 500);
+  }
+});
+
+/* ── Template CRUD (PATCH / DELETE) ── */
+router.post("/popups/templates", async (req, res) => {
+  try {
+    const { name, description, category, popupType, defaultTitle, defaultBody, defaultCtaText, colorFrom, colorTo, textColor, animation, stylePreset, previewImageUrl } = req.body ?? {};
+    if (!name) { sendValidationError(res, "name is required"); return; }
+    const [tpl] = await db.insert(popupTemplatesTable).values({
+      id: generateId(),
+      name: String(name),
+      description: description ?? null,
+      category: category ?? "general",
+      popupType: popupType ?? "modal",
+      defaultTitle: defaultTitle ?? null,
+      defaultBody: defaultBody ?? null,
+      defaultCtaText: defaultCtaText ?? null,
+      colorFrom: colorFrom ?? "#7C3AED",
+      colorTo: colorTo ?? "#4F46E5",
+      textColor: textColor ?? "#FFFFFF",
+      animation: animation ?? "fade",
+      stylePreset: stylePreset ?? "default",
+      previewImageUrl: previewImageUrl ?? null,
+      isActive: true,
+    }).returning();
+    sendSuccess(res, { template: tpl });
+  } catch (err) {
+    logger.error({ err }, "[admin/popups/templates] create error");
+    sendError(res, "Failed to create template", 500);
+  }
+});
+
+router.patch("/popups/templates/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [existing] = await db.select().from(popupTemplatesTable).where(eq(popupTemplatesTable.id, id)).limit(1);
+    if (!existing) { sendNotFound(res, "Template not found"); return; }
+    const [updated] = await db.update(popupTemplatesTable)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(eq(popupTemplatesTable.id, id))
+      .returning();
+    sendSuccess(res, { template: updated });
+  } catch (err) {
+    logger.error({ err }, "[admin/popups/templates] update error");
+    sendError(res, "Failed to update template", 500);
+  }
+});
+
+router.delete("/popups/templates/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.delete(popupTemplatesTable).where(eq(popupTemplatesTable.id, id));
+    sendSuccess(res, { deleted: true });
+  } catch (err) {
+    logger.error({ err }, "[admin/popups/templates] delete error");
+    sendError(res, "Failed to delete template", 500);
+  }
+});
+
 export default router;

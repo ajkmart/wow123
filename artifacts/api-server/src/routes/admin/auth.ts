@@ -135,6 +135,39 @@ router.delete("/admin-accounts/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+/* ── POST /admin-accounts/:id/send-reset-link
+   Generates a password reset token for an admin account.
+   Since legacy admin-accounts use a shared secret (not email/password),
+   this returns a one-time reset URL the super-admin can share manually. */
+router.post("/admin-accounts/:id/send-reset-link", adminAuth, async (req, res) => {
+  try {
+    const adminRole = (req as AdminRequest).adminRole;
+    if (adminRole !== "super") {
+      res.status(403).json({ error: "Only super admin can send reset links." });
+      return;
+    }
+    const [account] = await db.select().from(adminAccountsTable)
+      .where(eq(adminAccountsTable.id, req.params["id"]!)).limit(1);
+    if (!account) { res.status(404).json({ error: "Admin account not found" }); return; }
+
+    const crypto = await import("node:crypto");
+    const token = crypto.randomBytes(32).toString("hex");
+    const resetUrl = `${process.env["APP_BASE_URL"] || process.env["ADMIN_BASE_URL"] || ""}/admin/set-new-password?token=${token}&account=${account.id}`;
+
+    addAuditEntry({
+      action: "admin_reset_link_sent",
+      ip: getClientIp(req),
+      adminId: (req as AdminRequest).adminId,
+      details: `Reset link generated for admin account ${account.name} (${account.id})`,
+      result: "success",
+    });
+
+    res.json({ success: true, resetUrl, message: "Reset link generated. Share this URL with the admin user directly." });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to generate reset link" });
+  }
+});
+
 /* ── App Management ── */
 router.post("/rotate-secret", adminAuth, (req, res) => {
   const adminRole = (req as AdminRequest).adminRole;

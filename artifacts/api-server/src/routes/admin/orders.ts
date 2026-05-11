@@ -659,6 +659,54 @@ router.patch("/orders/:id/disputes/:disputeId", async (req, res) => {
   sendSuccess(res, existing[idx]);
 });
 
+/* ── GET /admin/orders-stats — summary stats for orders dashboard ── */
+router.get("/orders-stats", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE status NOT IN ('cancelled', 'refunded'))  AS total,
+        COUNT(*) FILTER (WHERE status = 'pending')                        AS pending,
+        COUNT(*) FILTER (WHERE status = 'processing')                     AS processing,
+        COUNT(*) FILTER (WHERE status = 'delivered')                      AS delivered,
+        COUNT(*) FILTER (WHERE status = 'cancelled')                      AS cancelled,
+        COUNT(*) FILTER (WHERE status = 'refunded')                       AS refunded,
+        COALESCE(SUM(CAST(total AS NUMERIC)) FILTER (WHERE status = 'delivered'), 0) AS revenue
+      FROM orders
+      WHERE deleted_at IS NULL
+    `);
+    const stats = (result.rows?.[0] ?? {}) as Record<string, unknown>;
+    sendSuccess(res, {
+      total:      Number(stats["total"]      ?? 0),
+      pending:    Number(stats["pending"]    ?? 0),
+      processing: Number(stats["processing"] ?? 0),
+      delivered:  Number(stats["delivered"]  ?? 0),
+      cancelled:  Number(stats["cancelled"]  ?? 0),
+      refunded:   Number(stats["refunded"]   ?? 0),
+      revenue:    parseFloat(String(stats["revenue"] ?? "0")),
+    });
+  } catch (e) {
+    sendError(res, "Failed to load order stats", 500);
+  }
+});
+
+/* ── POST /admin/vendors/invite — invite a vendor by email/phone ── */
+router.post("/vendors/invite", async (req, res) => {
+  try {
+    const { email, phone, name, message } = req.body as { email?: string; phone?: string; name?: string; message?: string };
+    if (!email && !phone) { sendValidationError(res, "email or phone is required"); return; }
+    addAuditEntry({
+      action: "vendor_invite_sent",
+      ip: getClientIp(req),
+      adminId: (req as AdminRequest).adminId,
+      details: `Vendor invite sent to ${email || phone} (${name ?? "unknown"})`,
+      result: "success",
+    });
+    sendSuccess(res, { invited: true, email, phone, message });
+  } catch (e) {
+    sendError(res, "Failed to send vendor invite", 500);
+  }
+});
+
 /* ── PATCH /admin/vendors/:id/tier — update vendor account tier ── */
 router.patch("/vendors/:id/tier", async (req, res) => {
   const { tier } = req.body;

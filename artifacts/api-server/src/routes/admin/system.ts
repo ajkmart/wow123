@@ -2337,6 +2337,23 @@ router.patch("/wallet/transactions/:id/flag", adminAuth, async (req, res) => {
   }
 });
 
+/* ── POST /admin/wallet/transfers/:id/approve — mark P2P transfer as reviewed ── */
+router.post("/wallet/transfers/:id/approve", adminAuth, async (req, res) => {
+  try {
+    const adminId = (req as AdminRequest).adminId ?? "admin";
+    const txId = req.params["id"]!;
+    await db.execute(sql`
+      UPDATE wallet_transactions
+      SET flagged = false, flag_reason = NULL, flagged_by = ${adminId}, flagged_at = NOW()
+      WHERE id = ${txId}
+    `);
+    sendSuccess(res, { approved: true, reviewedBy: adminId });
+  } catch (e) {
+    logger.error({ err: e }, "[admin] wallet/transfers/approve error");
+    sendError(res, "Failed to approve transfer", 500);
+  }
+});
+
 /* ── PATCH /admin/wallet/freeze-p2p/:userId — toggle P2P freeze ─────────── */
 router.patch("/wallet/freeze-p2p/:userId", adminAuth, async (req, res) => {
   try {
