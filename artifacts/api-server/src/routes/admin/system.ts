@@ -4,6 +4,7 @@ import { sendAdminAlert } from "../../services/email.js";
 import { sendOtpSMS } from "../../services/sms.js";
 import { sendWhatsAppOTP } from "../../services/whatsapp.js";
 import { db } from "@workspace/db";
+import { usingFallback, databaseUrl } from "@workspace/db/connection-url";
 import {
   usersTable,
   walletTransactionsTable,
@@ -3328,6 +3329,44 @@ router.get("/van/schedules", adminAuth, async (req, res) => {
     logger.error({ err: e }, "[admin] van/schedules error");
     sendSuccess(res, { schedules: [], total: 0, page: 1, limit: 50, pages: 0 });
   }
+});
+
+/* ── GET /api/admin/system/connection-status — DB source (secret vs fallback) ── */
+router.get("/system/connection-status", adminAuth, async (_req, res) => {
+  let host = "unknown";
+  let database = "unknown";
+  let reachable = false;
+  let latencyMs: number | null = null;
+
+  try {
+    const parsed = new URL(databaseUrl);
+    host = parsed.hostname;
+    database = parsed.pathname.replace(/^\//, "");
+  } catch {
+    /* ignore parse errors */
+  }
+
+  try {
+    const start = Date.now();
+    await db.execute(sql`SELECT 1`);
+    latencyMs = Date.now() - start;
+    reachable = true;
+  } catch {
+    reachable = false;
+  }
+
+  sendSuccess(res, {
+    source: usingFallback ? "fallback" : "secret",
+    usingFallback,
+    host,
+    database,
+    reachable,
+    latencyMs,
+    checkedAt: new Date().toISOString(),
+    note: usingFallback
+      ? "DATABASE_URL secret is not set — using the hardcoded Neon fallback string."
+      : "DATABASE_URL is loaded from the Replit Secrets panel.",
+  });
 });
 
 export default router;

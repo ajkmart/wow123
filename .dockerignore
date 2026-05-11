@@ -1,0 +1,48 @@
+# ── Version control ──
+.git
+.gitignore
+.gitattributes
+
+# ── Node modules (reinstalled inside Docker) ──
+**/node_modules
+
+# ── Build outputs (rebuilt inside Docker) ──
+**/dist
+**/.vite
+**/.turbo
+
+# ── Replit-specific ──
+.replit
+replit.nix
+.local/
+.cache/
+.config/
+.upm/
+
+# ── Dev / editor artefacts ──
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── Test & coverage ──
+coverage/
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+
+# ── Expo / React Native (not deployed in Docker) ──
+artifacts/ajkmart/
+
+# ── Mockup sandbox (dev-only tool) ──
+artifacts/mockup-sandbox/
+
+# ── Local uploads (use S3 in production) ──
+uploads/
+
+# ── Documentation ──
+*.md
+setup.md
