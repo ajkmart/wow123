@@ -145,9 +145,24 @@ ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW();
 `);
 console.log("✓ Platform settings configured");
 
-// ── Seed products via API ─────────────────────────────────────────────────
-console.log("\nSeeding products via API...");
+// ── Seed products + rides via API ────────────────────────────────────────
+console.log("\nSeeding products & rides via API...");
 await seedViaAPI();
+
+try {
+  const ridesRes = await fetch("http://127.0.0.1:5000/api/seed/rides", {
+    method: "POST",
+    headers: { "x-admin-seed-key": "local-dev-seed-ajkmart", "Content-Type": "application/json" },
+  });
+  const ridesData = await ridesRes.json();
+  if (ridesData.success) {
+    console.log(`✓ Rides seeded: ${ridesData.message}`);
+  } else {
+    console.log("  Rides seed response:", JSON.stringify(ridesData).slice(0, 120));
+  }
+} catch (e) {
+  console.warn("  Rides seed skipped:", e.message);
+}
 
 console.log("\n╔══════════════════════════════════════╗");
 console.log("║  ✅ Demo seed complete!               ║");

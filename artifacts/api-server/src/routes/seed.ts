@@ -15,6 +15,7 @@ import {
   adminRolePresetsTable,
   serviceZonesTable,
   weatherConfigTable,
+  ridesTable,
 } from "@workspace/db/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { generateId } from "../lib/id.js";
@@ -607,6 +608,411 @@ async function seedServiceZones(): Promise<{ inserted: number; skipped: number }
   }
   return { inserted, skipped };
 }
+
+// ─── RIDES SEED DATA ──────────────────────────────────────────────────────────
+
+/* Realistic GPS coordinates for AJK cities */
+const AJK_LOCATIONS = {
+  muzaffarabad: [
+    { name: "Chattar Domel Chowk",      lat: "34.378900", lng: "73.472100" },
+    { name: "Committee Chowk",          lat: "34.365800", lng: "73.473600" },
+    { name: "Main Bazar Muzaffarabad",  lat: "34.371200", lng: "73.470500" },
+    { name: "Kohala Bridge",            lat: "34.401100", lng: "73.462300" },
+    { name: "Ameer Chowk",             lat: "34.363400", lng: "73.480100" },
+    { name: "University of AJK",        lat: "34.389200", lng: "73.468900" },
+    { name: "District Hospital MZD",    lat: "34.370100", lng: "73.469800" },
+    { name: "Domel",                    lat: "34.376500", lng: "73.466100" },
+    { name: "Chakothi Road",            lat: "34.394300", lng: "73.458700" },
+  ],
+  mirpur: [
+    { name: "Sector F-6 Mirpur",        lat: "33.142100", lng: "73.748900" },
+    { name: "City Hospital Mirpur",     lat: "33.151800", lng: "73.752300" },
+    { name: "Allama Iqbal Chowk",       lat: "33.147800", lng: "73.755600" },
+    { name: "New Mirpur City Center",   lat: "33.138900", lng: "73.761200" },
+    { name: "Jatlan Chowk",            lat: "33.131200", lng: "73.770100" },
+    { name: "Mirpur Bus Stand",         lat: "33.153400", lng: "73.747800" },
+    { name: "Sector G-5",              lat: "33.145600", lng: "73.763400" },
+  ],
+  rawalakot: [
+    { name: "Main Bazar Rawalakot",     lat: "33.858900", lng: "73.763400" },
+    { name: "Rawalakot New Town",       lat: "33.862100", lng: "73.758900" },
+    { name: "DHQ Hospital Poonch",      lat: "33.853400", lng: "73.771200" },
+    { name: "Peer Gali Road",          lat: "33.870100", lng: "73.752100" },
+    { name: "Rawalakot Chowk",         lat: "33.856700", lng: "73.765800" },
+  ],
+  bagh: [
+    { name: "Bagh Town Center",         lat: "33.987600", lng: "73.774300" },
+    { name: "Bagh Bus Stand",           lat: "33.990100", lng: "73.777800" },
+    { name: "Tehsil Road Bagh",         lat: "33.984400", lng: "73.782100" },
+    { name: "District Bagh Hospital",   lat: "33.981200", lng: "73.769900" },
+  ],
+  kotli: [
+    { name: "Kotli Main Bazar",         lat: "33.517900", lng: "73.901600" },
+    { name: "Kotli Chowk",             lat: "33.521300", lng: "73.897400" },
+    { name: "Kotli Hospital",           lat: "33.514800", lng: "73.908200" },
+  ],
+};
+
+/* Helper: distance in km between two lat/lng points (Haversine) */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): string {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2);
+}
+
+/* Helper: fare = base + per-km * distance */
+function calcFare(km: string): string {
+  return (80 + parseFloat(km) * 25).toFixed(2);
+}
+
+function hoursAgo(h: number): Date {
+  return new Date(Date.now() - h * 3_600_000);
+}
+
+router.post("/rides", devSeedAuth, async (req, res) => {
+  try {
+    const mzd = AJK_LOCATIONS.muzaffarabad;
+    const mir = AJK_LOCATIONS.mirpur;
+    const rwk = AJK_LOCATIONS.rawalakot;
+    const bgh = AJK_LOCATIONS.bagh;
+    const ktl = AJK_LOCATIONS.kotli;
+
+    /* Build ride rows. Terminal statuses (completed, cancelled) are safe to have
+       multiple per customer. Non-terminal statuses (searching, accepted, in_transit)
+       must appear at most ONCE per customer due to the partial unique index. */
+    type RideRow = {
+      id: string;
+      userId: string;
+      type: string;
+      status: string;
+      pickupAddress: string;
+      dropAddress: string;
+      pickupLat: string;
+      pickupLng: string;
+      dropLat: string;
+      dropLng: string;
+      fare: string;
+      distance: string;
+      riderId: string | null;
+      riderName: string | null;
+      riderPhone: string | null;
+      paymentMethod: string;
+      cancellationReason: string | null;
+      acceptedAt: Date | null;
+      startedAt: Date | null;
+      completedAt: Date | null;
+      cancelledAt: Date | null;
+      createdAt: Date;
+    };
+
+    const rows: RideRow[] = [
+      /* ── Completed rides ──────────────────────────────────────── */
+      {
+        id: "demo_ride_001",
+        userId: "demo_cust_001",
+        type: "motorcycle",
+        status: "completed",
+        pickupAddress: mzd[0]!.name,  dropAddress: mzd[1]!.name,
+        pickupLat: mzd[0]!.lat, pickupLng: mzd[0]!.lng,
+        dropLat: mzd[1]!.lat,   dropLng: mzd[1]!.lng,
+        fare: calcFare(haversineKm(+mzd[0]!.lat, +mzd[0]!.lng, +mzd[1]!.lat, +mzd[1]!.lng)),
+        distance: haversineKm(+mzd[0]!.lat, +mzd[0]!.lng, +mzd[1]!.lat, +mzd[1]!.lng),
+        riderId: "demo_rider_001", riderName: "Tariq Rider", riderPhone: "+923081234575",
+        paymentMethod: "wallet", cancellationReason: null,
+        acceptedAt: hoursAgo(3.8), startedAt: hoursAgo(3.5),
+        completedAt: hoursAgo(3.1), cancelledAt: null,
+        createdAt: hoursAgo(4),
+      },
+      {
+        id: "demo_ride_002",
+        userId: "demo_cust_002",
+        type: "car",
+        status: "completed",
+        pickupAddress: mir[5]!.name,  dropAddress: mir[2]!.name,
+        pickupLat: mir[5]!.lat, pickupLng: mir[5]!.lng,
+        dropLat: mir[2]!.lat,   dropLng: mir[2]!.lng,
+        fare: calcFare(haversineKm(+mir[5]!.lat, +mir[5]!.lng, +mir[2]!.lat, +mir[2]!.lng)),
+        distance: haversineKm(+mir[5]!.lat, +mir[5]!.lng, +mir[2]!.lat, +mir[2]!.lng),
+        riderId: "demo_rider_002", riderName: "Zubair Express", riderPhone: "+923091234576",
+        paymentMethod: "cash", cancellationReason: null,
+        acceptedAt: hoursAgo(6.5), startedAt: hoursAgo(6.2),
+        completedAt: hoursAgo(5.8), cancelledAt: null,
+        createdAt: hoursAgo(7),
+      },
+      {
+        id: "demo_ride_003",
+        userId: "demo_cust_003",
+        type: "motorcycle",
+        status: "completed",
+        pickupAddress: rwk[0]!.name,  dropAddress: rwk[2]!.name,
+        pickupLat: rwk[0]!.lat, pickupLng: rwk[0]!.lng,
+        dropLat: rwk[2]!.lat,   dropLng: rwk[2]!.lng,
+        fare: calcFare(haversineKm(+rwk[0]!.lat, +rwk[0]!.lng, +rwk[2]!.lat, +rwk[2]!.lng)),
+        distance: haversineKm(+rwk[0]!.lat, +rwk[0]!.lng, +rwk[2]!.lat, +rwk[2]!.lng),
+        riderId: "demo_rider_003", riderName: "Kamran Delivery", riderPhone: "+923101234577",
+        paymentMethod: "wallet", cancellationReason: null,
+        acceptedAt: hoursAgo(10.5), startedAt: hoursAgo(10.2),
+        completedAt: hoursAgo(9.9), cancelledAt: null,
+        createdAt: hoursAgo(11),
+      },
+      {
+        id: "demo_ride_004",
+        userId: "demo_cust_004",
+        type: "car",
+        status: "completed",
+        pickupAddress: bgh[0]!.name,  dropAddress: bgh[3]!.name,
+        pickupLat: bgh[0]!.lat, pickupLng: bgh[0]!.lng,
+        dropLat: bgh[3]!.lat,   dropLng: bgh[3]!.lng,
+        fare: calcFare(haversineKm(+bgh[0]!.lat, +bgh[0]!.lng, +bgh[3]!.lat, +bgh[3]!.lng)),
+        distance: haversineKm(+bgh[0]!.lat, +bgh[0]!.lng, +bgh[3]!.lat, +bgh[3]!.lng),
+        riderId: "demo_rider_001", riderName: "Tariq Rider", riderPhone: "+923081234575",
+        paymentMethod: "jazzcash", cancellationReason: null,
+        acceptedAt: hoursAgo(22.5), startedAt: hoursAgo(22.2),
+        completedAt: hoursAgo(21.8), cancelledAt: null,
+        createdAt: hoursAgo(23),
+      },
+      {
+        id: "demo_ride_005",
+        userId: "demo_cust_005",
+        type: "motorcycle",
+        status: "completed",
+        pickupAddress: ktl[0]!.name,  dropAddress: ktl[2]!.name,
+        pickupLat: ktl[0]!.lat, pickupLng: ktl[0]!.lng,
+        dropLat: ktl[2]!.lat,   dropLng: ktl[2]!.lng,
+        fare: calcFare(haversineKm(+ktl[0]!.lat, +ktl[0]!.lng, +ktl[2]!.lat, +ktl[2]!.lng)),
+        distance: haversineKm(+ktl[0]!.lat, +ktl[0]!.lng, +ktl[2]!.lat, +ktl[2]!.lng),
+        riderId: "demo_rider_002", riderName: "Zubair Express", riderPhone: "+923091234576",
+        paymentMethod: "wallet", cancellationReason: null,
+        acceptedAt: hoursAgo(49), startedAt: hoursAgo(48.7),
+        completedAt: hoursAgo(48.3), cancelledAt: null,
+        createdAt: hoursAgo(50),
+      },
+      {
+        id: "demo_ride_006",
+        userId: "demo_cust_001",
+        type: "car",
+        status: "completed",
+        pickupAddress: mzd[3]!.name,  dropAddress: mzd[6]!.name,
+        pickupLat: mzd[3]!.lat, pickupLng: mzd[3]!.lng,
+        dropLat: mzd[6]!.lat,   dropLng: mzd[6]!.lng,
+        fare: calcFare(haversineKm(+mzd[3]!.lat, +mzd[3]!.lng, +mzd[6]!.lat, +mzd[6]!.lng)),
+        distance: haversineKm(+mzd[3]!.lat, +mzd[3]!.lng, +mzd[6]!.lat, +mzd[6]!.lng),
+        riderId: "demo_rider_002", riderName: "Zubair Express", riderPhone: "+923091234576",
+        paymentMethod: "cash", cancellationReason: null,
+        acceptedAt: hoursAgo(72.5), startedAt: hoursAgo(72.2),
+        completedAt: hoursAgo(71.6), cancelledAt: null,
+        createdAt: hoursAgo(73),
+      },
+      {
+        id: "demo_ride_007",
+        userId: "demo_cust_002",
+        type: "motorcycle",
+        status: "completed",
+        pickupAddress: mir[0]!.name,  dropAddress: mir[4]!.name,
+        pickupLat: mir[0]!.lat, pickupLng: mir[0]!.lng,
+        dropLat: mir[4]!.lat,   dropLng: mir[4]!.lng,
+        fare: calcFare(haversineKm(+mir[0]!.lat, +mir[0]!.lng, +mir[4]!.lat, +mir[4]!.lng)),
+        distance: haversineKm(+mir[0]!.lat, +mir[0]!.lng, +mir[4]!.lat, +mir[4]!.lng),
+        riderId: "demo_rider_003", riderName: "Kamran Delivery", riderPhone: "+923101234577",
+        paymentMethod: "easypaisa", cancellationReason: null,
+        acceptedAt: hoursAgo(25.5), startedAt: hoursAgo(25.2),
+        completedAt: hoursAgo(24.8), cancelledAt: null,
+        createdAt: hoursAgo(26),
+      },
+      {
+        id: "demo_ride_008",
+        userId: "demo_cust_004",
+        type: "motorcycle",
+        status: "completed",
+        pickupAddress: mzd[7]!.name,  dropAddress: mzd[4]!.name,
+        pickupLat: mzd[7]!.lat, pickupLng: mzd[7]!.lng,
+        dropLat: mzd[4]!.lat,   dropLng: mzd[4]!.lng,
+        fare: calcFare(haversineKm(+mzd[7]!.lat, +mzd[7]!.lng, +mzd[4]!.lat, +mzd[4]!.lng)),
+        distance: haversineKm(+mzd[7]!.lat, +mzd[7]!.lng, +mzd[4]!.lat, +mzd[4]!.lng),
+        riderId: "demo_rider_001", riderName: "Tariq Rider", riderPhone: "+923081234575",
+        paymentMethod: "wallet", cancellationReason: null,
+        acceptedAt: hoursAgo(14.5), startedAt: hoursAgo(14.2),
+        completedAt: hoursAgo(13.9), cancelledAt: null,
+        createdAt: hoursAgo(15),
+      },
+      {
+        id: "demo_ride_009",
+        userId: "demo_cust_005",
+        type: "car",
+        status: "completed",
+        pickupAddress: rwk[1]!.name,  dropAddress: rwk[3]!.name,
+        pickupLat: rwk[1]!.lat, pickupLng: rwk[1]!.lng,
+        dropLat: rwk[3]!.lat,   dropLng: rwk[3]!.lng,
+        fare: calcFare(haversineKm(+rwk[1]!.lat, +rwk[1]!.lng, +rwk[3]!.lat, +rwk[3]!.lng)),
+        distance: haversineKm(+rwk[1]!.lat, +rwk[1]!.lng, +rwk[3]!.lat, +rwk[3]!.lng),
+        riderId: "demo_rider_002", riderName: "Zubair Express", riderPhone: "+923091234576",
+        paymentMethod: "jazz cash", cancellationReason: null,
+        acceptedAt: hoursAgo(37.5), startedAt: hoursAgo(37.2),
+        completedAt: hoursAgo(36.7), cancelledAt: null,
+        createdAt: hoursAgo(38),
+      },
+
+      /* ── Cancelled rides ──────────────────────────────────────── */
+      {
+        id: "demo_ride_010",
+        userId: "demo_cust_003",
+        type: "motorcycle",
+        status: "cancelled",
+        pickupAddress: mzd[2]!.name,  dropAddress: mzd[5]!.name,
+        pickupLat: mzd[2]!.lat, pickupLng: mzd[2]!.lng,
+        dropLat: mzd[5]!.lat,   dropLng: mzd[5]!.lng,
+        fare: calcFare(haversineKm(+mzd[2]!.lat, +mzd[2]!.lng, +mzd[5]!.lat, +mzd[5]!.lng)),
+        distance: haversineKm(+mzd[2]!.lat, +mzd[2]!.lng, +mzd[5]!.lat, +mzd[5]!.lng),
+        riderId: null, riderName: null, riderPhone: null,
+        paymentMethod: "wallet",
+        cancellationReason: "No rider available in area",
+        acceptedAt: null, startedAt: null, completedAt: null,
+        cancelledAt: hoursAgo(5.5),
+        createdAt: hoursAgo(6),
+      },
+      {
+        id: "demo_ride_011",
+        userId: "demo_cust_001",
+        type: "car",
+        status: "cancelled",
+        pickupAddress: mir[1]!.name,  dropAddress: mir[3]!.name,
+        pickupLat: mir[1]!.lat, pickupLng: mir[1]!.lng,
+        dropLat: mir[3]!.lat,   dropLng: mir[3]!.lng,
+        fare: calcFare(haversineKm(+mir[1]!.lat, +mir[1]!.lng, +mir[3]!.lat, +mir[3]!.lng)),
+        distance: haversineKm(+mir[1]!.lat, +mir[1]!.lng, +mir[3]!.lat, +mir[3]!.lng),
+        riderId: "demo_rider_001", riderName: "Tariq Rider", riderPhone: "+923081234575",
+        paymentMethod: "cash",
+        cancellationReason: "Customer cancelled — changed plans",
+        acceptedAt: hoursAgo(12.4), startedAt: null, completedAt: null,
+        cancelledAt: hoursAgo(12.1),
+        createdAt: hoursAgo(13),
+      },
+      {
+        id: "demo_ride_012",
+        userId: "demo_cust_005",
+        type: "motorcycle",
+        status: "cancelled",
+        pickupAddress: bgh[1]!.name,  dropAddress: bgh[2]!.name,
+        pickupLat: bgh[1]!.lat, pickupLng: bgh[1]!.lng,
+        dropLat: bgh[2]!.lat,   dropLng: bgh[2]!.lng,
+        fare: calcFare(haversineKm(+bgh[1]!.lat, +bgh[1]!.lng, +bgh[2]!.lat, +bgh[2]!.lng)),
+        distance: haversineKm(+bgh[1]!.lat, +bgh[1]!.lng, +bgh[2]!.lat, +bgh[2]!.lng),
+        riderId: null, riderName: null, riderPhone: null,
+        paymentMethod: "wallet",
+        cancellationReason: "Rider did not arrive",
+        acceptedAt: hoursAgo(30.8), startedAt: null, completedAt: null,
+        cancelledAt: hoursAgo(30.2),
+        createdAt: hoursAgo(31),
+      },
+
+      /* ── Active rides (one per customer — unique index constraint) ── */
+      {
+        // demo_cust_002: in_transit — rider picked up customer, currently on the way
+        id: "demo_ride_013",
+        userId: "demo_cust_002",
+        type: "motorcycle",
+        status: "in_transit",
+        pickupAddress: mzd[0]!.name,  dropAddress: mzd[6]!.name,
+        pickupLat: mzd[0]!.lat, pickupLng: mzd[0]!.lng,
+        dropLat: mzd[6]!.lat,   dropLng: mzd[6]!.lng,
+        fare: calcFare(haversineKm(+mzd[0]!.lat, +mzd[0]!.lng, +mzd[6]!.lat, +mzd[6]!.lng)),
+        distance: haversineKm(+mzd[0]!.lat, +mzd[0]!.lng, +mzd[6]!.lat, +mzd[6]!.lng),
+        riderId: "demo_rider_001", riderName: "Tariq Rider", riderPhone: "+923081234575",
+        paymentMethod: "wallet", cancellationReason: null,
+        acceptedAt: hoursAgo(0.3), startedAt: hoursAgo(0.15),
+        completedAt: null, cancelledAt: null,
+        createdAt: hoursAgo(0.5),
+      },
+      {
+        // demo_cust_004: accepted — rider accepted but not yet picked up
+        id: "demo_ride_014",
+        userId: "demo_cust_004",
+        type: "car",
+        status: "accepted",
+        pickupAddress: mir[5]!.name,  dropAddress: mir[2]!.name,
+        pickupLat: mir[5]!.lat, pickupLng: mir[5]!.lng,
+        dropLat: mir[2]!.lat,   dropLng: mir[2]!.lng,
+        fare: calcFare(haversineKm(+mir[5]!.lat, +mir[5]!.lng, +mir[2]!.lat, +mir[2]!.lng)),
+        distance: haversineKm(+mir[5]!.lat, +mir[5]!.lng, +mir[2]!.lat, +mir[2]!.lng),
+        riderId: "demo_rider_002", riderName: "Zubair Express", riderPhone: "+923091234576",
+        paymentMethod: "cash", cancellationReason: null,
+        acceptedAt: hoursAgo(0.1), startedAt: null,
+        completedAt: null, cancelledAt: null,
+        createdAt: hoursAgo(0.2),
+      },
+      {
+        // demo_cust_003: searching — just booked, no rider yet
+        id: "demo_ride_015",
+        userId: "demo_cust_003",
+        type: "motorcycle",
+        status: "searching",
+        pickupAddress: rwk[0]!.name,  dropAddress: rwk[4]!.name,
+        pickupLat: rwk[0]!.lat, pickupLng: rwk[0]!.lng,
+        dropLat: rwk[4]!.lat,   dropLng: rwk[4]!.lng,
+        fare: calcFare(haversineKm(+rwk[0]!.lat, +rwk[0]!.lng, +rwk[4]!.lat, +rwk[4]!.lng)),
+        distance: haversineKm(+rwk[0]!.lat, +rwk[0]!.lng, +rwk[4]!.lat, +rwk[4]!.lng),
+        riderId: null, riderName: null, riderPhone: null,
+        paymentMethod: "wallet", cancellationReason: null,
+        acceptedAt: null, startedAt: null,
+        completedAt: null, cancelledAt: null,
+        createdAt: new Date(Date.now() - 90_000), // 90 seconds ago
+      },
+    ];
+
+    let inserted = 0;
+    let skipped = 0;
+
+    for (const r of rows) {
+      const result = await db.insert(ridesTable).values({
+        id: r.id,
+        userId: r.userId,
+        type: r.type,
+        status: r.status,
+        pickupAddress: r.pickupAddress,
+        dropAddress:   r.dropAddress,
+        pickupLat:     r.pickupLat,
+        pickupLng:     r.pickupLng,
+        dropLat:       r.dropLat,
+        dropLng:       r.dropLng,
+        fare:          r.fare,
+        distance:      r.distance,
+        riderId:       r.riderId,
+        riderName:     r.riderName,
+        riderPhone:    r.riderPhone,
+        paymentMethod: r.paymentMethod,
+        cancellationReason: r.cancellationReason,
+        acceptedAt:    r.acceptedAt,
+        startedAt:     r.startedAt,
+        completedAt:   r.completedAt,
+        cancelledAt:   r.cancelledAt,
+        createdAt:     r.createdAt,
+        updatedAt:     r.createdAt,
+      }).onConflictDoNothing().returning({ id: ridesTable.id });
+
+      if (result.length > 0) inserted++;
+      else skipped++;
+    }
+
+    // Summary by status
+    const summary: Record<string, number> = {};
+    for (const r of rows) {
+      summary[r.status] = (summary[r.status] ?? 0) + 1;
+    }
+
+    res.json({
+      success: true,
+      seeded: { inserted, skipped, total: rows.length, byStatus: summary },
+      message: `${inserted} rides inserted, ${skipped} skipped. Statuses: ${Object.entries(summary).map(([s, c]) => `${c} ${s}`).join(", ")}`,
+      cities: ["Muzaffarabad", "Mirpur", "Rawalakot", "Bagh", "Kotli"],
+    });
+  } catch (err) {
+    logger.error("[seed:rides]", err);
+    res.status(500).json({ success: false, error: String(err) });
+  }
+});
 
 // ─── WEATHER CONFIG ───────────────────────────────────────────────────────────
 async function seedWeatherConfig(): Promise<{ inserted: boolean }> {
