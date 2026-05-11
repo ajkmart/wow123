@@ -70,6 +70,10 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin Panel"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -82,17 +86,21 @@ task = "shell.exec"
 args = "pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server dev"
 waitForPort = 5000
 
+[[workflows.workflow]]
+name = "Admin Panel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "ADMIN_PORT_OVERRIDE=3000 ADMIN_DEV_PORT=3000 pnpm --filter @workspace/admin dev"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[ports]]
 localPort = 3000
-externalPort = 3001
-
-[[ports]]
-localPort = 3002
-externalPort = 3002
-
-[[ports]]
-localPort = 3003
-externalPort = 80
+externalPort = 3000
 
 [[ports]]
 localPort = 3004

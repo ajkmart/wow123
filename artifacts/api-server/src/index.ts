@@ -108,7 +108,8 @@ function checkEnv(): void {
   lines.push(pad("  On Replit:  add secrets in the Secrets panel (padlock icon)"));
   lines.push(pad("  Other envs: set values in your .env file at the project root"));
   lines.push(pad(""));
-  lines.push(pad("  Then restart:   pnpm replit-start"));
+  lines.push(pad("  Then restart:   click the Run button (or restart workflow)"))
+  lines.push(pad("  DATABASE_URL:   add PostgreSQL URL in Replit Secrets panel"));
   lines.push(`╚${hr}╝`);
 
   logger.error("\n" + lines.join("\n") + "\n");

@@ -51,19 +51,41 @@ AJKMart is a pnpm workspace monorepo containing 5 deployable apps and 10 shared 
 **Zero-touch setup — 3 steps:**
 
 1. Import the repo from GitHub into any Replit account
-2. Add your secrets in the **Replit Secrets panel** (padlock icon): at minimum `DATABASE_URL` and the JWT/auth secrets
-3. Press **Run** — everything bootstraps automatically
+2. Add `DATABASE_URL` in the **Replit Secrets panel** (padlock icon in sidebar)
+3. Press **Run** — dependencies install and migrations run automatically
 
-`scripts/secure-start.mjs` runs automatically and:
-- Installs dependencies (`pnpm install`) if missing or stale
-- Pushes the database schema (`pnpm db:push`) if `DATABASE_URL` is set
-- Starts all five services in parallel with health checks
+#### DATABASE_URL Setup (Required)
 
-**Service URLs in Replit preview pane:**
+The API server will not persist data without a PostgreSQL connection string.
+
+**Option A — Replit PostgreSQL (easiest):**
+1. Open the **Database** tab in the Replit sidebar
+2. Click **Create Database** — Replit provisions a free PostgreSQL instance
+3. Copy the connection string and paste it as `DATABASE_URL` in the **Secrets** panel
+
+**Option B — Neon (free cloud PostgreSQL):**
+1. Go to [neon.tech](https://neon.tech) and create a free project
+2. Copy the connection string from the dashboard
+3. Add it as `DATABASE_URL` in the **Replit Secrets panel**
+
+**Option C — Any PostgreSQL provider:**
+Format: `postgresql://user:password@host:5432/dbname?sslmode=require`
+
+> Migrations run **automatically** on every server start — no manual `migrate` command needed.
+
+#### Ports (locked)
+
+| Workflow | Local Port | External Port | URL |
+|---|---|---|---|
+| **API Server** (`Start application`) | `5000` | `80` | Preview pane `/` |
+| **Admin Panel** | `3000` | `3000` | via proxy `/admin/` |
+
+Both ports match their external numbers to avoid confusion. The API server also proxies `/admin/`, `/vendor/`, `/rider/` routes to the sibling apps.
+
+**Service paths in Replit preview pane:**
 
 | Service | Path |
 |---|---|
-| Customer App (Expo web) | `/` |
 | API Server | `/api/` |
 | Admin Panel | `/admin/` |
 | Vendor Portal | `/vendor/` |
