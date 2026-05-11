@@ -29,6 +29,7 @@ import { ensureErrorResolutionTables } from "./routes/error-reports.js";
 import { ensureCartSnapshotTable } from "./services/cartSnapshotMigration.js";
 import { ensureReferralAndPrescriptionTables } from "./services/referralPrescriptionMigration.js";
 import { startHealthMonitor } from "./services/healthAlertMonitor.js";
+import { checkDbOnStartup, startDbMonitor } from "./services/dbConnectivityMonitor.js";
 import { recordResponseTime } from "./lib/metrics/responseTime.js";
 import { checkSchemaDrift } from "./services/schemaDrift.service.js";
 import router from "./routes/index.js";
@@ -134,6 +135,12 @@ export async function runStartupTasks(): Promise<void> {
     startHealthMonitor();
   } catch (err) {
     logger.error({ err }, "[startup] health monitor failed to start (continuing)");
+  }
+  try {
+    await checkDbOnStartup();
+    startDbMonitor();
+  } catch (err) {
+    logger.error({ err }, "[startup] DB connectivity monitor failed to start (continuing)");
   }
   // Run schema drift check once at startup. Logs a warning when drift is found.
   // The result is cached in schemaDrift.service.ts for the health-dashboard endpoint.
