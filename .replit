@@ -102,7 +102,7 @@ waitForPort = 4200
 outputType = "webview"
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
