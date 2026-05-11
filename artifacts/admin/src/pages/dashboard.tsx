@@ -1,10 +1,10 @@
 import { useCallback, useState, useId, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader, StatCard } from "@/components/shared";
-import { Users, ShoppingBag, Car, Pill, Box, Settings, TrendingUp, ArrowRight, Wallet, Download, Trophy, Star, AlertTriangle, DollarSign, LayoutDashboard, Loader2, X, Zap, UserCheck, Search, Radio, Bell, BellOff } from "lucide-react";
+import { Users, ShoppingBag, Car, Pill, Box, Settings, TrendingUp, ArrowRight, Wallet, Download, Trophy, Star, AlertTriangle, DollarSign, LayoutDashboard, Loader2, X, Zap, UserCheck, Search, Radio, Bell, BellOff, Database } from "lucide-react";
 import { ActivityFeed } from "@/components/ui/ActivityFeed";
 import { Link } from "wouter";
-import { useStats, useRevenueTrend, useLeaderboard, useRides, useRiders, useAdminReassignRide, useBroadcast, usePlatformSettings } from "@/hooks/use-admin";
+import { useStats, useRevenueTrend, useLeaderboard, useRides, useRiders, useAdminReassignRide, useBroadcast, usePlatformSettings, useApiHealth } from "@/hooks/use-admin";
 import { useActivityFeed } from "@/hooks/useActivityFeed";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
@@ -82,6 +82,42 @@ function updatedAgo(ts: number): string {
   const h = Math.floor(m / 60);
   if (h < 24)    return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+/* ── DB Health Badge ── */
+function DbHealthBadge() {
+  const { data, isLoading, isError } = useApiHealth();
+
+  if (isLoading) {
+    return (
+      <div className="h-8 w-28 rounded-xl bg-gray-100 animate-pulse" />
+    );
+  }
+
+  const dbOk  = !isError && data?.db === "ok";
+  const latMs = data?.dbQueryMs ?? null;
+
+  const dot   = dbOk ? "bg-emerald-500" : "bg-red-500 animate-pulse";
+  const label = dbOk ? "DB · Connected" : "DB · Down";
+  const badge = dbOk
+    ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+    : "bg-red-50 border-red-200 text-red-700 hover:bg-red-100";
+
+  return (
+    <Link href="/health-dashboard">
+      <button
+        className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border text-xs font-medium transition-colors shrink-0 ${badge}`}
+        title={`Neon DB status · latency: ${latMs != null ? `${latMs}ms` : "—"}`}
+      >
+        <span className={`w-2 h-2 rounded-full ${dot}`} />
+        <Database className="w-3.5 h-3.5" />
+        {label}
+        {dbOk && latMs != null && (
+          <span className="opacity-60 font-mono">{latMs}ms</span>
+        )}
+      </button>
+    </Link>
+  );
 }
 
 /* ── Live Metrics Strip ── */
@@ -474,6 +510,7 @@ export default function Dashboard() {
             {isFetching && !isLoading && (
               <Loader2 className="w-4 h-4 animate-spin text-indigo-400 shrink-0" />
             )}
+            <DbHealthBadge />
             <Button variant="outline" size="sm" disabled={isExporting} onClick={() => exportDashboard(trend, (msg) => toast({ title: "Export failed", description: msg, variant: "destructive" }), setIsExporting)} className="h-9 rounded-xl gap-2 shrink-0">
               {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {T("export")}
             </Button>

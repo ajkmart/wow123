@@ -710,6 +710,31 @@ export const useHealthDashboard = () => {
   });
 };
 
+// Lightweight public /api/health poller — no auth required
+export interface ApiHealthData {
+  status: "ok" | "degraded" | "down";
+  db: "ok" | "error";
+  redis: "ok" | "error" | "disabled";
+  dbQueryMs: number | null;
+  p95Ms: number | null;
+  memoryPct: number | null;
+  uptime: number;
+  timestamp: string;
+}
+export const useApiHealth = () => {
+  return useQuery<ApiHealthData>({
+    queryKey: ["api-health"],
+    queryFn: async () => {
+      const res = await fetch("/api/health", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json() as Promise<ApiHealthData>;
+    },
+    refetchInterval: 30_000,
+    staleTime: 25_000,
+    retry: 1,
+  });
+};
+
 export const useDiagnostics = () => {
   return useQuery({
     queryKey: ["admin-diagnostics"],
