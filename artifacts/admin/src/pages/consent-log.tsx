@@ -108,10 +108,10 @@ export default function ConsentLogPage() {
         )}
         {versions.data && (
           <div className="space-y-2">
-            {versions.data.items.length === 0 && (
+            {versions.data?.items?.length === 0 && (
               <p className="text-sm text-gray-500">No terms versions recorded yet.</p>
             )}
-            {versions.data.items.map(v => (
+            {versions.data?.items?.map(v => (
               <div
                 key={`${v.policy}:${v.version}`}
                 className="flex items-center justify-between p-3 rounded-lg border bg-white"

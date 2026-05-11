@@ -916,7 +916,7 @@ function SecurityModal({ user, onClose }: { user: any; onClose: () => void }) {
                       <span className="text-xs font-semibold text-violet-700">Phone OTP:</span>
                       {otpQuery.data.phone?.active ? (
                         <div className="flex items-center gap-2">
-                          <code className="font-mono font-bold text-violet-900 bg-violet-100 px-2 py-0.5 rounded text-sm tracking-widest">{otpQuery.data.phone.code}</code>
+                          <code className="font-mono font-bold text-violet-900 bg-violet-100 px-2 py-0.5 rounded text-sm tracking-widest">{otpQuery.data.phone?.code}</code>
                           <span className="text-[10px] text-violet-500">exp {new Date(otpQuery.data.phone.expiry).toLocaleTimeString()}</span>
                         </div>
                       ) : <span className="text-xs text-muted-foreground italic">No active OTP</span>}

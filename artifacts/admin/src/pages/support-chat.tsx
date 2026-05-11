@@ -130,7 +130,7 @@ export default function SupportChatPage() {
       if (!("error" in json) && json.data?.message) {
         qc.setQueryData(["admin-support-messages", selectedUserId], (old: { messages: ChatMessage[] } | undefined) => {
           if (!old) return old;
-          const exists = old.messages.some(m => m.id === json.data.message.id);
+          const exists = old.messages.some(m => m.id === json.data.message?.id);
           if (exists) return old;
           return { ...old, messages: [...old.messages, json.data.message] };
         });

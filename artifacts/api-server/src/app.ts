@@ -526,7 +526,10 @@ export function createServer() {
         return callback(null, true);
       }
       logger.warn({ blockedOrigin: origin }, '[SECURITY:CORS] Request blocked — origin not in whitelist');
-      callback(new Error('CORS policy violation'));
+      // Do NOT throw — the cors package requires callback(err) to produce a
+      // proper 403, but Express's error handler turns any Error into 500.
+      // Returning callback(null, false) lets cors emit the correct 403 itself.
+      callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

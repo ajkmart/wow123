@@ -439,22 +439,18 @@ async function main() {
   buildLibs();
 
   // ── Step 6: Handle ports ──────────────────────────────────────────────────
-  // In Replit mode the frontend apps are managed by their own artifact
-  // workflows (artifacts/admin, artifacts/vendor-app, etc.).  Passing those
-  // ports to handlePorts would race with those workflows and steal their ports
-  // before they have a chance to bind, causing them to fall back to random
-  // high ports.  Only hand the API port to handlePorts; leave frontends alone.
-  const alreadyRunning = await handlePorts(
-    IS_REPLIT
-      ? [{ name: "api", port: apiPort }]
-      : [
-          { name: "api",     port: apiPort    },
-          { name: "admin",   port: adminPort  },
-          { name: "vendor",  port: vendorPort },
-          { name: "rider",   port: riderPort  },
-          { name: "ajkmart", port: ajkPort    },
-        ]
-  );
+  // secure-start.mjs owns ALL service ports in every environment.
+  // In Replit the individual artifact workflows (admin/vendor/rider/expo) will
+  // show "failed" in the UI because their configured ports don't match
+  // Replit's waitForPort expectations — that is expected and documented in
+  // replit.md. All services are started and kept alive by this script.
+  const alreadyRunning = await handlePorts([
+    { name: "api",     port: apiPort    },
+    { name: "admin",   port: adminPort  },
+    { name: "vendor",  port: vendorPort },
+    { name: "rider",   port: riderPort  },
+    { name: "ajkmart", port: ajkPort    },
+  ]);
 
   // ── Step 7: Launch all services ───────────────────────────────────────────
   const domain     = process.env.REPLIT_DEV_DOMAIN        || "";
@@ -525,10 +521,8 @@ async function main() {
     },
   ];
 
-  // In Replit: only API is ours. Frontends run via separate artifact workflows.
-  const services = IS_REPLIT
-    ? allServices.filter(s => s.name === "api")
-    : allServices;
+  // All services run via this script in every environment.
+  const services = allServices;
 
   const servicesToStart = services.filter(svc => !alreadyRunning.includes(svc.name));
 
