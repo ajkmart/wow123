@@ -55,3 +55,4 @@ export * from "./generated/types/banner";
 export * from "./generated/types/recommendationProduct";
 export * from "./generated/types/wishlistItem";
 export * from "./utils";
+export * from "./validate";

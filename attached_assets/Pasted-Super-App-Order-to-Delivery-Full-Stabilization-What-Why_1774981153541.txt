@@ -1,0 +1,60 @@
+Super-App Order-to-Delivery Full Stabilization
+What & Why
+End-to-end technical audit and hardening of the AJKMart super-app across all five service types (Food, Grocery, Pharmacy, Parcel, Ride-Hailing). The goal is to eliminate every failure point in the Order-to-Delivery pipeline — ghost orders, payment mismatches, stale GPS, cart conflicts, and UI breakage — by extending and fixing existing code rather than rewriting or duplicating it.
+
+Key constraint: Do NOT duplicate any existing function, hook, socket handler, or API route. Audit first, then patch or extend in-place. If an equivalent already exists, merge the fix into it.
+
+Done looks like
+No ghost / stuck-Pending orders — every order either confirms with a full Two-Way ACK or rolls back cleanly, and the cart is not cleared until a confirmed 200 OK is received.
+Wallet balance is always consistent — deduction and order creation are wrapped in a single atomic DB transaction; UI reflects the new balance instantly via a broadcast stream event.
+GPS "Live View" is smooth — WebSocket location updates are debounced/throttled optimally; reverse geocoding returns a pin-accurate address that eliminates unnecessary rider-customer calls.
+No layout overflow or flicker on any tracking screen across the Customer mobile app, Rider PWA, or Admin panel.
+Skeleton loaders replace blank/flash states on all menu, product-list, and tracking screens.
+Back-button logic is correct on all deep-navigation screens (no accidental app exits).
+Pharmacy prescription image upload is non-blocking — compressed client-side, uploaded async, and the order flow does not time out waiting for it.
+Admin Panel order-notification latency is below 500 ms from order creation to panel alert.
+A 50-concurrent-booking stress simulation produces zero DB deadlocks and consistent order states.
+All State Management contexts (AuthContext, CartContext, etc.) are audited for cross-module data leakage and cleaned up.
+Out of scope
+Rider-Admin live map sync and rider UX redesign (covered by Task #1 — Rider-Admin Full Sync & UX Overhaul, currently active).
+New service types or features not already in the codebase.
+Third-party payment gateway integration (project uses wallet-only payments).
+Design system changes beyond fixing existing overflow/skeleton/navigation bugs.
+Tasks
+API flow audit — /order/create pipeline — Trace the full /order/create request through middleware, validation (Zod schemas), business logic, and DB write. Document every gap: missing rollback, uncaught async error, or missing response code. Fix all gaps in-place without changing the route signature.
+
+Two-Way ACK for order confirmation — Extend the existing Socket.io server (socketio.ts) to emit an order:ack event back to the customer client after the DB write succeeds. On the client side (Customer App CartContext / order hooks), only clear the cart and navigate to the confirmation screen after receiving this ACK. Add exponential-backoff retry logic (max 3 attempts) for the order creation call before surfacing an error.
+
+Atomic wallet transaction — Wrap wallet deduction and order-row insertion in a single Drizzle ORM transaction inside the existing order service. If either step fails, both roll back. After a successful commit, emit a wallet:balance broadcast event via Socket.io so the Customer App's wallet UI updates instantly without a manual refetch.
+
+Unified Cart Controller for multi-service fee logic — Audit the existing cart/checkout logic across Food, Grocery, Pharmacy, and Parcel flows. Consolidate duplicated tax/fee calculation into one shared utility (extend or rename the existing helper if present). Ensure Ride-Hailing fare calculation stays isolated (different domain) but uses the same discount/promo pipeline.
+
+Pharmacy prescription upload — async & compressed — In the Customer App, compress prescription images client-side (before upload) using an existing or lightweight utility. Upload the image independently of the order-creation request (fire-and-forget with a reference ID). The order creation should proceed with the reference ID and not block on upload completion.
+
+GPS WebSocket optimization — In the existing rider location emit path (Customer App RiderLocationContext.tsx and the Socket.io server), add server-side throttling so location updates are broadcast at most every 1–2 seconds per rider. On the customer tracking screen, apply smooth interpolation between received coordinates to eliminate flickering. Do not add a new socket namespace — extend the existing one.
+
+Reverse geocoding accuracy — Audit the existing reverse-geocoding call (maps route/useMaps.ts). Ensure the highest-precision address component (street-level) is used for pickup display, not just city/district. Cache the last resolved address to avoid redundant API calls on minor coordinate changes.
+
+Tracking screen layout overflow fixes — Audit the Customer App order-tracking screen, Rider App active-delivery screen, and Admin Panel order-detail view for layout overflow issues (especially on small screen sizes). Fix using existing style conventions — no new design system changes.
+
+Skeleton loaders on key screens — Add skeleton loading states to: Customer App home menu / product list screens, Rider App earnings and order-list screens, Admin Panel orders table. Use or extend any existing skeleton component already in the codebase before creating a new one.
+
+Back-button navigation audit — Audit all deep-navigation flows in the Customer App (post-order, tracking, payment success) and fix any route that could trigger an accidental exit. Use the existing navigator structure — do not restructure navigation stacks.
+
+State management data-leakage audit — Audit AuthContext, CartContext, and any other global contexts for state that persists incorrectly across module switches (e.g., a Grocery cart bleeding into a Pharmacy order). Clear or scope context state correctly on module/service switch events.
+
+Admin Panel order-notification latency — Profile the path from order insertion to the Admin Panel receiving the new-order socket event. Ensure the socket emit happens immediately after the DB commit (not after any subsequent async steps). Target: Admin Panel receives the event in under 500 ms.
+
+Concurrent-booking stress test & deadlock fixes — Write a script (or extend any existing test/load utility) that simulates 50 concurrent order-creation requests. Identify and fix any DB deadlocks (add appropriate Drizzle transaction isolation levels or row-level locks). Document the results.
+
+Relevant files
+artifacts/api-server/src/routes/
+artifacts/api-server/src/lib/socketio.ts
+lib/db/src/schema/
+artifacts/ajkmart/context/AuthContext.tsx
+artifacts/ajkmart/context/CartContext.tsx
+artifacts/ajkmart/context/RiderLocationContext.tsx
+artifacts/ajkmart/hooks/useMaps.ts
+lib/api-zod/src/
+lib/api-client-react/src/
+Dependencies

@@ -12,7 +12,7 @@ version = "1.0.0"
 [[services]]
 name = "web"
 paths = [ "/vendor/" ]
-localPort = 21463
+localPort = 3003
 
 [services.development]
 run = "pnpm --filter @workspace/vendor-app run dev"
@@ -27,5 +27,5 @@ from = "/*"
 to = "/index.html"
 
 [services.env]
-PORT = "21463"
+PORT = "3003"
 BASE_PATH = "/vendor/"

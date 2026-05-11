@@ -1,0 +1,19 @@
+#5 - Vendor App: Complete Auth Pages
+What & Why
+Build full professional authentication UI for the Vendor Web App — Login, multi-step Register, Forgot Password, and Security Settings (2FA) — matching the vendor's business context (business name, NTN, store address) and driven by admin-controlled platform config.
+
+Done looks like
+Login page: vendor-branded; dynamic method display per admin config (Phone OTP, Email OTP, Username+Password, Google, Facebook, Magic Link); CAPTCHA; lockout countdown timer; 2FA verification screen after primary login
+Register page (multi-step): Step 1 — owner name, phone, email; Step 2 — CNIC (mandatory, auto-formatted), business name, business type (dropdown), store address; Step 3 — NTN (optional), password with strength indicator, terms acceptance, CAPTCHA; Step 4 — OTP/email verification; success → "Pending Admin Approval" screen. Social registration still requires CNIC + business fields. Email registration path available if admin-enabled
+Forgot Password page: phone or email OTP per admin config, CAPTCHA, new password with strength indicator, TOTP step if 2FA enabled
+Security Settings page: 2FA setup/disable flow using shared TwoFactorSetup component
+All method visibility and enforcement driven by platform config (fetched on startup, enforced on backend)
+Out of scope
+Rider-specific fields (vehicle, license)
+Mobile biometric features
+Tasks
+Login page — Build vendor login page with dynamic auth methods, CAPTCHA, lockout timer, and 2FA screen transition.
+Register page — Build 4-step vendor registration with CNIC auto-formatting, business fields (name, type, address, NTN optional), social path, email path, OTP step, and pending-approval screen.
+Forgot Password page — Build forgot/reset password flow with OTP, CAPTCHA, strength meter, and conditional TOTP.
+Security Settings page — Build 2FA setup/disable UI; integrate with shared components and backend endpoints.
+Auth context update — Update vendor AuthProvider to handle all new login methods, magic link redirect, 2FA state, and platform config gating.

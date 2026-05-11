@@ -1,0 +1,28 @@
+Customer App: Complete Auth Screens + Biometric + 2FA
+What & Why
+Refactor and extend the AJKMart Expo mobile app's authentication — Login screen with all methods (including biometric and magic link via deep link), multi-step Register with signup bonus, Forgot Password, and 2FA setup in profile settings — all driven by admin platform config.
+
+Done looks like
+Login screen: shows only admin-enabled methods; Phone OTP (existing), Email OTP, Username+Password, Google (via expo-auth-session), Facebook (via expo-auth-session), Magic Link (deep link via Expo Linking), Biometric (fingerprint/Face ID); CAPTCHA via WebView modal; lockout countdown visible; 2FA TOTP screen appears after primary login if enabled
+Biometric login: after first successful login, prompt user to enable fingerprint/Face ID using expo-local-authentication; token stored in expo-secure-store; biometric toggle in profile settings; graceful fallback to normal login if hardware not supported or biometric fails
+Register screen (multi-step): Step 1 — phone number → OTP; Step 2 — name, email, CNIC (mandatory, auto-formatted); Step 3 — password, terms acceptance; Step 4 — success screen with signup bonus banner
+Forgot Password screen: phone OTP or email OTP, CAPTCHA via WebView, new password with strength indicator, TOTP step if 2FA enabled
+2FA setup in Profile/Settings: TwoFactorSetup adapted for React Native (QR code via react-native-qrcode-svg, manual key, backup codes, TOTP confirm); TwoFactorVerify for login flow; trust device option
+Deep link handling: Expo Linking configured to intercept magic link URLs and auto-complete login (with TOTP check if enabled)
+Platform config fetched on startup; all method visibility and backend enforcement consistent
+Out of scope
+Web-specific OAuth flows (handled in shared utilities)
+Rider/Vendor registration fields
+Tasks
+Login screen refactor — Update existing Login screen to support all methods (OTP, email, username/password, Google, Facebook, magic link, biometric) with platform config visibility gating and CAPTCHA WebView.
+Biometric login — Implement expo-local-authentication check on startup, secure token storage with expo-secure-store, prompt after first login, biometric toggle in settings, fallback handling.
+Register screen — Build 4-step registration: phone OTP → name/email/CNIC → password/terms → success with signup bonus; social registration path with CNIC completion step.
+Forgot Password screen — Build forgot/reset flow with phone/email OTP, WebView CAPTCHA, strength indicator, conditional TOTP step.
+2FA setup in profile — Adapt shared TwoFactorSetup/TwoFactorVerify for React Native using react-native-qrcode-svg; integrate into profile/settings screen; backup codes display/copy.
+Deep link + magic link handling — Configure Expo Linking to handle magic link URLs, pass token to backend verify endpoint, handle 2FA gate, complete session.
+Auth context update — Extend AuthContext to track 2FA state, biometric preference, and handle all new login flows; keep proactive token refresh intact.
+Relevant files
+artifacts/ajkmart/app/auth/index.tsx
+artifacts/ajkmart/app/_layout.tsx
+artifacts/ajkmart/context/AuthContext.tsx
+lib/api-client-react/src/custom-fetch.ts

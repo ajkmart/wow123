@@ -12,7 +12,7 @@ version = "1.0.0"
 [[services]]
 name = "web"
 paths = [ "/rider/" ]
-localPort = 22969
+localPort = 3002
 
 [services.development]
 run = "pnpm --filter @workspace/rider-app run dev"
@@ -27,5 +27,5 @@ from = "/*"
 to = "/index.html"
 
 [services.env]
-PORT = "22969"
+PORT = "3002"
 BASE_PATH = "/rider/"

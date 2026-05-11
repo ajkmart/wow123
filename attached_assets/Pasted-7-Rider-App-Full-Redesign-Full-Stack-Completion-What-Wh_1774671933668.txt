@@ -1,0 +1,58 @@
+7 - Rider App Full Redesign & Full-Stack Completion
+What & Why
+The rider app needs a complete overhaul covering three major areas:
+
+1. Hybrid Wallet Model (Cash Ride Payment Fix) Currently when a rider completes a cash ride, the system incorrectly credits the rider's wallet with earnings (80%) while the rider also keeps 100% of the cash — effectively double-paying the rider. This must be fixed with the industry-standard hybrid wallet model:
+
+Cash rides: platform fee is deducted from rider's wallet (not credited). Rider keeps full cash, wallet goes down by platform commission amount.
+Wallet-paid rides: rider only gets their share credited (current behavior, already correct).
+Admin sets a minimum wallet balance (new setting rider_min_balance, e.g., Rs. 500). Rider must maintain this to accept cash rides.
+If rider's wallet drops below minimum balance → blocked from accepting cash orders/rides (can still do wallet-paid ones).
+Rider can deposit/top-up wallet via admin-enabled payment methods (JazzCash, EasyPaisa, Bank Transfer) to bring balance back up.
+Deposit is manual transfer + admin verification (same pattern as COD remittance).
+2. Professional UI Redesign Replace emoji icons with Lucide SVG icons, build consistent design system, refactor large files into smaller components, and make every page look like a top-tier professional delivery app.
+
+3. Full-Stack Fixes Fix all weak/incomplete features: dynamic payment methods from admin config, proper notification error handling, CNIC validation, uniform transaction history display.
+
+Done looks like
+Cash ride flow: Rider completes cash ride → system deducts platform commission (e.g., 20%) from rider wallet → wallet transaction logged as platform_fee type → if wallet below minimum, rider sees warning and cannot accept new cash rides
+Minimum balance enforcement: Admin sets rider_min_balance in Settings → Rider App shows current balance vs required minimum → "Go Online" for cash rides blocked if below minimum with clear message "Deposit Rs. X to accept cash rides"
+Wallet deposit flow: Rider taps "Deposit" on wallet page → multi-step modal (Amount → Method → Company Account Details + Enter TxID → Confirm) → saved as pending deposit request → admin verifies and approves → wallet credited
+Dynamic payment methods: All wallet flows (deposit, withdrawal, COD remittance) fetch methods from /payments/methods and only show what admin has enabled
+Professional UI: All pages use Lucide SVG icons, consistent green/emerald design system, proper cards/badges/animations, clean bottom nav, mobile-first layout
+Admin settings: New settings added: rider_min_balance (default 500), rider_deposit_enabled (toggle). Existing rider settings page in admin updated to include these.
+Transaction history: Shows all transaction types uniformly — earnings (credit), platform fees (debit), deposits (pending/approved), withdrawals (pending/processed), bonuses, COD remittances
+Out of scope
+Automated payment gateway integration (JazzCash/EasyPaisa API calls) — all deposits are manual transfer + admin verification
+i18n / multi-language support (handled by Task #6)
+Document upload for CNIC/license photos
+Rider rating/review system
+Tasks
+Fix Cash Ride Payment Logic — Change the order/ride completion logic in the rider API so that cash/COD payments deduct platform commission from rider wallet instead of crediting earnings. For wallet-paid rides, keep current credit behavior. Add new wallet transaction type platform_fee. Log both the cash collection and the fee deduction as separate transactions for clear accounting.
+Minimum Balance System — Add rider_min_balance setting to admin panel and API defaults. When rider tries to accept a cash order/ride, check if wallet balance >= minimum. If below, return 403 with clear message. In the rider app Home page, show a warning banner when balance is below minimum. Block the "Go Online" toggle or show deposit prompt when balance is insufficient for cash rides.
+Rider Deposit/Top-up Feature — Create POST /rider/wallet/deposit endpoint (accepts amount, paymentMethod, accountNumber, transactionId, note → saves as pending deposit transaction). Create GET /rider/wallet/deposits for deposit history. Add admin endpoint to approve/reject deposit requests (credit wallet on approval). Build multi-step deposit modal in Wallet page that fetches methods from /payments/methods dynamically and shows company account details.
+Dynamic Payment Methods — Replace all hardcoded payment method lists in WithdrawModal, RemittanceModal, and new DepositModal with dynamic fetching from admin config via /payments/methods. Only show methods admin has enabled. Show admin-configured account details (name, number, instructions) for manual methods.
+Professional UI Redesign — Replace all emoji icons with Lucide SVG icons across every page and component (BottomNav, Home, Active, Wallet, Earnings, Profile, History, Notifications, Login). Create consistent design system with unified card styles, spacing, typography. Refactor Wallet.tsx (1000+ lines) into smaller components (BalanceCard, WithdrawModal, DepositModal, RemittanceModal, TransactionList, EarningsChart).
+Full-Stack Polish — Fix notification .catch(() => {}) patterns to log errors. Add CNIC format validation in profile edit. Ensure wallet transaction list properly displays all transaction types (earnings, platform_fee, deposit, withdrawal, bonus, remittance) with correct icons and statuses. Make all flows respect admin limits and toggles.
+Relevant files
+artifacts/api-server/src/routes/rider.ts:214-330,384-536
+artifacts/api-server/src/routes/wallet.ts
+artifacts/api-server/src/routes/payments.ts:68-170
+artifacts/api-server/src/routes/admin.ts
+artifacts/rider-app/src/pages/Wallet.tsx
+artifacts/rider-app/src/pages/Home.tsx
+artifacts/rider-app/src/pages/Active.tsx
+artifacts/rider-app/src/pages/Earnings.tsx
+artifacts/rider-app/src/pages/History.tsx
+artifacts/rider-app/src/pages/Notifications.tsx
+artifacts/rider-app/src/pages/Profile.tsx
+artifacts/rider-app/src/pages/Login.tsx
+artifacts/rider-app/src/components/BottomNav.tsx
+artifacts/rider-app/src/components/AnnouncementBar.tsx
+artifacts/rider-app/src/components/MaintenanceScreen.tsx
+artifacts/rider-app/src/lib/api.ts
+artifacts/rider-app/src/lib/auth.tsx
+artifacts/rider-app/src/lib/useConfig.ts
+artifacts/rider-app/src/App.tsx
+artifacts/admin/src/pages/settings.tsx
+lib/db/src/schema/wallet_transactions.ts

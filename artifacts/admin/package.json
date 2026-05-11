@@ -112,6 +112,7 @@
     "vite": "catalog:",
     "vitest": "^4.0.18",
     "wouter": "^3.3.5",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@workspace/api-zod": "workspace:*"
   }
 }

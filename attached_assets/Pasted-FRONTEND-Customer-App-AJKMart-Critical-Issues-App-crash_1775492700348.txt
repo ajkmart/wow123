@@ -1,0 +1,32 @@
+FRONTEND (Customer App — AJKMart)
+🔴 Critical Issues (App crash ya feature break)
+App start nahi ho rahi — Expo workflow FAILED hai kyunki port conflict hai (port already in use)
+checkCanReviewProduct missing export — app/product/[id].tsx mein import kiya gaya hai lekin @workspace/api-client-react mein ye function exist toh karta hai magar TypeScript error de raha hai
+FileSystem.EncodingType error — app/cart/index.tsx:1173 mein payment receipt upload feature EncodingType use kar raha hai jo type mein nahi milta
+Cart mein userId missing — app/cart/index.tsx:876 pe order create karte waqt CreateOrderRequest type mein userId chahiye lekin object mein nahi hai
+WalletResponse type incomplete — wallet.tsx:1518-1519 pe pinSetup aur walletHidden properties API response mein expected hain lekin type definition mein nahi hain
+PharmacyOrderResponse pe total property missing — pharmacy/index.tsx:437 pe type error
+🟡 Type Safety Issues (80+ as any bypasses)
+Ride tracker mein heavy as any usage — RideTracker.tsx:185-187, 346-347 pe ride object bar bar cast ho raha hai as any se — tripOtp aur otpVerified fields type mein nahi hain
+API response unwrapping unsafe — utils/api.ts:11-12, AuthContext.tsx:501, cart/index.tsx:1277,1296,1443 pe responses as any se handle hain
+Navigation routing as any — useSmartBack.ts:12,17 pe router.replace() ko as any se bypass kiya gaya hai
+Icon names as any — 15+ jagah Ionicons name={x as any} use ho raha hai (orders, weather, food, pharmacy, profile screens)
+Style as any — borderStyle: "dashed" as any food, pharmacy, mart screens mein, aur width: "100%" as any in _layout.tsx
+(cat as any).children — search.tsx:110 pe category children ko unsafe cast kiya gaya
+🟡 Missing Constants/Properties
+Typ.buttonMedium exists nahi — cart/index.tsx:1466,1518 pe use ho raha hai
+C.warnBg exists nahi — cart/index.tsx:1506 pe fallback ?? "#FFF3E0" se handle
+C.infoBorder exists nahi — chat/support.tsx:363 pe fallback se handle
+@react-navigation/native module missing — useSmartBack.ts:3 pe import error
+🟡 Silent Error Swallowing (30+ empty catch blocks)
+AuthContext.tsx — 8 empty catch {} blocks — authentication errors silently swallowed
+CartContext.tsx — 2 empty catches — cart save/load failures invisible
+PopupEngine.tsx — 4 empty catches — popup loading silently fails
+RideBookingForm.tsx — 4 empty catches — ride booking errors hidden
+catch (e: any) — 20+ jagah any type pe catch — proper error typing nahi hai
+🟡 Oversized Files (Maintainability)
+cart/index.tsx — 2,284 lines (should be split into components)
+wallet.tsx — 2,269 lines
+orders.tsx — 2,099 lines
+index.tsx (home) — 1,756 lines
+RideBookingForm.tsx — 1,606 lines

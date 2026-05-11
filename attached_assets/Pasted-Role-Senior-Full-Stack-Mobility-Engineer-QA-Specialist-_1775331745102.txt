@@ -1,0 +1,24 @@
+Role: Senior Full-Stack Mobility Engineer & QA Specialist.
+Task: Conduct a "Human-Simulated Audit" of the Rider App. You must act as a Rider on the road (Frontend) and a Dispatcher/Server Monitor (Backend) simultaneously.
+1. Mission-Critical Workflow Simulation (The "Road" Test)
+The Order Lifecycle: Simulate the full flow:
+Status Toggle: Switch from 'Offline' to 'Online' (Verify isOnline in DB updates).
+Order Alert: Simulate an incoming Ride/Food request. Check if the "Accept/Reject" buttons work and if the countdown timer is accurate.
+Navigation: Click "Start Trip." Verify the map switches to Navigation Mode and draws a polyline to the customer.
+Completion: Simulate "Arrived," "Picked Up," and "Dropped Off" buttons.
+Edge Case Human Behavior: What happens if the Rider closes the app during a trip? Does the state persist (Rehydration) when they reopen it?
+2. Real-Time Socket & GPS Trace (Backend)
+Breadcrumb Tracking: Monitor the update_location socket event.
+Verify coordinates are being saved to LocationHistory.
+Ensure the Role-Based Icon (Bike/Car) is correctly broadcasted to the Customer/Admin apps.
+Concurrency Check: If two orders arrive at once, does the UI crash or handle the queue correctly? Fix any "Race Conditions" in the backend booking logic.
+3. AI Thinking & "Self-Healing" Repair Loop
+Trace & Destroy: If you encounter a null coordinate, a broken map layer, or a failed PATCH request for order status:
+Identify: Find the exact line in /controllers/order.controller.js or /components/RiderMap.js.
+Reason: Use AI logic to implement State Persistence (Local Storage or Redux Persist) so data isn't lost on refresh.
+Repair: Apply a permanent fix (e.g., adding try-catch or loading-skeletons).
+Re-Test: Repeat the "Trip Flow" until the entire process is 100% bug-free.
+4. Professional Standard Refinement
+Battery & Data Optimization: Ensure the app isn't re-rendering the map unnecessarily.
+Z-Index Fixes: Ensure the "New Order" popup always appears on top of all other layers.
+Security Audit: Verify the Rider cannot see the Customer's full phone number or private details until the order is officially "Accepted."

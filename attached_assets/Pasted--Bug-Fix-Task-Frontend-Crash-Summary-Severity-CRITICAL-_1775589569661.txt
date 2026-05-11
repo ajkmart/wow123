@@ -1,0 +1,54 @@
+# Bug Fix Task: Frontend Crash
+
+## Summary
+- **Severity**: CRITICAL
+- **Source**: Customer
+- **Type**: Frontend Crash
+- **Error ID**: mnozivsgx7veh7l1wud
+- **Reported**: 2026-04-07T19:00:59.633Z
+
+## Error Message
+```
+Cannot read properties of undefined (reading 'getTime')
+```
+
+## Location
+- **Component**: `ErrorBoundary`
+
+## Stack Trace
+```
+TypeError: Cannot read properties of undefined (reading 'getTime')
+    at update (https://b4862297-3454-4783-afbc-843ef462fdef-00-148ygwz9g77df.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@expo+metro-runtime@6.1.2_@types+react-dom@19.1.11_@types+react@19.1_c2e42e87a72fcbe57e50351b28a7c0aa/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.routerRoot=app&transform.reactCompiler=true:123894:47)
+    at t3 (https://b4862297-3454-4783-afbc-843ef462fdef-00-148ygwz9g77df.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@expo+metro-runtime@6.1.2_@types+react-dom@19.1.11_@types+react@19.1_c2e42e87a72fcbe57e50351b28a7c0aa/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.routerRoot=app&transform.reactCompiler=true:123904:9)
+    at react-stack-bottom-frame (https://b4862297-3454-4783-afbc-843ef462fdef-00-148ygwz9g77df.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@expo+metro-runtime@6.1.2_@types+react-dom@19.1.11_@types+react@19.1_c2e42e87a72fcbe57e50351b28a7c0aa/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.routerRoot=app&transform.reactCompiler=true:302971:20)
+    at runWithFiberInDEV (https://b4862297-3454-4783-afbc-843ef462fdef-00-148ygwz9g77df.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@expo+metro-runtime@6.1.2_@types+react-dom@19.1.11_@types+react@19.1_c2e42e87a72fcbe57e50351b28a7c0aa/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.routerRoot=app&transform.reactCompiler=true:290890:70)
+    at commitHookEffectListMount (https://b4862297-3454-4783-afbc-843ef462fdef-00-148ygwz9g77df.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@expo+metro-runtime@6.1.2_@types+react-dom@19.1.11_@types+react@19.1_c2e42e87a72fcbe57e50351b28a7c0aa/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.routerRoot=app&transform.reactCompiler=true:295880:620)
+    at commitHookPassiveMountEffects (https://b4862297-3454-4783-afbc-843ef462fdef-00-148ygwz9g77df.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@expo+metro-runtime@6.1.2_@types+react-dom@19.1.11_@types+react@19.1_c2e42e87a72fcbe57e50351b28a7c0aa/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.routerRoot=app&transform.reactCompiler=true:295917:58)
+    at commitPassiveMountOnFiber (https://b4862297-3454-4783-afbc-843ef462fdef-00-148ygwz9g77df.expo.sisko.replit.dev/node_modules/.pnpm/expo-router@6.0.23_@expo+metro-runtime@6.1.2_@types+react-dom@19.1.11_@types+react@19.1_c2e42e87a72fcbe57e50351b28a7c0aa/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.routerRoot=app&transform.reactCompiler=true:296819:27)
+    at recursivelyTraversePassiveMountEffects (https://b4862297-3454-4783-afbc-843ef462fdef-00-148ygwz9g77df.expo.sisko.replit.dev/node_modules/.pnpm/expo-rout
+```
+
+## Impact
+App crash — user cannot continue
+
+## Likely Root Causes
+- Unhandled null/undefined reference inside a React component
+- Incompatible or unexpected shape of API response data
+
+## Recommended Fixes
+- Wrap risky components in React Error Boundaries
+- Add optional chaining and null checks before rendering
+
+## Potential Consequences If Unresolved
+- User sees a blank white screen and cannot continue
+- Potential loss of unsaved user input or cart items
+
+## Suggested Investigation Steps
+1. Review the error message and stack trace above
+2. Identify the root cause in the Customer codebase
+3. Write a fix and add appropriate error handling
+4. Add tests to prevent regression
+5. Deploy and verify the fix in staging
+
+## Priority
+HIGH — This is a critical error affecting users. Fix ASAP.

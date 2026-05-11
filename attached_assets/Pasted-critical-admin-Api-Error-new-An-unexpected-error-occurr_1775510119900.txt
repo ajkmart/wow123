@@ -1,0 +1,218 @@
+critical
+admin
+Api Error
+new
+An unexpected error occurred. Please try again later.
+
+Just now
+/leaderboard
+Server error — feature unavailable
+
+New
+critical
+API Server
+Route Error
+new
+Failed query: select "users"."id", "vendor_profiles"."store_name", "users"."phone", count("orders"."id"), coalesce(sum("orders"."total"),0) from "users" left join "vendor_profiles" on "users"."id" = "vendor_profiles"."user_id" left join "orders" on ("orders"."vendor_id" = "users"."id" and "orders"."status" = $1) where "users"."roles" ilike $2 group by "users"."id" order by coalesce(sum("orders"."total"),0) desc limit $3 params: delivered,%vendor%,5
+
+Just now
+/api/admin/leaderboard
+Route handler failure — endpoint down
+
+New
+critical
+admin
+Api Error
+new
+An unexpected error occurred. Please try again later.
+
+2m ago
+/leaderboard
+Server error — feature unavailable
+
+New
+minor
+admin
+Ui Error
+new
+[vite] failed to connect to websocket. your current setup: (browser) 79ce2813-eed2-40e0-a836-a46487439de9-00-3idluzzbxhiqh.pike.replit.dev/admin/ <--[HTTP]--> localhost:23744/admin/ (server) (browser) 79ce2813-eed2-40e0-a836-a46487439de9-00-3idluzzbxhiqh.pike.replit.dev:/admin/ <--[WebSocket (failing)]--> localhost:23744/admin/ (server) Check out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .
+
+2m ago
+console.error
+Minor UI glitch
+
+New
+critical
+API Server
+Route Error
+new
+Failed query: select "users"."id", "vendor_profiles"."store_name", "users"."phone", count("orders"."id"), coalesce(sum("orders"."total"),0) from "users" left join "vendor_profiles" on "users"."id" = "vendor_profiles"."user_id" left join "orders" on ("orders"."vendor_id" = "users"."id" and "orders"."status" = $1) where "users"."roles" ilike $2 group by "users"."id" order by coalesce(sum("orders"."total"),0) desc limit $3 params: delivered,%vendor%,5
+
+2m ago
+/api/admin/leaderboard
+Route handler failure — endpoint down
+
+New
+critical
+admin
+Api Error
+new
+An unexpected error occurred. Please try again later.
+
+5m ago
+/leaderboard
+Server error — feature unavailable
+
+New
+critical
+API Server
+Route Error
+new
+Failed query: select "users"."id", "vendor_profiles"."store_name", "users"."phone", count("orders"."id"), coalesce(sum("orders"."total"),0) from "users" left join "vendor_profiles" on "users"."id" = "vendor_profiles"."user_id" left join "orders" on ("orders"."vendor_id" = "users"."id" and "orders"."status" = $1) where "users"."roles" ilike $2 group by "users"."id" order by coalesce(sum("orders"."total"),0) desc limit $3 params: delivered,%vendor%,5
+
+5m ago
+/api/admin/leaderboard
+Route handler failure — endpoint down
+
+New
+minor
+admin
+Ui Error
+new
+[vite] Failed to reload /src/pages/live-riders-map.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+
+10m ago
+console.error
+Minor UI glitch
+
+New
+minor
+admin
+Ui Error
+new
+[vite] Failed to reload /src/pages/live-riders-map.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+
+10m ago
+console.error
+Minor UI glitch
+
+New
+critical
+admin
+Api Error
+new
+An unexpected error occurred. Please try again later.
+
+11m ago
+/leaderboard
+Server error — feature unavailable
+
+New
+critical
+API Server
+Route Error
+new
+Failed query: select "users"."id", "vendor_profiles"."store_name", "users"."phone", count("orders"."id"), coalesce(sum("orders"."total"),0) from "users" left join "vendor_profiles" on "users"."id" = "vendor_profiles"."user_id" left join "orders" on ("orders"."vendor_id" = "users"."id" and "orders"."status" = $1) where "users"."roles" ilike $2 group by "users"."id" order by coalesce(sum("orders"."total"),0) desc limit $3 params: delivered,%vendor%,5
+
+11m ago
+/api/admin/leaderboard
+Route handler failure — endpoint down
+
+New
+critical
+admin
+Api Error
+new
+An unexpected error occurred. Please try again later.
+
+17m ago
+/leaderboard
+Server error — feature unavailable
+
+New
+critical
+API Server
+Route Error
+new
+Failed query: select "users"."id", "vendor_profiles"."store_name", "users"."phone", count("orders"."id"), coalesce(sum("orders"."total"),0) from "users" left join "vendor_profiles" on "users"."id" = "vendor_profiles"."user_id" left join "orders" on ("orders"."vendor_id" = "users"."id" and "orders"."status" = $1) where "users"."roles" ilike $2 group by "users"."id" order by coalesce(sum("orders"."total"),0) desc limit $3 params: delivered,%vendor%,5
+
+17m ago
+/api/admin/leaderboard
+Route handler failure — endpoint down
+
+New
+medium
+API Server
+Route Error
+new
+404 Not Found: GET /?q=call
+
+24m ago
+/
+Route error — degraded service
+
+New
+medium
+API Server
+Route Error
+new
+404 Not Found: GET /?q=vo
+
+24m ago
+/
+Route error — degraded service
+
+New
+critical
+API Server
+Route Error
+new
+Failed query: select "users"."id", "vendor_profiles"."store_name", "users"."phone", count("orders"."id"), coalesce(sum("orders"."total"),0) from "users" left join "vendor_profiles" on "users"."id" = "vendor_profiles"."user_id" left join "orders" on ("orders"."vendor_id" = "users"."id" and "orders"."status" = $1) where "users"."roles" ilike $2 group by "users"."id" order by coalesce(sum("orders"."total"),0) desc limit $3 params: delivered,%vendor%,5
+
+25m ago
+/api/admin/leaderboard
+Route handler failure — endpoint down
+
+New
+critical
+API Server
+Route Error
+new
+Failed query: select "users"."id", "vendor_profiles"."store_name", "users"."phone", count("orders"."id"), coalesce(sum("orders"."total"),0) from "users" left join "vendor_profiles" on "users"."id" = "vendor_profiles"."user_id" left join "orders" on ("orders"."vendor_id" = "users"."id" and "orders"."status" = $1) where "users"."roles" ilike $2 group by "users"."id" order by coalesce(sum("orders"."total"),0) desc limit $3 params: delivered,%vendor%,5
+
+26m ago
+/api/admin/leaderboard
+Route handler failure — endpoint down
+
+New
+critical
+API Server
+Route Error
+new
+Failed query: select "users"."id", "vendor_profiles"."store_name", "users"."phone", count("orders"."id"), coalesce(sum("orders"."total"),0) from "users" left join "vendor_profiles" on "users"."id" = "vendor_profiles"."user_id" left join "orders" on ("orders"."vendor_id" = "users"."id" and "orders"."status" = $1) where "users"."roles" ilike $2 group by "users"."id" order by coalesce(sum("orders"."total"),0) desc limit $3 params: delivered,%vendor%,5
+
+27m ago
+/api/admin/leaderboard
+Route handler failure — endpoint down
+
+New
+medium
+API Server
+Route Error
+new
+404 Not Found: POST /
+
+33m ago
+/
+Route error — degraded service
+
+New
+medium
+API Server
+Route Error
+new
+404 Not Found: POST /
+
+33m ago
+/
+Route error — degraded service

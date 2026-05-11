@@ -1,0 +1,35 @@
+Role: You are a Senior Full-Stack Engineer specializing in GIS (Geographic Information Systems) and API Integrations.
+The Problem:
+The "Ride a Book" module has LocationIQ, Mapbox, and Leaflet installed, but they are NOT working.
+"Use My Location" is non-functional (Browser/App Geolocation fail).
+Manual Address Search does not connect to the map (Forward Geocoding fail).
+Map Icon/Pin Drop is unresponsive (Leaflet Event Listener fail).
+Drop-off Location logic is broken.
+Your Mission:
+Audit the entire stack and configure a seamless flow between the Admin Panel settings and the Customer App. Fix every link in the chain.
+Step-by-Step Execution Plan:
+Step 1: API Configuration Audit
+Check how API keys (LocationIQ/Mapbox) are being pulled from the Admin Panel.
+Ensure they are correctly passed to the frontend environment variables.
+Fix: If the keys are missing in the request header or URL, fix the config file immediately.
+Step 2: Fix "Use My Location" (Reverse Geocoding)
+Implement navigator.geolocation.getCurrentPosition.
+Connect the resulting Coordinates (Lat/Lng) to the LocationIQ/Mapbox Reverse Geocoding API to fetch the human-readable address.
+Auto-fill the Pickup field once the address is fetched.
+Step 3: Fix Manual Search (Forward Geocoding)
+Integrate an Autocomplete/Search suggestion box.
+When a user types an address, fetch suggestions from Mapbox/LocationIQ.
+On selection, update the Leaflet Map view to that specific coordinate and drop a draggable pin.
+Step 4: Leaflet Map & Pin Drop Logic
+Fix the "Map Icon" click event. It must open a full-screen or modal Leaflet map.
+Enable Draggable Markers. When the user moves the pin, the address field (Pickup/Drop-off) must update in real-time.
+Ensure the map layer renders correctly (Check for CSS/Z-index issues where the map might be hidden).
+Step 5: Multi-Stop & Validation
+Apply the same logic for the Drop-off and Multi-stop points.
+Calculate the distance between points using the Mapbox Matrix API or Leaflet Routing Machine to ensure the ride price can be calculated later.
+Rules for the AI:
+No Placeholders: Write the actual logic for API calls.
+Error Handling: Add try-catch blocks for API failures (e.g., if a key is invalid, show a clear message).
+Continuous Loop: Test the flow: Search -> Select -> Pin Drop -> Save. Do not stop until this loop works 100% without console errors.
+Next Action:
+Analyze admin_settings, api_routes, and the RideBooking_Frontend files. Start by fixing the API connection first.

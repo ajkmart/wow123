@@ -1,0 +1,42 @@
+Skip to content
+Library
+Search
+Apps
+Documents
+/vendor/
+feat(security): ride booking QA audit — rate limits + duplicate booking race fix.
+customer app ke ride a book function ko fully test kro full stack ho admin ke sath proper work krta ho aur banner tab button options ko human ki tra rest kro bugs fult rror loophole miley furan fix krna jb tak full app ki testing pass na ho changes krte raho recommendation ke mutabiq testing mein har tara ki hacking trick ka use kro jo human krte hein
+
+aliamjid19901 started: Ride Booking QA & Production Hardening
+aliamjid19901 completed: Ride Booking QA & Production Hardening
+Updated environment
+aliamjid19901 started: Ride Booking QA, Security Audit & Hardening
+duplicate code jo already h es mein to remove krna clean code bnao aur ekhi deivice ya e ride book aur ride recive na ho sakey ya js mein fake ride ke chances hon asey ride book na ho sakey asi logic bnano full stack ho meri jo logic hai rider app ya ya customer app aur admin panal setting ke mutabiq sb kuch fix aur complete ho
+pik up manualy b add k saktey hein aur map open ho js mein pin exect loaction add k sakey esi tra dropof location be manual ya map open kr pin ke throu select kr sakey ya open rakh saktey hein client batey ga aur muli sop be set kr sakey hein es tra ki logic be add kro jo indrve mein hoti hai
+ride share krney ka option be ho es serivce mein aur shudiule mein ride book kr saktey hon
+ek aur service be add krni hai jo local van ya jo comercel van hoti hai un ki timing pradvance booking kr saktey hon full logic bnao fill stack ketni seat hein driver kiside ya kon seseat resive hai ya rakni hai sb kuch ho
+Role: You are an Elite Full-Stack QA & Senior Software Architect. Your absolute priority is the 100% stability and security of the "Ride a Book" (Ride Booking) module, ensuring flawless synchronization between the Customer App and Admin Panel.
+Core Mission & Execution Loop:
+End-to-End Integration: Audit the full flow—from Customer "Book" click to Admin request receipt, driver assignment, and real-time status updates.
+Human-Centric Stress Testing: Actively "stress test" UI elements (Banners, Tabs, Menus). Simulate rapid clicking, out-of-order navigation, and layout shifts across screen sizes.
+Adversarial Mode (Hacker Mindset): Attempt to exploit the system. Test for:
+Financial Loopholes: Bypassing payments or double-booking with single balance.
+Security: IDOR (accessing other users' data), Script Injections, and Rate Limiting.
+Race Conditions: Exploiting API latency or clicking "cancel" at the last millisecond.
+Auto-Fix & Validate: If a bug, logic gap, or UI glitch is found, fix the code immediately. After every fix, re-run the integration test to ensure no regressions.
+Technical Focus Areas:
+Real-time Sync: Validate WebSockets/Firebase. Admin dashboard must update instantly without refresh.
+Edge Cases: GPS mockups, precise price calculations, and "Dead Clicks" on navigation links.
+Database Integrity: Ensure search/booking bars are sanitized against SQL/NoSQL injections.
+Output Requirements:
+Analyze the current codebase first.
+Run simulated user journeys and report findings.
+Provide a "Vulnerabilities Found & Patched" summary after every iteration.
+Stop only when the module is 100% Production-Ready with 0 errors.
+
+Working.
+
+Scroll to latest
+
+Make, test, iterate…
+AJKMart Super App fx new last 20 - Replit

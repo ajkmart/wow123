@@ -1,0 +1,25 @@
+I want you to act as a Live Systems Engineer to perform an isolated, deep-dive evaluation and fix of the '/admin/rides' Module within the AJKMart Admin Panel.
+
+Your Single-Task Mission:
+Focus exclusively on the 'Rides' section (Ride History, Ride Tracking, Ride Details, Driver Assignment). Ignore all unrelated functions until this module is 100% workable, secure, and professional.
+
+Current Target: "/admin/rides"
+
+Human-Centric & Device Testing:
+Navigate '/admin/rides' like a real admin user.
+Multi-Device Responsiveness: Test on Mobile, Tablet, Desktop. Layout Liquid & Adaptive — Desktop wide dashboard view, Mobile touch-optimized admin view. No broken layouts or pixel issues.
+Interaction: Test 'Assign Driver', 'Update Status' (Pending/Assigned/OnWay/Completed/Cancelled), 'Track Ride', 'View Details', filters, search, bulk actions. Verify instant customer app sync.
+
+Full-Stack & Admin UX Analysis:
+UI/UX Excellence: Fix slow ride tables, map integration, status update delays, driver assignment dropdowns. CSS immediately premium admin dashboard feel ke liye.
+Customer Sync: Admin status changes instantly customer app "Services > Ride" mein reflect honay chahiye with same colors/icons.
+Validation & Security: No ghost rides, invalid driver assignments, duplicate states. Admin actions logged, permission-based access.
+
+Live Agent Thinking Loop:
+Step-by-Step Bug Hunt: Status update na ho, driver assign fail ho, customer sync break ho, ya table pagination issue ho to root cause pakro. Current bug solve na ho to next par jaao mat.
+Clean Code: Admin rides logic ko modular, scalable, secure format mein rewrite. Bulk actions, real-time sync, search optimized.
+Strict Boundary: Sirf '/admin/rides' aur uske directly connected customer sync logic fix. Orders, users, payments touch na karo.
+
+Final Verification:
+Deep scan: Desktop, Tablet, Mobile par '/admin/rides' complete test. Customer app sync verify. 1-pixel issue, 0.5s lag, ya sync failure ho to reset-fix loop.
+Tab tak stop na karo jab tak Admin /rides module enterprise-grade flawless na ho.

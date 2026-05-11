@@ -1,0 +1,40 @@
+Rider App Auth & Admin Controls Overhaul
+What & Why
+The rider app's authentication system has several gaps that need to be addressed for a professional, production-ready experience:
+
+Registration doesn't collect a username, so "login with username" doesn't work for riders who registered through the app
+2FA (two-factor authentication) exists in the API but the rider app has no UI to set it up or manage it
+If SMS doesn't arrive, riders have no fallback — 2FA via authenticator app or email should work as alternatives
+The "back to login" link on the register page only shows on step 1 — it should always be accessible
+Admin panel lacks granular control over rider app modules and features
+Done looks like
+Rider registration includes an optional username field (auto-suggested from name, with availability check) so riders can later log in with username+password
+Riders can set up 2FA (TOTP authenticator app like Google Authenticator) from their profile/settings screen in the rider app, with backup codes shown on setup
+During login, if 2FA is enabled, the rider is prompted for their authenticator code; if SMS OTP fails, email OTP is offered as automatic fallback
+The register page shows a persistent "Back to Login" link on all steps, not just step 1
+Admin panel has a "Rider App Features" section in settings where admins can toggle individual rider-facing modules on/off (e.g., wallet, earnings dashboard, delivery history, 2FA requirement, GPS tracking) and the rider app respects these toggles
+All new UI matches the existing green-themed professional design
+Out of scope
+SMS provider integration or SMS gateway setup
+Push notification system changes
+Rider app redesign beyond auth and admin-controlled features
+Social login changes (Google/Facebook already work)
+Tasks
+Add an optional username field to the rider registration form (Step 1 or Step 3), with real-time availability checking via the existing /auth/check-available endpoint, and pass it to the API during registration; update the API's /register endpoint to accept and save the username for rider signups
+Build a 2FA setup screen in the rider app (accessible from profile/settings) that calls the existing /auth/2fa/setup and /auth/2fa/verify-setup endpoints, shows the QR code and manual entry key, and displays backup codes after successful activation; include a disable option
+Wire up the login flow's 2FA step properly — when requires2FA: true is returned, show the TOTP code input (already partially exists) and add a "Use backup code" option that calls /auth/2fa/recovery; if phone OTP fails to send or user can't receive SMS, automatically offer email OTP as a fallback channel
+Make the "Already have account? Login" link visible on all registration steps (not just step 1), and ensure proper navigation back to login clears the registration form state
+Add a "Rider App Modules" settings section in the admin panel under Settings, with toggles for rider-facing features (wallet visibility, earnings dashboard, delivery history, 2FA enforcement, GPS tracking requirement, profile editing, support chat) — store these as platform_settings and expose them through the /platform-config endpoint so the rider app can read and respect them
+Relevant files
+artifacts/rider-app/src/pages/Register.tsx
+artifacts/rider-app/src/pages/Login.tsx
+artifacts/rider-app/src/lib/auth.tsx
+artifacts/rider-app/src/lib/api.ts
+artifacts/rider-app/src/lib/useConfig.ts:190-243
+artifacts/api-server/src/routes/auth.ts:1060-1182
+artifacts/api-server/src/routes/auth.ts:788-893
+artifacts/api-server/src/routes/auth.ts:1748-1930
+artifacts/api-server/src/routes/admin.ts
+artifacts/admin/src/pages/settings.tsx
+artifacts/admin/src/pages/app-management.tsx
+lib/db/src/schema/users.ts

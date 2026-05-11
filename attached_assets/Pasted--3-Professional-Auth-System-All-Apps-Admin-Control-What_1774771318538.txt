@@ -1,0 +1,115 @@
+#3 - Professional Auth System (All Apps + Admin Control)
+What & Why
+Teeno apps (Customer/Mobile, Rider Web, Vendor Web) ke liye complete professional-grade authentication system banana hai — Login, Register, Forgot Password, Social Login (Google/Facebook), Biometric Login, Email-based Registration, Two-Factor Authentication (2FA via authenticator apps), aur Passwordless Magic Links. Har app ke role aur function ke mutabiq. CAPTCHA security, National ID Card mandatory, aur Admin Panel se full control ke saath ke kaunsi auth service enable/disable hai. Zero loopholes, zero bugs — industry standard.
+
+Done looks like
+Login Page (All 3 Apps)
+Har app ka apna branded login page with role-specific branding
+Login methods: Phone OTP, Email OTP, Username+Password, Google Sign-In, Facebook Sign-In, Magic Link (email-based passwordless)
+CAPTCHA (reCAPTCHA v3 invisible) on all submissions
+Rate limiting + lockout countdown timer visible when locked
+Biometric login option (Customer mobile app: fingerprint/Face ID via Expo LocalAuthentication)
+2FA prompt after primary login if user has enabled it — enter TOTP code from authenticator app
+Admin jo methods enable kare, wahi dikhein — baqi hidden
+Register Page
+Customer: Multi-step — personal info (name, phone, email), CNIC mandatory (format: 00000-0000000-0), password, terms acceptance, CAPTCHA → OTP/email verification
+Rider: Same + vehicle type, vehicle reg, driving license → Pending Admin Approval
+Vendor: Same + business name, business type, store address, NTN optional → Pending Admin Approval
+Email-based registration option (without OTP, just email+password+verify link) — admin toggle se control
+Social registration (Google/Facebook) — auto-fills name + email, still requires CNIC and role-specific fields
+Forgot Password Page (All 3 Apps)
+Phone OTP ya Email OTP se password reset
+CAPTCHA on initiation
+New password + confirm with strength indicator
+If 2FA is enabled on account, must verify TOTP after OTP before allowing password reset
+Clear success/error messaging
+Social Login (Google + Facebook)
+Google Sign-In: OAuth 2.0 flow — web apps ke liye @react-oauth/google, mobile ke liye expo-auth-session
+Facebook Login: Facebook SDK — web ke liye Facebook JS SDK, mobile ke liye expo-auth-session with Facebook provider
+Backend: /auth/social/google and /auth/social/facebook endpoints — verify token, match/create user, return JWT
+If user exists → login directly (+ 2FA check if enabled). If new → redirect to register completion form (CNIC + role-specific fields still mandatory)
+Biometric Login (Customer Mobile App)
+After first successful login, prompt to enable fingerprint/Face ID
+Uses expo-local-authentication — checks device hardware support
+Stores auth token securely in expo-secure-store
+Biometric toggle in user settings (can enable/disable anytime)
+Graceful fallback to normal login if biometric fails or not supported
+Two-Factor Authentication (2FA)
+TOTP-based (Time-based One-Time Password) compatible with Google Authenticator, Authy, Microsoft Authenticator
+Setup flow: User goes to Security Settings → Enable 2FA → shows QR code (generated via otpauth:// URI) + manual secret key → user scans with authenticator app → enters 6-digit code to confirm → backup/recovery codes generated (8 codes, one-time use) → 2FA activated
+Login flow: After primary authentication (any method — password, OTP, social), if 2FA is enabled, show TOTP input screen → user enters 6-digit code from authenticator app → verified → session created. Option to "Trust this device for 30 days" to skip 2FA on trusted devices
+Recovery: If user loses authenticator access, can use one of 8 backup codes (each code works once). If all codes used, must contact admin for manual 2FA reset
+Backend: totp_secret (encrypted), totp_enabled, trusted_devices (JSON), backup_codes (hashed array) columns. /auth/2fa/setup (generate secret + QR), /auth/2fa/verify-setup (confirm first code), /auth/2fa/verify (verify on login), /auth/2fa/disable, /auth/2fa/recovery (use backup code) endpoints
+Admin can force-disable 2FA for a user from admin panel (emergency reset)
+Passwordless Magic Links
+User enters email → receives a magic link (unique token, expires in 15 minutes, single-use)
+Clicking link → auto-login (token verified server-side, JWT issued)
+If 2FA is enabled on account, clicking magic link still requires TOTP verification before session is created
+Web apps: link opens directly. Mobile app: deep link support via Expo Linking to handle magic link URLs
+Backend: /auth/magic-link/send (generates token, stores hash in DB, sends email with link), /auth/magic-link/verify (validates token, checks expiry, marks as used, returns JWT)
+Token stored in magic_link_tokens table: id, user_id, token_hash, expires_at, used_at, created_at
+Rate limited: max 3 magic links per email per 10 minutes
+Admin Panel: Auth Service Control
+New "Authentication Settings" section in Admin Panel Settings page
+Toggle switches for each auth method: Phone OTP, Email OTP, Username/Password, Google Login, Facebook Login, Email Registration (no OTP), Biometric Login, CAPTCHA enforcement, Two-Factor Authentication (2FA), Magic Links
+Per-app toggles: Admin can enable Google Login for Customer app but disable for Rider app, etc.
+Admin can force-disable 2FA for specific users (emergency support scenario)
+Admin can view which users have 2FA enabled
+Settings stored in existing platform_settings table with category auth
+Client apps fetch these settings via existing /platform-config endpoint and dynamically show/hide auth methods
+Audit log entry for every auth setting change
+Backend (Full Stack)
+DB migration: national_id, vehicle_type, vehicle_reg_no, driving_license, business_name, business_type, store_address, ntn, google_id, facebook_id, biometric_enabled, totp_secret (encrypted), totp_enabled, backup_codes, trusted_devices columns on users table. New magic_link_tokens table
+/auth/register endpoint per role (customer/rider/vendor) with CNIC validation + CAPTCHA verification
+/auth/social/google and /auth/social/facebook — token verification, user matching/creation
+/auth/forgot-password + /auth/reset-password — OTP-based password reset (with 2FA check if enabled)
+/auth/email-register — email+password registration without phone OTP (sends verification link instead)
+/auth/2fa/setup, /auth/2fa/verify-setup, /auth/2fa/verify, /auth/2fa/disable, /auth/2fa/recovery — full 2FA lifecycle
+/auth/magic-link/send, /auth/magic-link/verify — passwordless magic link flow
+CAPTCHA middleware: verifies reCAPTCHA v3 token server-side before processing
+Auth settings keys in platform_settings: auth_phone_otp_enabled, auth_email_otp_enabled, auth_username_password_enabled, auth_google_enabled, auth_facebook_enabled, auth_email_register_enabled, auth_biometric_enabled, auth_captcha_enabled, auth_2fa_enabled, auth_magic_link_enabled — each with per-app granularity
+Security & UX
+CNIC format enforced frontend + backend (regex: ^\d{5}-\d{7}-\d{1}$)
+Password min 8 chars, 1 uppercase, 1 number
+Phone format validation (03XX-XXXXXXX)
+Social tokens verified server-side (Google tokeninfo API / Facebook debug_token)
+TOTP secrets encrypted at rest, backup codes hashed (bcrypt)
+Magic link tokens hashed in DB, single-use, 15-min expiry
+Trusted device tracking via secure cookie/storage (device fingerprint + expiry)
+Clear error messages in Urdu/English, loading states, inline validation
+No auth method works if admin has disabled it — backend rejects even if frontend somehow sends request
+Out of scope
+Apple Sign-In (can add later)
+Hardware security keys (FIDO2/WebAuthn)
+SSO/SAML for enterprise
+Tasks
+Backend: DB migration + core auth endpoints — Add new columns to users/profiles table (national_id, vehicle_type, vehicle_reg_no, driving_license, business_name, business_type, store_address, ntn, google_id, facebook_id, biometric_enabled, totp_secret, totp_enabled, backup_codes, trusted_devices). Create magic_link_tokens table. Create /auth/register endpoint (role-specific) with CNIC validation and CAPTCHA middleware. Create /auth/forgot-password and /auth/reset-password endpoints (with 2FA check). Create /auth/email-register for email+password registration with verification link. Add CAPTCHA verification middleware.
+
+Backend: Social login + 2FA + Magic Links + auth settings — Create /auth/social/google and /auth/social/facebook endpoints. Create full 2FA endpoints: /auth/2fa/setup (generate TOTP secret + QR URI), /auth/2fa/verify-setup, /auth/2fa/verify (on login), /auth/2fa/disable, /auth/2fa/recovery (backup codes). Create /auth/magic-link/send and /auth/magic-link/verify endpoints with rate limiting (3 per email per 10 min). Seed platform_settings with all auth toggle keys with per-app granularity. Update /platform-config to include auth settings. Add middleware that checks if requested auth method is enabled for the requesting app.
+
+Shared: CAPTCHA + Social Login + 2FA utilities — Create shared CAPTCHA utility (reCAPTCHA v3 for web, WebView modal for Expo). Add Google OAuth client setup (@react-oauth/google for web, expo-auth-session for mobile). Add Facebook Login setup (JS SDK for web, expo-auth-session for mobile). Create shared 2FA setup component (QR code display using qrcode library, manual key copy, 6-digit TOTP input, backup codes display/download). Environment secrets: RECAPTCHA_SITE_KEY, RECAPTCHA_SECRET_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FACEBOOK_APP_ID, FACEBOOK_APP_SECRET.
+
+Rider App: Complete Auth Pages — Build Login page with all methods (Phone/Email/Username/Google/Facebook/Magic Link) — only show methods that platform config says are enabled. CAPTCHA on all submissions, lockout timer visible. 2FA verification screen after primary login if enabled. Build Register page as multi-step: Step 1 (name, phone, email), Step 2 (CNIC mandatory, vehicle type, vehicle reg, driving license), Step 3 (password, terms, CAPTCHA), Step 4 (OTP verification). Include email-register and magic link options if enabled. Add Forgot Password page (with 2FA check). Add Security Settings page for 2FA setup/management. On successful registration: Pending Approval screen.
+
+Vendor App: Complete Auth Pages — Build Login page with all methods (shown/hidden per admin config), 2FA verification screen. Build Register page: Step 1 (owner name, phone, email), Step 2 (CNIC mandatory, business name, business type, store address), Step 3 (NTN optional, password, terms, CAPTCHA), Step 4 (OTP verification). Include social login, email registration, magic link options. Add Forgot Password page (with 2FA check). Add Security Settings page for 2FA setup. On success: Vendor Approval Pending screen.
+
+Customer App (Expo): Complete Auth Screens + Biometric + 2FA — Refactor auth into Login screen (all methods per admin config, CAPTCHA via WebView, Google/Facebook via expo-auth-session, magic link via Expo Linking deep link), Register screen (multi-step: phone → name + email + CNIC → password → terms → success with signup bonus), Forgot Password screen (with 2FA check). Add Biometric login using expo-local-authentication + expo-secure-store. Add 2FA setup screen in profile/security settings (QR code, manual key, backup codes). Handle magic link deep links to auto-login.
+
+Admin Panel: Auth Settings Management — Add "Authentication Settings" section in Settings page. Build toggle UI for each auth method (Phone OTP, Email OTP, Username/Password, Google, Facebook, Email Registration, Biometric, CAPTCHA, 2FA, Magic Links) with per-app controls (Customer/Rider/Vendor columns). Add ability to view users with 2FA enabled and force-disable 2FA for specific users (emergency reset). Save to platform_settings with category auth. Audit log entries for auth setting changes. Test that toggling off a method immediately hides it from client apps.
+
+Validation & Security Hardening — Frontend: CNIC regex with real-time dash formatting, password strength meter, phone format validation (03XX-XXXXXXX). Backend: same validations server-side, social tokens verified against provider APIs, CAPTCHA token verified before every auth action, TOTP secrets encrypted at rest, backup codes hashed with bcrypt, magic link tokens hashed + single-use + 15-min expiry, trusted device fingerprinting for 2FA skip, disabled auth methods rejected at API level, all validation errors returned with user-friendly Urdu/English messages.
+
+Relevant files
+artifacts/ajkmart/app/auth/index.tsx
+artifacts/rider-app/src/pages/Login.tsx
+artifacts/vendor-app/src/pages/Login.tsx
+artifacts/api-server/src/routes/auth.ts
+artifacts/api-server/src/routes/platform-config.ts
+artifacts/api-server/src/routes/admin.ts
+artifacts/api-server/src/db/schema.ts
+lib/db/src/schema/platform_settings.ts
+artifacts/admin/src/pages/settings.tsx
+artifacts/admin/src/pages/app-management.tsx
+artifacts/rider-app/src/App.tsx
+artifacts/vendor-app/src/App.tsx
+artifacts/ajkmart/app/_layout.tsx

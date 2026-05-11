@@ -1,0 +1,40 @@
+CRITICAL BUGS
+Frontend / Navigation
+#	Masla	Detail
+1	Wishlist screen missing	router.push("/wishlist") call hai lekin app/wishlist.tsx file exist hi nahi karti — crash ho ga
+2	"Recently Viewed" broken	Profile page mein yeh button simply home tab par le jata hai, koi actual recently viewed screen nahi
+3	Food search category param ignored	Food/Pharmacy screen se category ke saath search open hota hai lekin search.tsx us param ko handle nahi karta
+4	Dynamic banner links unvalidated	API se aya koi bhi linkValue string direct router.push ho jata hai — invalid routes crash karenge
+Backend / API
+#	Masla	Detail
+5	Wallet transfer not atomic	POST /wallet/send mein sender se paise katne aur receiver ko milne ke beech DB transaction nahi — server crash ho to sender ka paisa gayab
+6	Idempotency TTL mismatch	Payment cache 5 minutes mein expire hota hai lekin payment gateway 30 minutes tak retry kar sakta hai — double charge ka risk
+7	Mixed cart backend mein enforce nahi	Frontend cart mixing rok ta hai lekin backend nahi — koi bhi mixed order submit kar sakta hai
+8	Auth backup codes crash	JSON.parse(user.backupCodes) malformed data par 500 error deta hai server-side
+9	Cart validation race condition	User items add kare aur validation in-flight ho to stale data newer changes overwrite kar deta hai
+Database
+#	Masla	Detail
+10	users table mein duplicate column	role aur roles dono exist karte hain — data divergence ka risk
+11	Reviews table mein foreign keys missing	orderId aur productId par koi FK constraint nahi — orphaned records ban sakte hain
+12	SOS feature ka table missing	/sos route exist karta hai lekin sos_alerts table schema mein nahi milta
+13	GPS precision inconsistent	orders table mein lat/lng scale: 7 use karta hai, van_routes mein scale: 6 — ek jagah hona chahiye
+🟡 MEDIUM BUGS
+Auth & Profile
+#	Masla	Detail
+14	Biometrics permanently disable	Temporary sensor error par bhi biometric permanently off ho jati hai
+15	Registration restart on session expiry	Multi-step registration mein step 4 par app reload ho to pura process dobara karna parta hai
+16	KYC — teen photos ek saath base64	3 high-res images simultaneously convert karne se low-end devices par memory crash ho sakta hai
+17	MPIN reset sirf OTP se	SIM swap ya chori ke baad attacker OTP se MPIN reset kar ke wallet khali kar sakta hai
+18	MPIN weak patterns allowed	"1234", "1111" jaise weak MPINs block nahi hote
+19	Stuck order screen	Payment ka socket ack na aye to user cart screen par phas jata hai even if payment actually succeed hui ho
+Missing Validations
+#	Masla	Detail
+20	Max quantity backend check nahi	Frontend 99 tak limit karta hai lekin API unlimited quantity accept karta hai
+21	KYC date of birth check nahi	Future date ya 18 saal se kam age enter ho sakti hai
+22	Profile name minimum length nahi	1 character ka naam allow ho jata hai
+23	Manual payment proof upload missing	JazzCash/EasyPaisa manual mode mein sirf transaction ID maangi jati hai, receipt image nahi
+DB Performance (Missing Indexes)
+#	Masla	Detail
+24	reviews.orderId index nahi	Order ke reviews fetch karte waqt slow query
+25	orders.assignedRiderId index nahi	Rider dispatch phase mein slow
+26	products.name / price index nahi	Search aur sort operations slow

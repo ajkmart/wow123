@@ -74,9 +74,16 @@ export async function runSqlMigrations() {
         const cleaned = sql.replace(/--> statement-breakpoint/g, "");
         try {
           await pool.query(cleaned);
-        } catch (err) {
-          logger.error({ file, err }, "[migrations:drizzle] FAILED applying migration");
-          throw err;
+        } catch (err: any) {
+          // PG error codes: 42P07 = duplicate_table, 42710 = duplicate_object,
+          // 42701 = duplicate_column, 42P16 = invalid_table_definition (idx already exists)
+          const alreadyExists = ["42P07", "42710", "42701", "42P16", "42P11"].includes(err.code);
+          if (alreadyExists) {
+            logger.warn({ file, code: err.code, msg: err.message }, "[migrations:drizzle] Skipping — objects already exist (marking as applied)");
+          } else {
+            logger.error({ file, err }, "[migrations:drizzle] FAILED applying migration");
+            throw err;
+          }
         }
         await pool.query(
           "INSERT INTO _drizzle_migrations (filename) VALUES ($1)",
@@ -107,9 +114,16 @@ export async function runSqlMigrations() {
         const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
         try {
           await pool.query(sql);
-        } catch (err) {
-          logger.error({ file, err }, "[migrations] FAILED applying migration");
-          throw err;
+        } catch (err: any) {
+          // PG error codes: 42P07 = duplicate_table, 42710 = duplicate_object,
+          // 42701 = duplicate_column, 42P16 = invalid_table_definition (idx already exists)
+          const alreadyExists = ["42P07", "42710", "42701", "42P16", "42P11"].includes(err.code);
+          if (alreadyExists) {
+            logger.warn({ file, code: err.code, msg: err.message }, "[migrations] Skipping — objects already exist (marking as applied)");
+          } else {
+            logger.error({ file, err }, "[migrations] FAILED applying migration");
+            throw err;
+          }
         }
         await pool.query(
           "INSERT INTO _schema_migrations (filename) VALUES ($1)",

@@ -1,0 +1,27 @@
+BACKEND (API Server)
+🔴 Critical Issues
+API server start nahi ho rahi — Port 8080 EADDRINUSE error — port already in use hai, fuser -k command properly kill nahi kar pa raha
+i18n mein 30 duplicate keys — lib/i18n/src/index.ts mein reason, parcelDetails, cancelOrder, rickshaw, pickup, bike, car, fare, sortNewest, goBack duplicate hain — English, Urdu, aur Roman Urdu teeno mein
+🟡 Type Safety Issues (65+ as any)
+Admin orders mein unsafe casting — (req as any).admin?.id — 5 jagah admin user ko any se access kiya ja raha hai
+Admin conditions mein excessive as any — conditions.ts mein 15+ casts for condition types, severity, user metrics
+Maps routes heavily untyped — maps.ts mein 15+ json() as any — geocoding/routing responses properly typed nahi
+Pharmacy route mein items as any[] — pharmacy order items properly validated nahi hain type-level pe
+Orders route (order as any).vendorId — 3 jagah vendorId ka type order model mein properly defined nahi
+Admin rides mein .set(patch as any) — Drizzle update mein unsafe type bypass
+Admin finance mein (r as any).isOnline — rider profile fields ka type missing
+🟡 Silent Error Swallowing (40+ empty catches)
+Rides route — 15+ .catch(() => {}) — ride updates, notifications, OTP saves silently fail
+Vendor route — 5+ empty catches — notifications aur updates silently lost
+Pharmacy route — 3 empty catches — order creation notifications swallowed
+Security middleware — Blocked IP loading failure silently ignored
+🟡 Build Warnings
+Bundle size 12.9MB — API server ka output bundle bahut bada hai — performance issue on cold start
+DATABASE / SHARED LIBRARIES
+🟡 i18n Schema Issues
+30 duplicate translation keys — lib/i18n/src/index.ts (6,923 lines) mein same keys repeated across all 3 languages — later duplicate silently overwrites the first one, causing inconsistent translations
+Urdu inconsistency — bike = "موٹر سائیکل" (first) vs "بائیک" (duplicate) — only one survives
+Roman Urdu inconsistency — sortNewest = "Naya pehle" (first) vs "Naye" (duplicate)
+🟡 Database Schema Gaps
+tripOtp aur otpVerified DB mein exist karte hain magar frontend types mein define nahi — isliye RideTracker mein (ride as any).tripOtp use karna padta hai
+User model mein missing fields — cancellationRate, fraudIncidents, abuseReports, avgRating, missIgnoreRate, orderCompletionRate — admin conditions route mein (user as any).field se access ho rahe hain

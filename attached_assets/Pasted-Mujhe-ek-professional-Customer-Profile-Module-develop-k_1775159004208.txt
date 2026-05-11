@@ -1,0 +1,39 @@
+Mujhe ek professional Customer Profile Module develop karna hai Alerpa App ke liye jo niche di gayi technical aur design requirements ko follow kare. Yeh code modular, secure aur scalable hona chahiye.
+
+1. UI/UX & Interaction Design (IxD):
+
+Information Architecture: Profile section ko clear hierarchy mein divide karein (Personal Info, KYC, Settings, Security).
+
+A11y (Accessibility): High contrast buttons aur adjustable font size support karein.
+
+Visual Feedback: Har button par haptic feedback/loading states (spinners) honi chahiye jab data fetch ya save ho raha ho.
+
+UI/UX Cycle: Design 'Empathize' phase se start ho kar 'Testing' logic tak jaye (error handling ke saath).
+
+2. Core Features & Logic:
+
+KYC System: User documents upload kar sake aur status (Pending/Verified/Rejected) show ho.
+
+Account Levels: Multiple levels honi chahiye (e.g., Bronze, Silver, Gold) jo activity par depend karein.
+
+Multi-Language: Global language switcher ho. App sirf wahi languages dikhaye jo Admin Panel ne allow ki hain. Language change hone par puri app ka UI translate hona chahiye.
+
+3. Database & Backend (The Server):
+
+Tables: Users Table (profile details), Settings Table (language/prefs), aur Logs Table (security audits) create karein.
+
+Auth Logic: JWT based Authentication aur Role-based Authorization implement karein. Input validation ke liye 'Zod' ya 'Joi' use karein.
+
+Duplicate Prevention: Backend par unique constraints (Email/Phone) lagayein taake duplicate accounts na ban saken. Request throttling (Rate limiting) bhi add karein.
+
+4. API Architecture:
+
+Saaf-suthre API routes banayein: POST /auth/register, GET /profile/me, PUT /profile/update, POST /kyc/upload.
+
+Middleware: Har request 'Guard' (Middleware) se guzre jo encryption check kare aur data sanitize kare.
+
+Output Requirement:
+Mujhe Clean Code (Clean Architecture) chahiye jisme documentation ho. UI modern aur bug-free ho aur backend logic mein koi loop-holes na hon."
+
+Prompt Ko Behtar Use Karne Ke Tips:
+Tech Stack Mention Karein: Agar aap Flutter, React Native, ya Node.js use kar rahe hain, to prompt ke start mein li

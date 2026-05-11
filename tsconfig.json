@@ -11,6 +11,7 @@
     { "path": "./lib/auth-utils" },
     { "path": "./lib/db" },
     { "path": "./lib/integrations-gemini-ai" },
-    { "path": "./lib/phone-utils" }
+    { "path": "./lib/phone-utils" },
+    { "path": "./lib/ui" }
   ]
 }
