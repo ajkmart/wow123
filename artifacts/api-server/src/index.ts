@@ -35,7 +35,7 @@ process.on("uncaughtException", (err) => {
 });
 
 // ─── ENV FIRST-RUN CHECK ───────────────────────────────────────────────────
-const CRITICAL_VARS = ["DATABASE_URL", "JWT_SECRET", "ENCRYPTION_MASTER_KEY", "REDIS_URL"] as const;
+const CRITICAL_VARS = ["DATABASE_URL", "JWT_SECRET", "ENCRYPTION_MASTER_KEY"] as const;
 const IMPORTANT_VARS = [
   "ADMIN_ACCESS_TOKEN_SECRET",
   "ADMIN_REFRESH_TOKEN_SECRET",
@@ -262,30 +262,63 @@ async function main() {
   try { writeFileSync(PID_FILE, String(process.pid)); } catch { /* non-fatal */ }
   process.on('exit', () => { try { unlinkSync(PID_FILE); } catch { /* ignore */ } });
 
-  const httpServer = server.listen(listenPort, "0.0.0.0", () => {
-    const addr = httpServer.address();
-    logger.info(`[server:listen] Server listening on port ${listenPort} (addr=${JSON.stringify(addr)})`);
+  /* ── activeServer ref — updated once the bind succeeds so shutdown handlers
+     always call close() on the real HTTP server.                              */
+  let activeServer: ReturnType<typeof server.listen> | null = null;
 
-    runStartupTasks()
-      .then(() => {
-        logger.info("[startup] migrations + RBAC ready — serving requests");
-        startScheduler();
-        logger.info("[startup] background scheduler started");
-      })
-      .catch((err: Error) => {
-        logger.error("[startup] fatal — refusing to continue:", err);
-        process.exit(1);
-      });
-  });
+  function bindServer(port: number, attempt = 1): void {
+    const MAX_BIND_ATTEMPTS = 3;
+    const BIND_RETRY_DELAY = 1000;
 
-  httpServer.on("error", (err: NodeJS.ErrnoException) => {
-    logger.error(`[server:error] Failed to bind port ${listenPort}:`, {
-      code: err.code,
-      message: err.message,
-      errno: err.errno
+    const hs = server.listen(port, "0.0.0.0", () => {
+      activeServer = hs;
+      const addr = hs.address();
+      logger.info(`[server:listen] Server listening on port ${port} (addr=${JSON.stringify(addr)})`);
+
+      runStartupTasks()
+        .then(() => {
+          logger.info("[startup] migrations + RBAC ready — serving requests");
+          startScheduler();
+          logger.info("[startup] background scheduler started");
+        })
+        .catch((startErr: Error) => {
+          logger.error("[startup] fatal — refusing to continue:", startErr);
+          process.exit(1);
+        });
     });
-    process.exit(1);
-  });
+
+    hs.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE" && attempt < MAX_BIND_ATTEMPTS) {
+        logger.warn(
+          `[server:error] Port ${port} in use (attempt ${attempt}/${MAX_BIND_ATTEMPTS}) — freeing and retrying in ${BIND_RETRY_DELAY}ms…`
+        );
+        tryKillPort(port);
+        setTimeout(() => bindServer(port, attempt + 1), BIND_RETRY_DELAY);
+      } else {
+        logger.error(`[server:error] Failed to bind port ${port}:`, {
+          code: err.code,
+          message: err.message,
+          errno: err.errno,
+        });
+        process.exit(1);
+      }
+    });
+  }
+
+  bindServer(listenPort);
+
+  /* ── httpServer shim — keeps shutdown handlers below working regardless of
+     whether bindServer has resolved yet. If SIGTERM arrives before the bind
+     completes we exit immediately (safe because the server isn't serving yet). */
+  const httpServer = {
+    close: (cb?: (err?: Error) => void) => {
+      if (activeServer) {
+        activeServer.close(cb);
+      } else {
+        cb?.();
+      }
+    },
+  } as ReturnType<typeof server.listen>;
 
   /* ── Graceful shutdown ────────────────────────────────────────────────────
      On SIGTERM (container stop / platform restart) or SIGINT (Ctrl-C):

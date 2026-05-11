@@ -18,9 +18,9 @@ if (baseUrl && apiKey) {
     !baseUrl && "AI_INTEGRATIONS_GEMINI_BASE_URL",
     !apiKey && "AI_INTEGRATIONS_GEMINI_API_KEY",
   ].filter(Boolean);
-  console.warn(
-    `[gemini-ai] Gemini integration not configured — missing: ${missing.join(", ")}. ` +
-    `AI features will be unavailable. Provision the Gemini integration in the Replit Integrations panel.`
+  console.info(
+    `[gemini-ai] Gemini integration not active (missing: ${missing.join(", ")}). ` +
+    `AI features will be unavailable until configured in the Replit Integrations panel.`
   );
 }
 

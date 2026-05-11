@@ -278,10 +278,18 @@ async function handlePorts(ports) {
       const occupied = !(await isPortFree(port));
       if (!occupied) continue;
       if (name === "api") {
-        // We own the API port — always reclaim it
-        log(`Port ${port} (${name}) occupied — killing stale process…`);
+        // We own the API port — kill any stale restart-wrapper AND the port holder
+        log(`Port ${port} (${name}) occupied — killing stale processes…`);
+        // Kill old restart-wrapper first so it can't respawn the API after we free the port
+        try { execSync('pkill -9 -f "start-with-restart.mjs" 2>/dev/null || true', { stdio: "ignore" }); } catch {}
+        await new Promise(r => setTimeout(r, 200));
         killPort(port);
-        await new Promise(r => setTimeout(r, 600));
+        // Wait for OS to release the port; poll up to 2s
+        for (let i = 0; i < 8; i++) {
+          await new Promise(r => setTimeout(r, 250));
+          if (await isPortFree(port)) break;
+          if (i === 7) warn(`Port ${port} still occupied after 2s — proceeding anyway`);
+        }
       } else {
         // A Replit artifact workflow already owns this frontend port — leave it alone
         log(`Port ${port} (${name}) already managed by artifact workflow — skipping`);
