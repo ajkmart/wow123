@@ -1610,7 +1610,7 @@ async function handleRefreshToken(req: Request, res: any) {
   const ip = getClientIp(req);
 
   if (!cookieToken || cookieToken.length < 10) {
-    sendError(res, "Refresh token required. Please log in again.", 400);
+    sendError(res, "Refresh token required. Please log in again.", 401);
     return;
   }
 

@@ -59,11 +59,18 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       setLanguageState(local);
       applyRTL(local);
       setInitialised(true);
-      /* P3: Do NOT overwrite the local choice from the server. We still fetch
-         settings (other UI may consume it via React Query later) but ignore
-         the server `language` field for an explicit-pick rider. */
-      api.getSettings().catch(() => {});
+      /* Only sync language preference from server when authenticated — avoids
+         a 401 on the login page which would log noise in the browser console. */
+      if (api.getToken()) {
+        api.getSettings().catch(() => {});
+      }
     } else {
+      /* Only fetch from server when a token exists — avoids a 401 on the login
+         page which would trigger an unintended logout cycle in apiFetch. */
+      if (!api.getToken()) {
+        setInitialised(true);
+        return;
+      }
       api.getSettings()
         .then((data: { language?: string }) => {
           /* If the user has set a language between fetch start and resolution,

@@ -6,6 +6,7 @@ import { writeFileSync, unlinkSync } from 'fs';
 import { createServer, runStartupTasks } from "./app.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
 import { waitForRedisReady } from "./lib/redis.js";
+import { initSocketIO } from "./lib/socketio.js";
 
 /* ── Sentry error tracking ───────────────────────────────────────────────────
    Imported directly (no dynamic import) so initialization happens synchronously
@@ -278,6 +279,12 @@ async function main() {
       activeServer = hs;
       const addr = hs.address();
       logger.info(`[server:listen] Server listening on port ${port} (addr=${JSON.stringify(addr)})`);
+
+      /* ── Socket.IO initialisation — must run after the HTTP server is bound
+         so Socket.IO can attach its engine to the live TCP socket.
+         initSocketIO() is idempotent on repeat calls (returns cached instance). */
+      initSocketIO(hs);
+      logger.info("[socketio] Socket.IO initialised on path /api/socket.io");
 
       runStartupTasks()
         .then(() => {

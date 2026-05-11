@@ -122,8 +122,8 @@ export default defineConfig(async ({ mode: _mode }) => {
     headers: {
       "Cache-Control": "no-store",
     },
-    hmr: process.env.REPLIT_DEV_DOMAIN
-      ? { clientPort: 443, protocol: "wss", host: process.env.REPLIT_DEV_DOMAIN }
+    hmr: process.env.REPL_ID
+      ? false
       : { port: port },
     proxy: {
       "/api": {
