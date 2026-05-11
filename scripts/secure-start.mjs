@@ -439,19 +439,30 @@ async function main() {
   buildLibs();
 
   // ── Step 6: Handle ports ──────────────────────────────────────────────────
-  const alreadyRunning = await handlePorts([
-    { name: "api",     port: apiPort    },
-    { name: "admin",   port: adminPort  },
-    { name: "vendor",  port: vendorPort },
-    { name: "rider",   port: riderPort  },
-    { name: "ajkmart", port: ajkPort    },
-  ]);
+  // In Replit mode the frontend apps are managed by their own artifact
+  // workflows (artifacts/admin, artifacts/vendor-app, etc.).  Passing those
+  // ports to handlePorts would race with those workflows and steal their ports
+  // before they have a chance to bind, causing them to fall back to random
+  // high ports.  Only hand the API port to handlePorts; leave frontends alone.
+  const alreadyRunning = await handlePorts(
+    IS_REPLIT
+      ? [{ name: "api", port: apiPort }]
+      : [
+          { name: "api",     port: apiPort    },
+          { name: "admin",   port: adminPort  },
+          { name: "vendor",  port: vendorPort },
+          { name: "rider",   port: riderPort  },
+          { name: "ajkmart", port: ajkPort    },
+        ]
+  );
 
   // ── Step 7: Launch all services ───────────────────────────────────────────
   const domain     = process.env.REPLIT_DEV_DOMAIN        || "";
   const expoDomain = process.env.REPLIT_EXPO_DEV_DOMAIN   || domain;
 
-  const services = [
+  // In Replit mode, frontend apps are started by their own artifact workflows.
+  // secure-start.mjs must NOT launch them here or it will steal their ports.
+  const allServices = [
     {
       name:      "api",
       args:      ["--filter", "@workspace/api-server", "dev"],
@@ -463,10 +474,10 @@ async function main() {
       name:      "admin",
       args:      ["--filter", "@workspace/admin", "dev"],
       env:       {
-        ADMIN_DEV_PORT:       adminPort,
-        ADMIN_PORT_OVERRIDE:  adminPort,
-        HOST:                 "0.0.0.0",
-        BASE_PATH:            "/admin/",
+        ADMIN_DEV_PORT:        adminPort,
+        ADMIN_PORT_OVERRIDE:   adminPort,
+        HOST:                  "0.0.0.0",
+        BASE_PATH:             "/admin/",
         VITE_API_PROXY_TARGET: apiProxy,
       },
       healthUrl: `http://127.0.0.1:${adminPort}/`,
@@ -513,6 +524,11 @@ async function main() {
       delayMs:   3000,
     },
   ];
+
+  // In Replit: only API is ours. Frontends run via separate artifact workflows.
+  const services = IS_REPLIT
+    ? allServices.filter(s => s.name === "api")
+    : allServices;
 
   const servicesToStart = services.filter(svc => !alreadyRunning.includes(svc.name));
 
