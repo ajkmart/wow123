@@ -411,7 +411,7 @@ export function createServer() {
         Registered BEFORE helmet so the proxied responses carry the
         upstream Vite headers untouched. ─────────────────────────────────── */
   if (process.env.NODE_ENV !== "production") {
-    const adminTarget = `http://127.0.0.1:${process.env.ADMIN_DEV_PORT ?? "23744"}`;
+    const adminTarget = `http://127.0.0.1:${process.env.ADMIN_DEV_PORT ?? "3000"}`;
     // Vite injects absolute paths like /@vite/client and /@replit/... into the page.
     // When these are fetched from the root origin (port 5000) they miss the sub-path
     // proxy rules. Forward all /@... paths to the admin Vite server so the browser
@@ -431,8 +431,8 @@ export function createServer() {
 
     const devProxies: Array<{ prefix: string; target: string; ws?: boolean; rewriteToRoot?: boolean }> = [
       { prefix: "/admin",    target: adminTarget, ws: true },
-      { prefix: "/vendor",   target: `http://127.0.0.1:${process.env.VENDOR_DEV_PORT ?? "3002"}`, ws: true },
-      { prefix: "/rider",    target: `http://127.0.0.1:${process.env.RIDER_DEV_PORT  ?? "3001"}`, ws: true },
+      { prefix: "/vendor",   target: `http://127.0.0.1:${process.env.VENDOR_DEV_PORT ?? "3001"}`, ws: true },
+      { prefix: "/rider",    target: `http://127.0.0.1:${process.env.RIDER_DEV_PORT  ?? "3002"}`, ws: true },
       { prefix: "/__mockup", target: `http://127.0.0.1:${process.env.MOCKUP_DEV_PORT ?? "8081"}`,  ws: true },
       // Expo customer app serves at "/", so /customer/* → strip prefix.
       // Absolute asset URLs Expo embeds (e.g. /_expo/static/...) are caught
