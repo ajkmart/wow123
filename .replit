@@ -1,5 +1,4 @@
-# AJKMart  Project Configuration
-modules = ["nodejs-20", "python-3.11"]
+modules = ["nodejs-20"]
 
 # Smart Launch: Workflow logic integrated into one run command
 run = """
@@ -75,13 +74,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "node scripts/secure-start.mjs"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server dev"
+waitForPort = 5000
 
 [[ports]]
 localPort = 3000
@@ -110,10 +109,6 @@ externalPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 19006
-externalPort = 5173
 
 [[ports]]
 localPort = 20716
