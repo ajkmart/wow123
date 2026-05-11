@@ -163,11 +163,15 @@ function DashboardTab() {
       transports: ["polling", "websocket"],
     });
 
-    socket.on("comm:dashboard:update", (data: Partial<DashboardStats>) => {
+    const handler = (data: Partial<DashboardStats>) => {
       setStats(prev => prev ? { ...prev, ...data } : prev);
-    });
+    };
+    socket.on("comm:dashboard:update", handler);
 
-    return () => { socket.disconnect(); };
+    return () => {
+      socket.off("comm:dashboard:update", handler);
+      socket.disconnect();
+    };
   }, [token]);
 
   if (!stats) return <div className="flex items-center justify-center p-8"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;

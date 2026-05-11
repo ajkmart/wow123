@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { getAdminAccessToken } from "@/lib/adminFetcher";
+import { getAdminAccessToken, adminAbsoluteFetch } from "@/lib/adminFetcher";
 import { PageHeader, StatCard } from "@/components/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { io } from "socket.io-client";
@@ -573,11 +573,9 @@ function useDispatchTileConfig() {
     provider: "osm",
   });
   useAbortableEffect((signal) => {
-    fetch(`${window.location.origin}/api/maps/config?app=admin`, { signal })
-      .then(r => r.json())
-      .then((d: any) => {
+    adminAbsoluteFetch("/api/maps/config?app=admin", { signal })
+      .then((cfg: any) => {
         if (signal.aborted) return;
-        const cfg = d?.data ?? d;
         const prov = cfg?.provider ?? "osm";
         const tok  = cfg?.token ?? "";
         if (prov === "mapbox" && tok) {
@@ -734,6 +732,7 @@ function DispatchMonitor() {
     });
 
     socket.on("connect_error", (err) => {
+      console.warn("[dispatch-monitor] WebSocket connect_error:", err?.message ?? err);
     });
 
     return () => { socket.disconnect(); };
@@ -1528,6 +1527,7 @@ export default function Rides() {
       queryClient.invalidateQueries({ queryKey: ["admin-rides-enriched"] });
     });
     socket.on("connect_error", (err) => {
+      console.warn("[rides] WebSocket connect_error:", err?.message ?? err);
     });
     return () => { socket.disconnect(); };
   }, [queryClient]);

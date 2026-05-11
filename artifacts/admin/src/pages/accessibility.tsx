@@ -26,7 +26,7 @@ export default function AccessibilityPage() {
         if (prefs.contrast) setContrast(prefs.contrast as AdminContrast);
         if (typeof prefs.reduce_motion === "boolean") setReduceMotion(prefs.reduce_motion);
       })
-      .catch(() => {});
+      .catch(() => { setSyncStatus("error"); });
     mountedRef.current = true;
   }, []);
 

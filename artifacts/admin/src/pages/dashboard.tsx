@@ -10,7 +10,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { adminFetch, adminGet, adminPut } from "@/lib/adminFetcher";
+import { adminFetch, adminPut } from "@/lib/adminFetcher";
 import { useLanguage } from "@/lib/useLanguage";
 import { tDual, type TranslationKey } from "@workspace/i18n";
 import { PullToRefresh } from "@/components/PullToRefresh";
@@ -22,7 +22,7 @@ function exportDashboard(
   setExporting: (v: boolean) => void,
 ) {
   setExporting(true);
-  (adminGet ? adminGet("/fleet/dashboard-export") : adminFetch("/fleet/dashboard-export")).then((data: any) => {
+  adminFetch("/fleet/dashboard-export").then((data: any) => {
     const enriched = { ...data, trend: data.trend ?? trend };
     const blob = new Blob([JSON.stringify(enriched, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

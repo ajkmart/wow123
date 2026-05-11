@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { adminFetch, getAdminAccessToken } from "@/lib/adminFetcher";
+import { adminFetch, adminAbsoluteFetch, getAdminAccessToken } from "@/lib/adminFetcher";
 import { PageHeader } from "@/components/shared";
 import { useLiveRiders, usePlatformSettings, useRiderRoute, useCustomerLocations, useRiderTrailsBatch, useFleetVendors } from "@/hooks/use-admin";
 import { MapPin, RefreshCw, Users, Navigation, Route, Clock, Eye, EyeOff, AlertTriangle, MessageSquare, BarChart2, Activity, TrendingUp, X, History, Layers, ChevronLeft, ChevronRight, Store, Search, Bike, Zap } from "lucide-react";
@@ -694,12 +694,7 @@ export default function LiveRidersMap() {
     // (auth, network, malformed JSON) invisible, leaving the live tracker
     // silently stuck on the OSM fallback.
     queryFn: async (): Promise<MapConfig | undefined> => {
-      const res = await fetch(`${window.location.origin}/api/maps/config?app=admin`);
-      if (!res.ok) {
-        throw new Error(`maps/config returned HTTP ${res.status}`);
-      }
-      const json = await res.json();
-      return (json.data ?? json) as MapConfig;
+      return adminAbsoluteFetch("/api/maps/config?app=admin") as Promise<MapConfig | undefined>;
     },
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,

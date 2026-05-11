@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { adminFetch } from "@/lib/adminFetcher";
+import { adminFetch, fetchAdminAbsoluteResponse } from "@/lib/adminFetcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Image, Plus, Pencil, Trash2, Save, GripVertical,
@@ -118,7 +118,7 @@ export default function BannersPage() {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      const uploadRes = await fetch(`${window.location.origin}/api/uploads`, {
+      const uploadRes = await fetchAdminAbsoluteResponse("/api/uploads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ file: base64, filename: file.name, mimeType: file.type }),

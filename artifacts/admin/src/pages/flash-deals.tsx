@@ -58,7 +58,7 @@ function useServerOffset(): number {
         const rtt = Date.now() - start;
         setOffset(serverTime - (Date.now() - rtt / 2));
       })
-      .catch(() => {});
+      .catch(() => { console.warn("flash-deals: server time fetch failed, using local clock"); });
   }, []);
   return offset;
 }
