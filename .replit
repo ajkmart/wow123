@@ -24,7 +24,58 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin Panel"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Rider App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
 args = "Vendor App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "AJKMart Customer App"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=5000 node scripts/secure-start.mjs"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Admin Panel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "ADMIN_PORT_OVERRIDE=23744 ADMIN_DEV_PORT=23744 BASE_PATH=/admin/ VITE_API_PROXY_TARGET=http://127.0.0.1:5000 pnpm --filter @workspace/admin dev"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Rider App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "RIDER_DEV_PORT=3003 BASE_PATH=/rider/ VITE_API_PROXY_TARGET=http://127.0.0.1:5000 pnpm --filter @workspace/rider-app dev"
+waitForPort = 3003
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[workflows.workflow]]
 name = "Vendor App"
@@ -32,8 +83,20 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/vendor-app && PORT=3003 pnpm run dev"
-waitForPort = 3003
+args = "VENDOR_DEV_PORT=3002 BASE_PATH=/vendor/ VITE_API_PROXY_TARGET=http://127.0.0.1:5000 pnpm --filter @workspace/vendor-app dev"
+waitForPort = 3002
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "AJKMart Customer App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=4200 BASE_PATH=/ EXPO_PUBLIC_DOMAIN=$REPLIT_EXPO_DEV_DOMAIN pnpm --filter @workspace/ajkmart dev:web"
+waitForPort = 4200
 
 [workflows.workflow.metadata]
 outputType = "webview"

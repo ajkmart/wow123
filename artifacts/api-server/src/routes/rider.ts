@@ -313,7 +313,7 @@ router.get("/me", async (req, res) => {
     vehiclePhoto: (user as any).vehiclePhoto,
     ...(() => {
       try {
-        const docs = JSON.parse((user as any).documents || "{}");
+        const docs = JSON.parse(user.documents || "{}");
         return { cnicDocUrl: docs.cnicDocUrl || null, licenseDocUrl: docs.licenseDocUrl || null, regDocUrl: docs.regDocUrl || null };
       } catch { return { cnicDocUrl: null, licenseDocUrl: null, regDocUrl: null }; }
     })(),
@@ -532,7 +532,7 @@ router.patch("/profile", async (req, res) => {
     vehiclePhoto: (user as any).vehiclePhoto,
     ...(() => {
       try {
-        const docs = JSON.parse((user as any).documents || "{}");
+        const docs = JSON.parse(user.documents || "{}");
         return { cnicDocUrl: docs.cnicDocUrl || null, licenseDocUrl: docs.licenseDocUrl || null, regDocUrl: docs.regDocUrl || null };
       } catch { return { cnicDocUrl: null, licenseDocUrl: null, regDocUrl: null }; }
     })(),
@@ -2902,6 +2902,8 @@ router.post("/sos", async (req, res) => {
     phone:     riderUser.phone ?? null,
     latitude:  validCoords ? parsedLat! : null,
     longitude: validCoords ? parsedLng! : null,
+    rideId:    rideId ?? null,
+    sentAt:    now.toISOString(),
   });
 
   /* New lifecycle event — drives admin SOS alert panel and sidebar badge */
