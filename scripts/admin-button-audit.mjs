@@ -263,9 +263,21 @@ function pad(str, n) {
   return String(str).padEnd(n);
 }
 
-// ─── STEP 1: LOGIN ───────────────────────────────────────────────────────────
+// ─── STEP 1: LOGIN (with token caching to avoid rate-limit) ─────────────────
+
+const TOKEN_CACHE_FILE = "/tmp/.ajkmart-audit-token.json";
 
 async function login() {
+  // Try cached token first (avoids re-logging in and hitting rate limit)
+  try {
+    const { readFileSync } = await import("fs");
+    const cached = JSON.parse(readFileSync(TOKEN_CACHE_FILE, "utf8"));
+    if (cached.token && cached.expiresAt > Date.now()) {
+      console.log(color(C.green, `✓ Cached token use ho raha hai (${cached.token.slice(0, 20)}...)`));
+      return { token: cached.token, cookies: cached.cookies || "" };
+    }
+  } catch { /* no cache */ }
+
   const loginUrl = `${BASE_URL}/admin/auth/login`;
   console.log(color(C.cyan, `\n[1/3] Admin login ho raha hai → ${loginUrl}`));
   let res;
@@ -283,9 +295,16 @@ async function login() {
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error(color(C.red, `✗ Login fail — HTTP ${res.status}`));
-    console.error(color(C.yellow, `  Credentials check karein: AUDIT_ADMIN_EMAIL / AUDIT_ADMIN_PASSWORD`));
-    if (body) console.error(color(C.gray, `  Response: ${body.slice(0, 200)}`));
+    const parsed = JSON.parse(body || "{}");
+    if (res.status === 429) {
+      const wait = parsed.retryAfter ? `${Math.ceil(parsed.retryAfter / 60)} minute` : "15 minute";
+      console.error(color(C.red, `✗ Rate limit — ${wait} baad dobara try karein`));
+      console.error(color(C.yellow, `  Ya: node scripts/admin-button-audit.mjs --no-cache`));
+    } else {
+      console.error(color(C.red, `✗ Login fail — HTTP ${res.status}`));
+      console.error(color(C.yellow, `  Credentials: AUDIT_ADMIN_USERNAME / AUDIT_ADMIN_PASSWORD`));
+      if (body) console.error(color(C.gray, `  Response: ${body.slice(0, 200)}`));
+    }
     process.exit(1);
   }
 
@@ -297,8 +316,17 @@ async function login() {
     process.exit(1);
   }
 
-  // Also capture Set-Cookie for cookie-based auth
   const cookies = res.headers.get("set-cookie") || "";
+
+  // Cache token for 12 hours to avoid repeated logins
+  try {
+    const { writeFileSync } = await import("fs");
+    writeFileSync(TOKEN_CACHE_FILE, JSON.stringify({
+      token, cookies,
+      expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+    }));
+  } catch { /* cache write failed, ignore */ }
+
   console.log(color(C.green, `✓ Login kamyab! Token mila (${token.slice(0, 20)}...)`));
   return { token, cookies };
 }
@@ -456,7 +484,9 @@ async function main() {
   // Step 2: Test all endpoints (parallel batches of 10)
   console.log(color(C.cyan, `\n[2/3] ${ENDPOINTS.length} endpoints test ho rahe hain...\n`));
 
-  const BATCH = 10;
+  // Batch size 5 + 300ms delay to avoid rate-limiter (global limit = 100req/min)
+  const BATCH = 5;
+  const DELAY_MS = 350;
   const results = [];
   for (let i = 0; i < ENDPOINTS.length; i += BATCH) {
     const batch = ENDPOINTS.slice(i, i + BATCH);
@@ -469,10 +499,16 @@ async function main() {
       if (r.status >= 200 && r.status < 400) return color(C.green, "✓");
       if (r.status === 404) return color(C.red, "4");
       if (r.status === 500) return color(C.red, "5");
+      if (r.status === 429) return color(C.yellow, "R");
       if (r.status === 0)   return color(C.gray, "T");
       return color(C.yellow, "?");
     }).join("");
     process.stdout.write(`  [${String(done).padStart(3)}/${ENDPOINTS.length}] ${icons}\n`);
+
+    // Throttle between batches to respect rate limits
+    if (i + BATCH < ENDPOINTS.length) {
+      await new Promise(r => setTimeout(r, DELAY_MS));
+    }
   }
 
   // Step 3: Report
