@@ -239,12 +239,19 @@ function validateCORS(): string[] {
   }
 
   // Development fallback — safe localhost-only list (+ Replit dev domain if present)
+  // Include port variants so vendor/rider Vite dev servers can call the API.
+  const replitPortVariants = replitDomain
+    ? [3001, 3002, 3003, 4200, 5173, 23744].map(p => `https://${replitDomain}:${p}`)
+    : [];
   const devFallback = [
+    'http://localhost:5000',
     'http://localhost:5173',
     'http://localhost:3001',
     'http://localhost:3002',
+    'http://localhost:3003',
     'http://127.0.0.1:5000',
     ...replitOrigins,
+    ...replitPortVariants,
   ];
   logger.warn(
     { allowedOrigins: devFallback },
