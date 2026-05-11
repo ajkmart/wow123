@@ -70,18 +70,24 @@ export function getAccessTokenTtlSec(): number {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   ADMIN JWT CONFIGURATION — separate from user JWT
+   ADMIN JWT CONFIGURATION — v2 system uses ADMIN_ACCESS_TOKEN_SECRET
    ══════════════════════════════════════════════════════════════ */
-const _adminJwtSecret = process.env["ADMIN_JWT_SECRET"];
-if (!_adminJwtSecret || _adminJwtSecret.length < 32) {
-  const msg = !_adminJwtSecret
-    ? "[AUTH] FATAL: ADMIN_JWT_SECRET environment variable is not set. Minimum 32 characters required."
-    : `[AUTH] FATAL: ADMIN_JWT_SECRET too short (${_adminJwtSecret.length} chars, need ≥32).`;
-  logger.error(msg);
-  process.exit(1);
-}
-export const ADMIN_JWT_SECRET: string = _adminJwtSecret;
+// Legacy ADMIN_JWT_SECRET kept only for backward-compat env-var checks — not used for signing.
+export const ADMIN_JWT_SECRET: string = process.env["ADMIN_JWT_SECRET"] ?? "";
 export const ADMIN_TOKEN_TTL_HRS = 24;
+
+// v2 secret used for all admin token operations
+const _adminAccessTokenSecret = (() => {
+  const val = process.env["ADMIN_ACCESS_TOKEN_SECRET"];
+  if (!val || val.length < 32) {
+    const msg = !val
+      ? "[AUTH] ADMIN_ACCESS_TOKEN_SECRET is not set. Using unsafe dev fallback."
+      : `[AUTH] ADMIN_ACCESS_TOKEN_SECRET too short (${val.length} chars, need ≥32). Using dev fallback.`;
+    logger.warn(msg);
+    return (val ?? "") + "dev_fallback_pad_to_32_chars_min!!";
+  }
+  return val;
+})();
 
 /* ══════════════════════════════════════════════════════════════
    TOR EXIT NODE DETECTION
@@ -679,26 +685,25 @@ export interface AdminJwtPayload {
   exp?: number;
 }
 
+/** Sign an admin JWT — v2 system (ADMIN_ACCESS_TOKEN_SECRET, v2 payload format). */
 export function signAdminJwt(adminId: string | null, role: string, name: string, ttlHrs = ADMIN_TOKEN_TTL_HRS): string {
   return jwt.sign(
-    { adminId, role, name, type: "admin" },
-    ADMIN_JWT_SECRET,
-    { algorithm: "HS256", expiresIn: `${ttlHrs}h` },
+    { sub: adminId ?? "", role, name, perms: [], pv: 0 },
+    _adminAccessTokenSecret,
+    { algorithm: "HS256", expiresIn: `${ttlHrs}h`, issuer: process.env.JWT_ISSUER ?? "ajkmart-admin" },
   );
 }
 
+/** Verify an admin JWT — v2 system (ADMIN_ACCESS_TOKEN_SECRET). Maps sub→adminId, perms→permissions. */
 export function verifyAdminJwt(token: string): AdminJwtPayload | null {
   try {
-    const payload = jwt.verify(token, ADMIN_JWT_SECRET, { algorithms: ["HS256"] }) as jwt.JwtPayload;
-    if ((payload as Record<string, unknown>)["type"] !== "admin") return null;
+    const payload = jwt.verify(token, _adminAccessTokenSecret, { algorithms: ["HS256"] }) as jwt.JwtPayload;
     const nowSec = Math.floor(Date.now() / 1000);
-    if (typeof payload.iat === "number" && payload.iat > nowSec + 60) {
-      return null;
-    }
+    if (typeof payload.iat === "number" && payload.iat > nowSec + 60) return null;
     return {
-      adminId: payload["adminId"] as string | null,
-      role:    payload["role"]    as string,
-      name:    payload["name"]    as string,
+      adminId: (payload["sub"] ?? payload["adminId"]) as string | null,
+      role:    payload["role"] as string,
+      name:    payload["name"] as string,
       iat:     payload.iat,
       exp:     payload.exp,
     };

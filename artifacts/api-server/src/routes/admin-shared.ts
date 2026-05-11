@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import { logger as pinoLogger } from "../lib/logger.js";
+import { verifyAccessToken } from "../utils/admin-jwt.js";
 
 /**
  * Resolve a JWT secret from an environment variable.
@@ -227,7 +228,10 @@ export type TranslationKey = string;
 
 /* ── SECURITY CORE ─────────────────────────────────────────────────────── */
 
-const _ADMIN_JWT_SECRET = resolveAdminSecret("ADMIN_JWT_SECRET");
+// v2 system: use ADMIN_ACCESS_TOKEN_SECRET for all admin token signing/verification
+const _ADMIN_ACCESS_TOKEN_SECRET = resolveAdminSecret("ADMIN_ACCESS_TOKEN_SECRET");
+const _ADMIN_JWT_ISSUER = process.env.JWT_ISSUER ?? "ajkmart-admin";
+
 const _ADMIN_REFRESH_SECRET = (() => {
   const v = process.env.ADMIN_JWT_REFRESH_SECRET || process.env.ADMIN_REFRESH_SECRET;
   if (!v || v.length < 32) {
@@ -242,6 +246,11 @@ const _ADMIN_REFRESH_SECRET = (() => {
   return v;
 })();
 
+/**
+ * Sign an admin JWT using the v2 system (ADMIN_ACCESS_TOKEN_SECRET).
+ * Payload uses v2 format: { sub, role, name, perms, pv }.
+ * expiresInHrs is honoured for legacy callers that need custom TTLs.
+ */
 export function signAdminJwt(
   adminId: string | null,
   role: string,
@@ -250,9 +259,9 @@ export function signAdminJwt(
   permissions: string[] = [],
 ): string {
   return jwt.sign(
-    { adminId, role, name, permissions, type: "admin" },
-    _ADMIN_JWT_SECRET,
-    { expiresIn: `${expiresInHrs}h` },
+    { sub: adminId ?? "", role, name, perms: permissions, pv: 0 },
+    _ADMIN_ACCESS_TOKEN_SECRET,
+    { expiresIn: `${expiresInHrs}h`, issuer: _ADMIN_JWT_ISSUER, algorithm: "HS256" },
   );
 }
 
@@ -260,15 +269,18 @@ export function signAdminRefreshToken(adminId: string | null, role: string): str
   return jwt.sign({ adminId, role }, _ADMIN_REFRESH_SECRET, { expiresIn: `${ADMIN_REFRESH_TTL_DAYS}d` });
 }
 
+/**
+ * Verify an admin JWT using the v2 system (ADMIN_ACCESS_TOKEN_SECRET).
+ * Maps v2 payload fields (sub → adminId, perms → permissions) back to AdminPayload.
+ */
 export function verifyAdminJwt(token: string): AdminPayload | null {
   try {
-    const secret = _ADMIN_JWT_SECRET;
-    const payload = jwt.verify(token, secret) as jwt.JwtPayload;
+    const payload = verifyAccessToken(token);
     return {
-      adminId:     (payload["adminId"] as string | null) ?? null,
-      role:        (payload["role"]    as string) ?? "admin",
-      name:        (payload["name"]    as string) ?? "Admin",
-      permissions: (payload["permissions"] as string[]) ?? [],
+      adminId:     payload.sub ?? null,
+      role:        payload.role ?? "admin",
+      name:        payload.name ?? "Admin",
+      permissions: payload.perms ?? [],
     };
   } catch {
     return null;
@@ -303,21 +315,17 @@ export const adminAuth = (req: AdminRequest, res: Response, next: NextFunction):
   const token = authHeader.split(" ")[1]!;
 
   try {
-    const payload = jwt.verify(token, _ADMIN_JWT_SECRET) as {
-      adminId?: string | null;
-      role?: string;
-      name?: string;
-      permissions?: string[];
-    };
-    req.adminId          = payload.adminId ?? undefined;
+    // v2: verify with ADMIN_ACCESS_TOKEN_SECRET, map sub→adminId, perms→permissions
+    const payload = verifyAccessToken(token);
+    req.adminId          = payload.sub ?? undefined;
     req.adminRole        = payload.role ?? "admin";
     req.adminName        = payload.name ?? "Admin";
-    req.adminPermissions = payload.permissions ?? [];
+    req.adminPermissions = payload.perms ?? [];
     req.adminPayload     = {
-      adminId:     payload.adminId ?? null,
+      adminId:     payload.sub ?? null,
       role:        payload.role ?? "admin",
       name:        payload.name ?? "Admin",
-      permissions: payload.permissions ?? [],
+      permissions: payload.perms ?? [],
     };
     req.adminIp = getClientIp(req);
     next();

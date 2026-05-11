@@ -1,7 +1,7 @@
 import { Server as SocketIOServer } from "socket.io";
 import type { Server as HttpServer } from "http";
 import { logger } from "./logger.js";
-import { verifyUserJwt, verifyAdminJwt } from "../middleware/security.js";
+import { verifyUserJwt } from "../middleware/security.js";
 import { verifyAccessToken } from "../utils/admin-jwt.js";
 import { db } from "@workspace/db";
 import { ridesTable, ordersTable, parcelBookingsTable, pharmacyOrdersTable, liveLocationsTable, usersTable, locationHistoryTable, callLogsTable, conversationsTable, chatMessagesTable, vanBookingsTable, vanSchedulesTable } from "@workspace/db/schema";
@@ -80,11 +80,10 @@ function isAuthorizedForAdminFleet(
   ];
   for (const token of candidates) {
     if (!token) continue;
-    if (verifyAdminJwt(token)) return true;
     try {
       const payload = verifyAccessToken(token);
-      if (payload && (payload.role === "super" || payload.role === "manager" || payload.role === "support")) return true;
-    } catch { /* not a v2 token */ }
+      if (payload && (payload.role === "super" || payload.role === "manager" || payload.role === "support" || payload.role === "admin")) return true;
+    } catch { /* not a valid v2 admin token */ }
   }
   const bearer = extractBearerToken(headers["authorization"]);
   if (bearer) {
