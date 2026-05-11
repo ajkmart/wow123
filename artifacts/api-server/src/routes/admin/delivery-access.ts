@@ -126,6 +126,50 @@ router.put("/delivery-access/mode", async (req, res) => {
   }
 });
 
+router.get("/delivery-access/whitelist", async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query["page"] || "1"), 10));
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query["limit"] || "50"), 10)));
+    const offset = (page - 1) * limit;
+    const typeFilter = req.query["type"] as string | undefined;
+    const statusFilter = req.query["status"] as string | undefined;
+    const search = req.query["search"] as string | undefined;
+
+    const conditions = [];
+    if (typeFilter && VALID_TYPES.includes(typeFilter)) conditions.push(eq(deliveryWhitelistTable.type, typeFilter));
+    if (statusFilter) conditions.push(eq(deliveryWhitelistTable.status, statusFilter));
+    if (search) {
+      conditions.push(or(
+        ilike(usersTable.name, `%${search}%`),
+        ilike(usersTable.phone, `%${search}%`),
+      )!);
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countRow] = await db.select({ total: count() }).from(deliveryWhitelistTable)
+      .leftJoin(usersTable, eq(deliveryWhitelistTable.targetId, usersTable.id)).where(where);
+    const rows = await db.select({
+      id: deliveryWhitelistTable.id,
+      type: deliveryWhitelistTable.type,
+      targetId: deliveryWhitelistTable.targetId,
+      serviceType: deliveryWhitelistTable.serviceType,
+      status: deliveryWhitelistTable.status,
+      validUntil: deliveryWhitelistTable.validUntil,
+      notes: deliveryWhitelistTable.notes,
+      createdAt: deliveryWhitelistTable.createdAt,
+      userName: usersTable.name,
+      userPhone: usersTable.phone,
+    }).from(deliveryWhitelistTable)
+      .leftJoin(usersTable, eq(deliveryWhitelistTable.targetId, usersTable.id))
+      .where(where)
+      .orderBy(desc(deliveryWhitelistTable.createdAt))
+      .limit(limit).offset(offset);
+    sendSuccess(res, { whitelist: rows, total: countRow?.total ?? 0, page, limit, pages: Math.ceil((countRow?.total ?? 0) / limit) });
+  } catch (e) {
+    logger.error({ err: e }, "[delivery-access] whitelist GET error");
+    sendError(res, "Failed to load whitelist", 500);
+  }
+});
+
 router.post("/delivery-access/whitelist", async (req, res) => {
   try {
     const { type, targetId, serviceType, validUntil, deliveryLabel, notes } = req.body;

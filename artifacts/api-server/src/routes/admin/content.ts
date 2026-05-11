@@ -587,6 +587,22 @@ router.get("/categories/tree", async (req, res) => {
   sendSuccess(res, { categories: tree });
 });
 
+router.get("/categories", async (req, res) => {
+  try {
+    const type = req.query["type"] as string | undefined;
+    const conditions = [];
+    if (type) conditions.push(eq(categoriesTable.type, type));
+    const categories = await db
+      .select()
+      .from(categoriesTable)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(categoriesTable.sortOrder));
+    sendSuccess(res, { categories });
+  } catch (e) {
+    sendError(res, "Failed to load categories", 500);
+  }
+});
+
 router.post("/categories", async (req, res) => {
   const { name, icon, type, parentId, sortOrder, isActive } = req.body;
   if (!name || !type) {

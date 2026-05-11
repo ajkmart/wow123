@@ -1,0 +1,101 @@
+{
+  "auditedAt": "2026-05-11T18:52:08.952Z",
+  "total": 121,
+  "passed": 108,
+  "warnings": 1,
+  "failed": 12,
+  "errors": [
+    {
+      "method": "GET",
+      "url": "/fleet/dashboard-export",
+      "status": 404,
+      "label": "Fleet dashboard export",
+      "snippet": "API route not found: GET /api/admin/fleet/dashboard-export"
+    },
+    {
+      "method": "GET",
+      "url": "/wallet/stats",
+      "status": 500,
+      "label": "Wallet stats",
+      "snippet": "Failed to load wallet stats"
+    },
+    {
+      "method": "GET",
+      "url": "/wallet/p2p-transactions?page=1&limit=20",
+      "status": 500,
+      "label": "P2P transactions",
+      "snippet": "Failed to load P2P transactions"
+    },
+    {
+      "method": "GET",
+      "url": "/categories",
+      "status": 404,
+      "label": "Categories list",
+      "snippet": "API route not found: GET /api/admin/categories"
+    },
+    {
+      "method": "GET",
+      "url": "/system/admin-ip-lockouts?page=1",
+      "status": 404,
+      "label": "Admin IP lockouts",
+      "snippet": "API route not found: GET /api/admin/system/admin-ip-lockouts?page=1"
+    },
+    {
+      "method": "GET",
+      "url": "/reviews?page=1&limit=20",
+      "status": 500,
+      "label": "Reviews list",
+      "snippet": "Internal server error"
+    },
+    {
+      "method": "GET",
+      "url": "/reviews/import",
+      "status": 404,
+      "label": "Reviews import (check)",
+      "snippet": "API route not found: GET /api/admin/reviews/import"
+    },
+    {
+      "method": "GET",
+      "url": "/delivery-access/whitelist",
+      "status": 404,
+      "label": "Delivery access whitelist",
+      "snippet": "API route not found: GET /api/admin/delivery-access/whitelist"
+    },
+    {
+      "method": "GET",
+      "url": "/wallet/p2p-transactions?page=1&limit=20",
+      "status": 500,
+      "label": "Wallet P2P transfers",
+      "snippet": "Failed to load P2P transactions"
+    },
+    {
+      "method": "GET",
+      "url": "/admin-accounts",
+      "status": 404,
+      "label": "Admin accounts",
+      "snippet": "API route not found: GET /api/admin/admin-accounts"
+    },
+    {
+      "method": "GET",
+      "url": "/van/schedules?page=1&limit=20",
+      "status": 404,
+      "label": "Van schedules",
+      "snippet": "API route not found: GET /api/admin/van/schedules?page=1&limit=20"
+    },
+    {
+      "method": "GET",
+      "url": "/api/webhooks/whatsapp/delivery-log?page=1&limit=20",
+      "status": 500,
+      "label": "WhatsApp delivery log (webhook path)",
+      "snippet": "Failed to fetch delivery log"
+    }
+  ],
+  "warnList": [
+    {
+      "method": "POST",
+      "url": "/jobs/rating-suspension",
+      "status": 403,
+      "label": "Rating suspension job (POST dry-run)"
+    }
+  ]
+}

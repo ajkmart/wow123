@@ -563,7 +563,7 @@ router.get("/my", customerAuth, async (req, res) => {
         vendorName: sql<string | null>`null`,
       })
       .from(rideRatingsTable)
-      .where(and(eq(rideRatingsTable.customerId, userId), isNull(rideRatingsTable.deletedAt)))
+      .where(and(eq(rideRatingsTable.userId, userId), isNull(rideRatingsTable.deletedAt)))
       .orderBy(desc(rideRatingsTable.createdAt)),
   ]);
 

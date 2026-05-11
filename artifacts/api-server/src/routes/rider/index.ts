@@ -1894,7 +1894,7 @@ router.get("/reviews", async (req, res) => {
         customerName: usersTable.name,
       })
       .from(rideRatingsTable)
-      .leftJoin(usersTable, eq(rideRatingsTable.customerId, usersTable.id))
+      .leftJoin(usersTable, eq(rideRatingsTable.userId, usersTable.id))
       .where(legacyConditions)
       .orderBy(desc(rideRatingsTable.createdAt))
       .limit(pageLimit),

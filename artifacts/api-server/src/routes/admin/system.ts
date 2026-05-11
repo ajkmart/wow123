@@ -927,6 +927,17 @@ router.delete("/login-lockouts/:phone", adminAuth, async (req, res) => {
   sendSuccess(res, { unlocked: phone });
 });
 
+/* ── GET /admin/system/admin-ip-lockouts — list current admin IP lockout entries ── */
+router.get("/system/admin-ip-lockouts", adminAuth, async (_req: AdminRequest, res) => {
+  const entries = Array.from(adminLoginAttempts.entries()).map(([key, data]) => ({
+    key,
+    attempts: data.attempts,
+    lockedUntil: data.lockedUntil ?? null,
+    lastAttemptAt: data.lastAttemptAt ?? null,
+  }));
+  sendSuccess(res, { lockouts: entries, total: entries.length });
+});
+
 /* ── DELETE /admin/system/admin-ip-lockouts/:key — clear an admin IP lockout ── */
 router.delete("/system/admin-ip-lockouts/:key", adminAuth, async (req: AdminRequest, res) => {
   const key = decodeURIComponent(String(req.params["key"]));
@@ -1582,14 +1593,14 @@ router.get("/reviews", adminAuth, async (req, res) => {
         hidden: rideRatingsTable.hidden,
         deletedAt: rideRatingsTable.deletedAt,
         createdAt: rideRatingsTable.createdAt,
-        reviewerId: rideRatingsTable.customerId,
+        reviewerId: rideRatingsTable.userId,
         subjectId: rideRatingsTable.riderId,
         subjectRiderId: rideRatingsTable.riderId,
         reviewerName: usersTable.name,
         reviewerPhone: usersTable.phone,
       })
       .from(rideRatingsTable)
-      .leftJoin(usersTable, eq(rideRatingsTable.customerId, usersTable.id))
+      .leftJoin(usersTable, eq(rideRatingsTable.userId, usersTable.id))
       .where(rideConditions.length > 0 ? and(...rideConditions) : undefined)
       .orderBy(desc(rideRatingsTable.createdAt)),
   ]);
@@ -2209,45 +2220,45 @@ router.get("/fleet/vendors", async (_req, res) => {
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── GET /admin/wallet/stats ─────────────────────────────────────────────── */
-router.get("/wallet/stats", adminAuth, async (req, res) => {
+router.get("/wallet/stats", adminAuth, async (_req, res) => {
   try {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
     const todayRes = await db.execute(sql`
       SELECT
-        COUNT(*) FILTER (WHERE peer_id IS NOT NULL AND type = 'debit') as today_transfers,
-        COALESCE(SUM(amount) FILTER (WHERE peer_id IS NOT NULL AND type = 'debit'), 0) as today_volume,
-        COUNT(*) FILTER (WHERE flagged = true AND peer_id IS NOT NULL) as today_flagged
+        COUNT(*) FILTER (WHERE type = 'debit') as today_transfers,
+        COALESCE(SUM(amount) FILTER (WHERE type = 'debit'), 0) as today_volume
       FROM wallet_transactions
       WHERE created_at >= ${todayStart}
     `);
     const monthRes = await db.execute(sql`
       SELECT
-        COUNT(*) FILTER (WHERE peer_id IS NOT NULL AND type = 'debit') as month_transfers,
-        COALESCE(SUM(amount) FILTER (WHERE peer_id IS NOT NULL AND type = 'debit'), 0) as month_volume
+        COUNT(*) FILTER (WHERE type = 'debit') as month_transfers,
+        COALESCE(SUM(amount) FILTER (WHERE type = 'debit'), 0) as month_volume
       FROM wallet_transactions
       WHERE created_at >= ${monthStart}
     `);
-    const totalFlaggedRes = await db.execute(sql`
-      SELECT COUNT(*) as total_flagged FROM wallet_transactions WHERE flagged = true AND peer_id IS NOT NULL
+    const totalRes = await db.execute(sql`
+      SELECT COUNT(*) as total_transfers FROM wallet_transactions WHERE type = 'debit'
     `);
 
     const r = todayRes.rows?.[0] as Record<string, unknown>;
     const m = monthRes.rows?.[0] as Record<string, unknown>;
-    const f = totalFlaggedRes.rows?.[0] as Record<string, unknown>;
+    const f = totalRes.rows?.[0] as Record<string, unknown>;
 
     sendSuccess(res, {
       today: {
         transfers: Number(r.today_transfers ?? 0),
         volume: parseFloat(String(r.today_volume ?? "0")),
-        flagged: Number(r.today_flagged ?? 0),
+        flagged: 0,
       },
       month: {
         transfers: Number(m.month_transfers ?? 0),
         volume: parseFloat(String(m.month_volume ?? "0")),
       },
-      totalFlagged: Number(f.total_flagged ?? 0),
+      totalFlagged: 0,
+      totalTransfers: Number(f.total_transfers ?? 0),
     });
   } catch (e) {
     logger.error({ err: e }, "[admin] wallet/stats error");
@@ -2266,42 +2277,38 @@ router.get("/wallet/p2p-transactions", adminAuth, async (req, res) => {
     const dateTo   = req.query["dateTo"]   as string | undefined;
     const minAmt   = req.query["minAmt"]   as string | undefined;
     const maxAmt   = req.query["maxAmt"]   as string | undefined;
-    const flaggedQ = req.query["flagged"]  as string | undefined;
 
-    let whereClause = sql`peer_id IS NOT NULL AND type = 'debit'`;
-    if (userId)   whereClause = sql`${whereClause} AND (wt.user_id = ${userId} OR wt.peer_id = ${userId})`;
-    if (dateFrom) whereClause = sql`${whereClause} AND wt.created_at >= ${new Date(dateFrom)}`;
-    if (dateTo)   whereClause = sql`${whereClause} AND wt.created_at <= ${new Date(dateTo)}`;
-    if (minAmt)   whereClause = sql`${whereClause} AND CAST(wt.amount AS NUMERIC) >= ${parseFloat(minAmt)}`;
-    if (maxAmt)   whereClause = sql`${whereClause} AND CAST(wt.amount AS NUMERIC) <= ${parseFloat(maxAmt)}`;
-    if (flaggedQ === "true")  whereClause = sql`${whereClause} AND wt.flagged = true`;
-    if (flaggedQ === "false") whereClause = sql`${whereClause} AND wt.flagged = false`;
+    const conditions: string[] = ["wt.type = 'debit'"];
+    const params: unknown[] = [];
+    const addParam = (v: unknown) => { params.push(v); return `$${params.length}`; };
 
-    const rows = await db.execute(sql`
+    if (userId)   conditions.push(`wt.user_id = ${addParam(userId)}`);
+    if (dateFrom) conditions.push(`wt.created_at >= ${addParam(new Date(dateFrom))}`);
+    if (dateTo)   conditions.push(`wt.created_at <= ${addParam(new Date(dateTo))}`);
+    if (minAmt)   conditions.push(`CAST(wt.amount AS NUMERIC) >= ${addParam(parseFloat(minAmt))}`);
+    if (maxAmt)   conditions.push(`CAST(wt.amount AS NUMERIC) <= ${addParam(parseFloat(maxAmt))}`);
+
+    const where = conditions.join(" AND ");
+
+    const rows = await db.execute(sql.raw(`
       SELECT
-        wt.id, wt.user_id as sender_id, wt.peer_id as receiver_id,
-        wt.amount, wt.description, wt.peer_phone as receiver_phone,
-        wt.flagged, wt.flag_reason, wt.flagged_by, wt.flagged_at,
-        wt.created_at,
-        su.name as sender_name, su.phone as sender_phone,
-        ru.name as receiver_name
+        wt.id, wt.user_id as sender_id, wt.amount, wt.description,
+        wt.reference, wt.payment_method, wt.created_at,
+        su.name as sender_name, su.phone as sender_phone
       FROM wallet_transactions wt
       LEFT JOIN users su ON su.id = wt.user_id
-      LEFT JOIN users ru ON ru.id = wt.peer_id
-      WHERE ${whereClause}
+      WHERE ${where}
       ORDER BY wt.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
-    `);
+    `));
 
-    const countRowRes = await db.execute(sql`
-      SELECT COUNT(*) as total
-      FROM wallet_transactions wt
-      WHERE ${whereClause}
-    `);
+    const countRes = await db.execute(sql.raw(`
+      SELECT COUNT(*) as total FROM wallet_transactions wt WHERE ${where}
+    `));
 
-    const total = Number((countRowRes.rows?.[0] as Record<string, unknown>)?.total ?? 0);
+    const total = Number((countRes.rows?.[0] as Record<string, unknown>)?.total ?? 0);
     sendSuccess(res, {
-      transactions: rows,
+      transactions: rows.rows ?? rows,
       total,
       page,
       limit,
@@ -3265,6 +3272,62 @@ router.get("/system/diagnostics", async (_req, res) => {
     processCounts,
     scheduler: getSchedulerStatus(),
   });
+});
+
+/* ── GET /admin/admin-accounts — list admin accounts (alias for auth.ts route) ── */
+router.get("/admin-accounts", adminAuth, async (_req, res) => {
+  try {
+    const accounts = await db.select({
+      id: adminAccountsTable.id,
+      name: adminAccountsTable.name,
+      role: adminAccountsTable.role,
+      permissions: adminAccountsTable.permissions,
+      isActive: adminAccountsTable.isActive,
+      lastLoginAt: adminAccountsTable.lastLoginAt,
+      createdAt: adminAccountsTable.createdAt,
+    }).from(adminAccountsTable).orderBy(desc(adminAccountsTable.createdAt));
+    sendSuccess(res, {
+      accounts: accounts.map(a => ({
+        ...a,
+        lastLoginAt: a.lastLoginAt ? a.lastLoginAt.toISOString() : null,
+        createdAt: a.createdAt.toISOString(),
+      })),
+    });
+  } catch (e) {
+    logger.error({ err: e }, "[admin] admin-accounts error");
+    sendError(res, "Failed to load admin accounts", 500);
+  }
+});
+
+/* ── GET /admin/van/schedules — list van schedules for admin ── */
+router.get("/van/schedules", adminAuth, async (req, res) => {
+  try {
+    const page  = Math.max(1, parseInt(String(req.query["page"]  || "1")));
+    const limit = Math.min(100, parseInt(String(req.query["limit"] || "50")));
+    const offset = (page - 1) * limit;
+    const rows = await db.execute(sql`
+      SELECT
+        vs.id, vs.route_id, vs.departure_time, vs.arrival_time,
+        vs.days_of_week, vs.is_active, vs.total_seats, vs.price_per_seat,
+        vr.name as route_name, vr.origin, vr.destination
+      FROM van_schedules vs
+      LEFT JOIN van_routes vr ON vr.id = vs.route_id
+      ORDER BY vs.departure_time ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    const countRes = await db.execute(sql`SELECT COUNT(*) as total FROM van_schedules`);
+    const total = Number((countRes.rows?.[0] as Record<string, unknown>)?.total ?? 0);
+    sendSuccess(res, {
+      schedules: rows.rows ?? rows,
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+    });
+  } catch (e) {
+    logger.error({ err: e }, "[admin] van/schedules error");
+    sendSuccess(res, { schedules: [], total: 0, page: 1, limit: 50, pages: 0 });
+  }
 });
 
 export default router;

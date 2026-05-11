@@ -714,8 +714,8 @@ router.get("/leaderboard", async (_req: Request, res: Response) => {
   });
 });
 
-/* ── GET /admin/dashboard-export — export dashboard stats + 7-day trend as JSON ── */
-router.get("/dashboard-export", async (_req: Request, res: Response) => {
+/* ── GET /admin/dashboard-export (+ /fleet/dashboard-export alias) ── */
+async function dashboardExportHandler(_req: Request, res: Response) {
   const now = new Date();
   const [[userCount], [orderCount], [rideCount], [revenue], [rideRev]] = await Promise.all([
     db.select({ count: count() }).from(usersTable).where(isNull(usersTable.deletedAt)),
@@ -765,7 +765,10 @@ router.get("/dashboard-export", async (_req: Request, res: Response) => {
   };
   res.setHeader("Content-Disposition", `attachment; filename="dashboard-${now.toISOString().slice(0, 10)}.tson"`);
   sendSuccess(res, snapshot);
-});
+}
+
+router.get("/dashboard-export", dashboardExportHandler);
+router.get("/fleet/dashboard-export", dashboardExportHandler);
 
 /* ══════════════════════════════════════════════════════════════════════════════
    RIDE MANAGEMENT MODULE — Admin ride actions with full audit logging
