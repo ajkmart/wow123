@@ -13,7 +13,7 @@ import {
 import { sql, lt, isNotNull, or } from "drizzle-orm";
 import { logger } from "./lib/logger.js";
 import { purgeExpiredIdempotencyKeys } from "./lib/cleanupIdempotencyKeys.js";
-import { startDispatchEngine, stopDispatchEngine } from "./routes/rides/dispatch.js";
+import { startDispatchEngine, stopDispatchEngine, isDispatchEngineRunning } from "./routes/rides/dispatch.js";
 
 /* ══════════════════════════════════════════════════════════════════════════
    scheduler.ts
@@ -34,13 +34,21 @@ import { startDispatchEngine, stopDispatchEngine } from "./routes/rides/dispatch
     10. Location history cleanup    — delete location_history older than 30 days (every 24 hours)
 ══════════════════════════════════════════════════════════════════════════ */
 
+interface RegisteredJob {
+  name: string;
+  intervalMs: number;
+  startedAt: Date;
+}
+
 const _timers: ReturnType<typeof setInterval>[] = [];
+const _registeredJobs: RegisteredJob[] = [];
 
 function register(
   label: string,
   fn: () => Promise<void>,
   intervalMs: number,
 ): ReturnType<typeof setInterval> {
+  _registeredJobs.push({ name: label, intervalMs, startedAt: new Date() });
   fn().catch((e: unknown) => {
     logger.warn({ err: (e as Error).message, job: label }, "[scheduler] immediate first-run failed");
   });
@@ -212,6 +220,30 @@ export function stopScheduler(): void {
     clearInterval(handle);
   }
   _timers.length = 0;
+  _registeredJobs.length = 0;
   stopDispatchEngine();
   logger.info("[scheduler] all timers cleared");
+}
+
+export function getSchedulerStatus(): {
+  running: boolean;
+  activeTimers: number;
+  jobs: Array<{ name: string; intervalLabel: string; startedAt: string }>;
+  dispatchEngineActive: boolean;
+} {
+  function fmtInterval(ms: number): string {
+    if (ms < 60_000) return `${ms / 1000}s`;
+    if (ms < 3_600_000) return `${ms / 60_000}m`;
+    return `${ms / 3_600_000}h`;
+  }
+  return {
+    running: _timers.length > 0,
+    activeTimers: _timers.length,
+    jobs: _registeredJobs.map(j => ({
+      name: j.name,
+      intervalLabel: fmtInterval(j.intervalMs),
+      startedAt: j.startedAt.toISOString(),
+    })),
+    dispatchEngineActive: isDispatchEngineRunning(),
+  };
 }

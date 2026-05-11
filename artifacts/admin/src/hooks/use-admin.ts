@@ -710,6 +710,15 @@ export const useHealthDashboard = () => {
   });
 };
 
+export const useDiagnostics = () => {
+  return useQuery({
+    queryKey: ["admin-diagnostics"],
+    queryFn: () => adminFetch("/system/diagnostics"),
+    refetchInterval: 15_000,
+    staleTime: 12_000,
+  });
+};
+
 export const useUnlockAdminIpLockout = () => {
   const queryClient = useQueryClient();
   return useMutation({

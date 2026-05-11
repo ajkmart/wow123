@@ -8,12 +8,13 @@ import {
   Bell, BellOff, Mail, Slack,
   Lock, LockOpen, UserX, Shield, Timer, Loader2,
   Gauge, Database, HardDrive, MemoryStick,
+  Layers, XCircle, Repeat, Terminal,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useHealthDashboard, useUnlockAdminIpLockout } from "@/hooks/use-admin";
+import { useHealthDashboard, useUnlockAdminIpLockout, useDiagnostics } from "@/hooks/use-admin";
 import { LastUpdated } from "@/components/ui/LastUpdated";
 import { Link } from "wouter";
 
@@ -415,6 +416,9 @@ export default function HealthDashboard() {
       {/* ── Performance Metrics ── */}
       <PerformanceSection data={d} isLoading={isLoading} />
 
+      {/* ── Service Diagnostics ── */}
+      <DiagnosticsSection />
+
       {/* ── Alert Notifications ── */}
       <Section title="Alert Notifications" icon={Bell}>
         {isLoading ? (
@@ -745,6 +749,170 @@ function PerformanceSection({ data: d, isLoading }: { data: any; isLoading: bool
           </div>
         </div>
       )}
+    </Section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Service Diagnostics sub-component
+   Fetches its own data via useDiagnostics (separate query, 15s refresh).
+───────────────────────────────────────────────────────────────────────────── */
+function ServiceStatusCard({ svc }: { svc: any }) {
+  const isUp       = svc.status === "up";
+  const isDegraded = svc.status === "degraded";
+
+  const border  = isUp ? "border-emerald-500/25 bg-emerald-500/5" :
+                  isDegraded ? "border-amber-500/25 bg-amber-500/5" :
+                  "border-red-500/25 bg-red-500/5";
+  const dotColor = isUp ? "bg-emerald-500" : isDegraded ? "bg-amber-500" : "bg-red-500";
+  const latColor  = isUp ? "text-emerald-400" : isDegraded ? "text-amber-400" : "text-slate-600";
+
+  return (
+    <div className={`rounded-xl border p-3.5 flex items-start justify-between gap-3 ${border}`}>
+      <div className="flex items-start gap-2.5 min-w-0">
+        <span className={`mt-1.5 shrink-0 w-2 h-2 rounded-full ${dotColor} ${!isUp ? "animate-pulse" : ""}`} />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-200 truncate">{svc.name}</p>
+          <p className="text-xs text-slate-500 mt-0.5">:{svc.port}</p>
+          {!isUp && svc.error && (
+            <p className="text-xs text-red-400 mt-1 truncate">{svc.error}</p>
+          )}
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        {isUp ? (
+          <CheckCircle2 size={15} className="text-emerald-500 ml-auto mb-1" />
+        ) : isDegraded ? (
+          <AlertTriangle size={15} className="text-amber-500 ml-auto mb-1" />
+        ) : (
+          <XCircle size={15} className="text-red-500 ml-auto mb-1" />
+        )}
+        <p className={`text-xs font-mono ${latColor}`}>
+          {isUp || isDegraded ? `${svc.latencyMs}ms` : "—"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DiagnosticsSection() {
+  const { data: raw, isLoading, isFetching, dataUpdatedAt } = useDiagnostics();
+  const qc = useQueryClient();
+  const d = raw as any;
+
+  const services: any[]    = d?.services ?? [];
+  const counts             = d?.processCounts ?? {};
+  const scheduler          = d?.scheduler ?? {};
+  const jobs: any[]        = scheduler.jobs ?? [];
+  const servicesUp: number = d?.servicesUp ?? 0;
+  const allUp              = servicesUp === (d?.servicesTotal ?? 5);
+
+  return (
+    <Section title="Service Diagnostics" icon={Layers}>
+      {/* header strip */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          {!isLoading && allUp && (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium">
+              <CheckCircle2 size={11} /> {servicesUp}/{d?.servicesTotal ?? 5} up
+            </span>
+          )}
+          {!isLoading && !allUp && (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 text-xs font-medium">
+              <XCircle size={11} /> {servicesUp}/{d?.servicesTotal ?? 5} up
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => qc.invalidateQueries({ queryKey: ["admin-diagnostics"] })}
+          disabled={isFetching}
+          className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors"
+        >
+          <RefreshCw size={11} className={isFetching ? "animate-spin" : ""} />
+          {dataUpdatedAt > 0 ? updatedAgo(new Date(dataUpdatedAt).toISOString()) : ""}
+        </button>
+      </div>
+
+      {/* service cards grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+          {[...Array(5)].map((_, i) => <SkeletonBlock key={i} className="h-16" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+          {services.map((svc: any) => <ServiceStatusCard key={svc.key} svc={svc} />)}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* ── Process counts ── */}
+        <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Terminal size={13} className="text-slate-400" />
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">OS Processes</span>
+          </div>
+          {isLoading ? (
+            <div className="space-y-2">{[...Array(3)].map((_, i) => <SkeletonBlock key={i} className="h-7" />)}</div>
+          ) : (
+            <div>
+              {[
+                { label: "Node.js (total)", value: counts.nodeTotal ?? 0 },
+                { label: "tsx (API dev)",   value: counts.tsx ?? 0 },
+                { label: "Vite frontends",  value: counts.vite ?? 0 },
+                { label: "Expo / Metro",    value: counts.expo ?? 0 },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between py-2 border-b border-slate-700/30 last:border-0">
+                  <span className="text-sm text-slate-400">{label}</span>
+                  <span className="text-sm font-mono font-medium text-slate-200">{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Scheduler jobs ── */}
+        <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Repeat size={13} className="text-slate-400" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Background Jobs</span>
+            </div>
+            {!isLoading && (
+              <div className="flex items-center gap-2">
+                {scheduler.running ? (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium">
+                    {scheduler.activeTimers} active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 text-[10px] font-medium">
+                    stopped
+                  </span>
+                )}
+                {scheduler.dispatchEngineActive && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[10px] font-medium">
+                    dispatch on
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          {isLoading ? (
+            <div className="space-y-1.5">{[...Array(5)].map((_, i) => <SkeletonBlock key={i} className="h-6" />)}</div>
+          ) : (
+            <div className="max-h-48 overflow-y-auto space-y-0 pr-0.5">
+              {jobs.map((job: any) => (
+                <div key={job.name} className="flex items-center justify-between py-1.5 border-b border-slate-700/20 last:border-0">
+                  <span className="text-xs text-slate-400 truncate mr-2">{job.name}</span>
+                  <span className="text-[10px] font-mono text-slate-600 shrink-0">every {job.intervalLabel}</span>
+                </div>
+              ))}
+              {jobs.length === 0 && (
+                <p className="text-xs text-slate-600 italic">Scheduler not running</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </Section>
   );
 }

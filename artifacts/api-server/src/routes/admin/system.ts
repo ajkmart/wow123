@@ -3174,4 +3174,80 @@ router.get("/system/health-dashboard", async (_req, res) => {
   });
 });
 
+/* ── GET /system/diagnostics ─────────────────────────────────────────────────
+   Live snapshot of all 5 sibling services, OS process counts, and scheduler
+   job registry. Auth applied by parent admin router.                         */
+router.get("/system/diagnostics", async (_req, res) => {
+  const [{ getSchedulerStatus }, { execSync }] = await Promise.all([
+    import("../../scheduler.js"),
+    import("node:child_process"),
+  ]);
+
+  type ServiceStatus = "up" | "degraded" | "down";
+  interface ServiceResult {
+    name: string;
+    key: string;
+    port: number;
+    status: ServiceStatus;
+    httpStatus: number | null;
+    latencyMs: number;
+    error?: string;
+  }
+
+  const SERVICES: Array<{ name: string; key: string; port: number; path: string }> = [
+    { name: "API Server",   key: "api",     port: 5000, path: "/api/health" },
+    { name: "Admin Panel",  key: "admin",   port: 3000, path: "/admin/"     },
+    { name: "Vendor App",   key: "vendor",  port: 3002, path: "/vendor/"    },
+    { name: "Rider App",    key: "rider",   port: 3003, path: "/rider/"     },
+    { name: "Customer App", key: "ajkmart", port: 4200, path: "/"           },
+  ];
+
+  const serviceResults: ServiceResult[] = await Promise.all(
+    SERVICES.map(async (svc): Promise<ServiceResult> => {
+      const start = Date.now();
+      try {
+        const resp = await fetch(`http://127.0.0.1:${svc.port}${svc.path}`, {
+          signal: AbortSignal.timeout(2500),
+        });
+        const status: ServiceStatus = resp.ok || resp.status < 500 ? "up" : "degraded";
+        return { name: svc.name, key: svc.key, port: svc.port, status, httpStatus: resp.status, latencyMs: Date.now() - start };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const error = msg.includes("abort") || msg.includes("timeout") ? "timeout" : "connection refused";
+        return { name: svc.name, key: svc.key, port: svc.port, status: "down", httpStatus: null, latencyMs: Date.now() - start, error };
+      }
+    }),
+  );
+
+  /* ── Process snapshot via ps ── */
+  interface ProcRow { pid: string; cpu: string; mem: string; comm: string }
+  let rawProcs: ProcRow[] = [];
+  try {
+    const out = execSync(
+      `ps -eo pid,pcpu,pmem,comm --no-headers 2>/dev/null | grep -E "node|tsx|vite|metro|expo" | head -40 || true`,
+      { encoding: "utf8", timeout: 2000 },
+    );
+    rawProcs = out.split("\n").filter(Boolean).map((line) => {
+      const parts = line.trim().split(/\s+/);
+      return { pid: parts[0] ?? "", cpu: parts[1] ?? "0", mem: parts[2] ?? "0", comm: parts.slice(3).join(" ") };
+    });
+  } catch { /* non-fatal */ }
+
+  const processCounts = {
+    nodeTotal: rawProcs.filter(p => p.comm.includes("node")).length,
+    tsx:       rawProcs.filter(p => p.comm.includes("tsx")).length,
+    vite:      rawProcs.filter(p => p.comm.includes("vite")).length,
+    expo:      rawProcs.filter(p => p.comm.includes("expo") || p.comm.includes("metro")).length,
+  };
+
+  sendSuccess(res, {
+    generatedAt: new Date().toISOString(),
+    services: serviceResults,
+    servicesUp: serviceResults.filter(s => s.status === "up").length,
+    servicesTotal: serviceResults.length,
+    processCounts,
+    scheduler: getSchedulerStatus(),
+  });
+});
+
 export default router;

@@ -242,6 +242,10 @@ export function stopDispatchEngine() {
   }
 }
 
+export function isDispatchEngineRunning(): boolean {
+  return dispatchInterval !== null;
+}
+
 export async function dispatchScheduledRides(): Promise<void> {
   try {
     const now = new Date();
