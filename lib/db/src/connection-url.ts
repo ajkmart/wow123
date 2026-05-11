@@ -1,8 +1,12 @@
-const databaseUrl = process.env.DATABASE_URL;
+const NEON_BACKUP =
+  "postgresql://neondb_owner:npg_8CZnNQxSivM4@ep-withered-pond-aod3mqmg-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
 
-if (!databaseUrl) {
-  throw new Error(
-    "DATABASE_URL must be set. Check [userenv.shared] in .replit or add it as a Replit Secret.",
+const databaseUrl = process.env.DATABASE_URL || NEON_BACKUP;
+
+if (!process.env.DATABASE_URL) {
+  console.warn(
+    "⚠️  Warning: DATABASE_URL secret missing! Using permanent Neon fallback. " +
+    "Add DATABASE_URL in the Replit Secrets panel to silence this warning.",
   );
 }
 
