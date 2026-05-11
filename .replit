@@ -131,45 +131,49 @@ modules = ["nodejs-20"]
   [workflows.workflow.metadata]
   outputType = "console"
 
-  [[ports]]
-  localPort = 3000
-  externalPort = 3000
+[[ports]]
+localPort = 3000
+externalPort = 3000
 
-  [[ports]]
-  localPort = 3001
-  externalPort = 3002
+[[ports]]
+localPort = 3001
+externalPort = 3002
 
-  [[ports]]
-  localPort = 3002
-  externalPort = 5173
+[[ports]]
+localPort = 3002
+externalPort = 5173
 
-  [[ports]]
-  localPort = 3004
-  externalPort = 8008
+[[ports]]
+localPort = 3003
+externalPort = 3003
 
-  [[ports]]
-  localPort = 3005
-  externalPort = 4200
+[[ports]]
+localPort = 3004
+externalPort = 8008
 
-  [[ports]]
-  localPort = 4200
-  externalPort = 5000
+[[ports]]
+localPort = 3005
+externalPort = 4200
 
-  [[ports]]
-  localPort = 5000
-  externalPort = 80
+[[ports]]
+localPort = 4200
+externalPort = 5000
 
-  [[ports]]
-  localPort = 20716
-  externalPort = 8000
+[[ports]]
+localPort = 5000
+externalPort = 80
 
-  [[ports]]
-  localPort = 23744
-  externalPort = 3000
+[[ports]]
+localPort = 20716
+externalPort = 8000
 
-  [[ports]]
-  localPort = 23745
-  externalPort = 6800
+[[ports]]
+localPort = 23744
+externalPort = 3000
+
+[[ports]]
+localPort = 23745
+externalPort = 6800
 
   [agent]
   expertMode = true

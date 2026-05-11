@@ -18,15 +18,20 @@ replit.nix
 .cache/
 .config/
 .upm/
+.replitignore
+.replit_integration_files/
 
 # ── Dev / editor artefacts ──
 .env
 .env.*
+.env.enc
+.env.enc.bak
 *.log
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+.devcontainer/
 
 # ── Test & coverage ──
 coverage/
@@ -34,15 +39,38 @@ coverage/
 **/*.test.ts
 **/*.spec.ts
 
-# ── Expo / React Native (not deployed in Docker) ──
-artifacts/ajkmart/
+# ── Expo / React Native heavy assets (keep package.json for pnpm resolve) ──
+artifacts/ajkmart/.expo/
+artifacts/ajkmart/android/
+artifacts/ajkmart/ios/
+artifacts/ajkmart/assets/
+artifacts/ajkmart/public/
 
-# ── Mockup sandbox (dev-only tool) ──
+# ── Mockup sandbox (dev-only tool, excluded from pnpm-workspace.yaml too) ──
 artifacts/mockup-sandbox/
 
 # ── Local uploads (use S3 in production) ──
 uploads/
 
-# ── Documentation ──
+# ── Large documentation / screenshot files ──
 *.md
 setup.md
+screenshots/
+attached_assets/
+assets/
+docs/
+plan.md
+test123.md
+ajkmart.md
+ajkmart-*.md
+admin-audit-report.json
+full_tsc_errors.txt
+RIDE_BOOKING_PATCHES.md
+
+# ── Encrypted env archives (secrets come from env vars at runtime) ──
+.env.enc
+.env.enc.bak
+encrypt-temp.js
+skills-lock.json
+flake.lock
+flake.nix

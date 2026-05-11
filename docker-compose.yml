@@ -1,0 +1,29 @@
+services:
+  ajkmart:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ajkmart:latest
+    container_name: ajkmart
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      APP_ROOT: /app
+      API_PORT: "8080"
+      MOBILE_WEB_PORT: "19006"
+    volumes:
+      - uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+volumes:
+  uploads:
+    driver: local
