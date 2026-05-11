@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator, TouchableOpacity, ScrollView, StyleSheet,
-  Text, TextInput, View,
+  Text, TextInput, View, Platform,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -417,7 +417,7 @@ const s = StyleSheet.create({
   btnPrimary: { backgroundColor: "#6366F1", borderRadius: 14, padding: 16, alignItems: "center" },
   btnPrimaryText: { fontFamily: Font.bold, fontSize: 16, color: "#fff" },
   btnDisabled: { opacity: 0.6 },
-  ticketCard: { borderRadius: 16, overflow: "hidden", marginBottom: 16, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  ticketCard: { borderRadius: 16, overflow: "hidden", marginBottom: 16, ...Platform.select({ web: { boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }, default: { shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 } }) },
   ticketHeader: { padding: 16, flexDirection: "row", alignItems: "center", gap: 10 },
   ticketTitle: { fontFamily: Font.bold, fontSize: 18, color: "#fff", flex: 1 },
   ticketVanCode: { fontFamily: Font.bold, fontSize: 14, color: "#E0E7FF", backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },

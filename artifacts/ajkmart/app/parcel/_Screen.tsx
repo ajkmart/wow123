@@ -922,7 +922,7 @@ const ss = StyleSheet.create({
   stepLineActive: { backgroundColor: C.amber },
 
   scroll: { padding: 16, paddingBottom: 24 },
-  card: { backgroundColor: C.surface, borderRadius: 18, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: C.border, shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  card: { backgroundColor: C.surface, borderRadius: 18, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: C.border, ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(15,23,42,0.05)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 } }) },
   cardTitle: { ...Typ.price, color: C.text, marginBottom: 14 },
 
   label: { ...Typ.bodyMedium, fontSize: 13, color: C.text, marginBottom: 6, marginTop: 12 },
@@ -949,7 +949,7 @@ const ss = StyleSheet.create({
   payLabel: { ...Typ.bodySemiBold, color: C.text },
   paySub: { ...Typ.small, color: C.textMuted, marginTop: 2 },
 
-  summaryCard: { backgroundColor: C.surface, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: C.border, shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  summaryCard: { backgroundColor: C.surface, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: C.border, ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(15,23,42,0.05)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 } }) },
   summaryTitle: { ...Typ.h3, fontSize: 16, color: C.text, marginBottom: 14 },
   summaryRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
   summaryDot: { width: 10, height: 10, borderRadius: 5, marginTop: 3 },
@@ -957,10 +957,10 @@ const ss = StyleSheet.create({
   summaryTotal: { flex: 1, ...Typ.h3, fontSize: 16, color: C.text },
   summaryFare: { ...Typ.title, color: C.amber },
 
-  navBar: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.surface, paddingHorizontal: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.border, shadowColor: C.text, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 5 },
+  navBar: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.surface, paddingHorizontal: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.border, ...Platform.select({ web: { boxShadow: "0 -2px 8px rgba(15,23,42,0.06)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 5 } }) },
   prevBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 18, paddingVertical: 14, borderRadius: 14, backgroundColor: C.surfaceSecondary },
   prevBtnTxt: { ...Typ.bodySemiBold, color: C.text },
-  nextBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15, borderRadius: 16, backgroundColor: C.amber, shadowColor: C.amber, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  nextBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15, borderRadius: 16, backgroundColor: C.amber, ...Platform.select({ web: { boxShadow: "0 2px 4px rgba(215,119,6,0.3)" }, default: { shadowColor: C.amber, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 } }) },
   nextBtnTxt: { ...Typ.body, fontFamily: Font.bold, color: C.textInverse },
 
   locModal: { flex: 1, backgroundColor: C.surface },
@@ -973,7 +973,7 @@ const ss = StyleSheet.create({
   locOptionTxt: { ...Typ.bodyMedium, color: C.text },
   locIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.blueSoft, alignItems: "center", justifyContent: "center" },
 
-  confirmCard: { backgroundColor: C.surface, borderRadius: 24, padding: 28, alignItems: "center", width: "100%", borderWidth: 1, borderColor: C.border, gap: 12, shadowColor: C.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5 },
+  confirmCard: { backgroundColor: C.surface, borderRadius: 24, padding: 28, alignItems: "center", width: "100%", borderWidth: 1, borderColor: C.border, gap: 12, ...Platform.select({ web: { boxShadow: "0 4px 16px rgba(15,23,42,0.08)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5 } }) },
   confirmIconCircle: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   confirmTitle: { ...Typ.h2, fontSize: 24, color: C.text },
   confirmSub: { ...Typ.body, color: C.textMuted, textAlign: "center", lineHeight: 21 },

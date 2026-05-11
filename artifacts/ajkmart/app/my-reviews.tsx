@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Platform,
 } from "react-native";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
@@ -199,13 +200,13 @@ const s = StyleSheet.create({
   retryBtn:     { marginTop: 16, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
   retryTxt:     { color: "#fff", fontWeight: "700", fontSize: 14 },
   list:         { padding: 16, gap: 12 },
-  summaryCard:  { backgroundColor: "#fff", borderRadius: 20, padding: 20, alignItems: "center", marginBottom: 4, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  summaryCard:  { backgroundColor: "#fff", borderRadius: 20, padding: 20, alignItems: "center", marginBottom: 4, ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }, default: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 } }) },
   summaryCount: { fontSize: 32, fontWeight: "900", color: "#111", marginTop: 4 },
   summaryLabel: { fontSize: 13, color: "#6b7280", marginTop: 2 },
   empty:        { alignItems: "center", paddingVertical: 48 },
   emptyTitle:   { fontSize: 16, fontWeight: "800", color: "#374151", marginTop: 12 },
   emptySub:     { fontSize: 13, color: "#9ca3af", marginTop: 6, textAlign: "center", maxWidth: 260 },
-  card:         { backgroundColor: "#fff", borderRadius: 16, padding: 16, shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  card:         { backgroundColor: "#fff", borderRadius: 16, padding: 16, ...Platform.select({ web: { boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }, default: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 } }) },
   cardTop:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   typeBadge:    { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#f9fafb", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   typeTxt:      { fontSize: 11, fontWeight: "700" },

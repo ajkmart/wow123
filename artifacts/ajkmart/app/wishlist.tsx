@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Platform,
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
   countTxt: { fontFamily: Font.bold, fontSize: 12, color: C.textInverse },
 
   grid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, paddingTop: 16, gap: 12 },
-  card: { width: CARD_W, backgroundColor: C.surface, borderRadius: 18, overflow: "hidden", shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  card: { width: CARD_W, backgroundColor: C.surface, borderRadius: 18, overflow: "hidden", ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(15,23,42,0.06)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 } }) },
   cardImg: { height: 120, backgroundColor: C.surfaceSecondary, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   discBadge: { position: "absolute", top: 8, left: 8, backgroundColor: C.danger, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   discTxt: { fontFamily: Font.bold, fontSize: 9, color: C.textInverse },

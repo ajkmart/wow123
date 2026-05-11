@@ -517,7 +517,7 @@ function RideCard({ ride, liveTracking, reviews, ratingWindowHours, serverNow, o
                     <View style={[
                       styles.rideStepDot,
                       done && { backgroundColor: active ? cfg.color : C.emeraldDot },
-                      active && { shadowColor: cfg.color, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+                      active && Platform.select({ web: { boxShadow: `0 2px 4px ${cfg.color}4D` }, default: { shadowColor: cfg.color, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 } }),
                     ]}>
                       {done
                         ? <Ionicons name="checkmark" size={10} color={C.textInverse} />
@@ -988,7 +988,7 @@ const rm = StyleSheet.create({
   btns:     { flexDirection: "row", gap: 12, marginTop: 8 },
   cancelBtn: { flex: 1, borderWidth: 1.5, borderColor: C.border, borderRadius: 16, paddingVertical: 15, alignItems: "center" },
   cancelText:{ ...Typ.bodySemiBold, color: C.textSecondary },
-  submitBtn: { flex: 2, backgroundColor: C.primary, borderRadius: 16, paddingVertical: 15, alignItems: "center", justifyContent: "center", shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  submitBtn: { flex: 2, backgroundColor: C.primary, borderRadius: 16, paddingVertical: 15, alignItems: "center", justifyContent: "center", ...Platform.select({ web: { boxShadow: "0 2px 4px rgba(0,102,255,0.3)" }, default: { shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 } }) },
   submitText:{ ...Typ.body, fontFamily: Font.bold, color: C.textInverse },
 });
 
@@ -2073,7 +2073,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.surface, borderRadius: 20,
     marginHorizontal: 16, marginBottom: 12, padding: 16,
     borderWidth: 1, borderColor: C.borderLight,
-    shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+    ...Platform.select({ web: { boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3 } }),
   },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 22 },

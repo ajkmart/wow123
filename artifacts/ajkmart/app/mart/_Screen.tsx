@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   cartBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.overlayLight15, alignItems: "center", justifyContent: "center" },
   cartBadge: { position: "absolute", top: -4, right: -4, backgroundColor: C.gold, borderRadius: 9, minWidth: 18, height: 18, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, borderWidth: 2, borderColor: C.brandBlue },
   cartBadgeTxt: { ...Typ.tiny, color: C.textInverse },
-  searchWrap: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.surface, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+  searchWrap: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.surface, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(15,23,42,0.08)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 } }) },
   searchInput: { flex: 1, ...Typ.body, color: C.text, padding: 0 },
 
   catRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
   timerTxt: { ...Typ.smallBold, color: C.red },
 
   flashGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, gap: 12, marginBottom: 8 },
-  flashCard: { backgroundColor: C.surface, borderRadius: 18, overflow: "hidden", borderWidth: 1.5, borderColor: C.orangeBorder, shadowColor: C.gold, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3 },
+  flashCard: { backgroundColor: C.surface, borderRadius: 18, overflow: "hidden", borderWidth: 1.5, borderColor: C.orangeBorder, ...Platform.select({ web: { boxShadow: "0 3px 8px rgba(245,158,11,0.12)" }, default: { shadowColor: C.gold, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3 } }) },
   flashImg: { height: 100, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   flashBadge: { position: "absolute", top: 8, left: 8, backgroundColor: C.red, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, alignItems: "center" },
   flashBadgeTxt: { ...Typ.smallBold, color: C.textInverse },
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   flashPrice: { ...Typ.h3, fontSize: 16, color: C.red },
 
   productsGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, paddingTop: 4, gap: 12 },
-  productCard: { backgroundColor: C.surface, borderRadius: 18, overflow: "hidden", shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  productCard: { backgroundColor: C.surface, borderRadius: 18, overflow: "hidden", ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(15,23,42,0.06)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 } }) },
   productImg: { height: 110, backgroundColor: C.surfaceSecondary, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   discountBadge: { position: "absolute", top: 8, left: 8, backgroundColor: C.danger, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   discountTxt: { ...Typ.tiny, color: C.textInverse },
@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
   productFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   productPrice: { ...Typ.h3, fontSize: 16, color: C.text },
   productOrigPrice: { ...Typ.small, color: C.textMuted, textDecorationLine: "line-through" },
-  addBtn: { width: 34, height: 34, borderRadius: 11, backgroundColor: C.primary, alignItems: "center", justifyContent: "center", shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  addBtn: { width: 34, height: 34, borderRadius: 11, backgroundColor: C.primary, alignItems: "center", justifyContent: "center", ...Platform.select({ web: { boxShadow: "0 2px 4px rgba(0,102,255,0.3)" }, default: { shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 } }) },
   addBtnDone: { backgroundColor: C.success },
   stepperRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   stepperBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: C.dangerSoft, alignItems: "center", justifyContent: "center" },

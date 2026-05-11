@@ -436,11 +436,7 @@ const s = StyleSheet.create({
     backgroundColor: "#DC2626",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#DC2626",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.32,
-    shadowRadius: 14,
-    elevation: 8,
+    ...Platform.select({ web: { boxShadow: "0 6px 14px rgba(220,38,38,0.32)" }, default: { shadowColor: "#DC2626", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.32, shadowRadius: 14, elevation: 8 } }),
   },
 
   title: {
@@ -623,16 +619,11 @@ const s = StyleSheet.create({
     backgroundColor: "#DC2626",
     borderRadius: 16,
     paddingVertical: 15,
-    shadowColor: "#DC2626",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 10,
-    elevation: 5,
+    ...Platform.select({ web: { boxShadow: "0 4px 10px rgba(220,38,38,0.28)" }, default: { shadowColor: "#DC2626", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 } }),
   },
   confirmBtnDisabled: {
     opacity: 0.45,
-    shadowOpacity: 0,
-    elevation: 0,
+    ...Platform.select({ web: { boxShadow: "none" }, default: { shadowOpacity: 0, elevation: 0 } }),
   },
   confirmBtnPressed: {
     backgroundColor: "#B91C1C",

@@ -459,7 +459,7 @@ export default function RegisterScreen() {
   if (config.appStatus === "maintenance") {
     return (
       <LinearGradient colors={["#1a1a2e", "#16213e", "#0f3460"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
-        <View style={{ backgroundColor: "#fff", borderRadius: 24, padding: 32, width: "100%", maxWidth: 360, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 }}>
+        <View style={{ backgroundColor: "#fff", borderRadius: 24, padding: 32, width: "100%", maxWidth: 360, alignItems: "center", ...Platform.select({ web: { boxShadow: "0 10px 20px rgba(0,0,0,0.2)" }, default: { shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 } }) }}>
           <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: "#FEF3C7", justifyContent: "center", alignItems: "center", marginBottom: 20 }}>
             <Ionicons name="construct-outline" size={40} color="#D97706" />
           </View>
@@ -482,7 +482,7 @@ export default function RegisterScreen() {
   if (!config.features.newUsers) {
     return (
       <LinearGradient colors={["#1a1a2e", "#16213e", "#0f3460"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
-        <View style={{ backgroundColor: "#fff", borderRadius: 24, padding: 32, width: "100%", maxWidth: 360, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 }}>
+        <View style={{ backgroundColor: "#fff", borderRadius: 24, padding: 32, width: "100%", maxWidth: 360, alignItems: "center", ...Platform.select({ web: { boxShadow: "0 10px 20px rgba(0,0,0,0.2)" }, default: { shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 } }) }}>
           <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: "#FEE2E2", justifyContent: "center", alignItems: "center", marginBottom: 20 }}>
             <Ionicons name="lock-closed-outline" size={40} color="#DC2626" />
           </View>

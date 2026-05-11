@@ -2193,7 +2193,7 @@ function CartScreenInner() {
       <GatewayModal />
 
       {showUndoClear && (
-        <View style={{ position: "absolute", bottom: 90, left: 16, right: 16, backgroundColor: C.slateDeep, borderRadius: 14, flexDirection: "row", alignItems: "center", padding: 14, gap: 10, shadowColor: C.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 10 }}>
+        <View style={{ position: "absolute", bottom: 90, left: 16, right: 16, backgroundColor: C.slateDeep, borderRadius: 14, flexDirection: "row", alignItems: "center", padding: 14, gap: 10, ...Platform.select({ web: { boxShadow: "0 4px 8px rgba(15,23,42,0.25)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 10 } }) }}>
           <Ionicons name="trash-outline" size={18} color={C.textMuted} />
           <Text style={{ flex: 1, ...Typ.bodyMedium, fontSize: 13, color: C.surfaceSecondary }}>Cart cleared</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={() => {
@@ -2239,7 +2239,7 @@ const styles = StyleSheet.create({
   itemCountBadge: { backgroundColor: C.primary, borderRadius: 12, minWidth: 24, height: 24, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
   itemCountText: { ...Typ.smallBold, color: C.textInverse, fontSize: 12 },
 
-  cartItem: { flexDirection: "row", gap: 12, padding: 12, backgroundColor: C.surface, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: C.borderLight, shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  cartItem: { flexDirection: "row", gap: 12, padding: 12, backgroundColor: C.surface, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: C.borderLight, ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(15,23,42,0.06)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 } }) },
   itemThumb: { width: 72, height: 72, borderRadius: 14, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   typeBadge: { position: "absolute", top: 4, left: 4, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   typeBadgeText: { fontSize: 9, fontFamily: Font.bold, color: C.textInverse, letterSpacing: 0.5, textTransform: "uppercase" },
@@ -2282,10 +2282,10 @@ const styles = StyleSheet.create({
   grandLabel: { ...Typ.h3, fontSize: 16, color: C.text },
   grandValue: { ...Typ.h3, color: C.primary },
 
-  checkoutBar: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: C.surface, paddingHorizontal: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.border, shadowColor: C.text, shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
+  checkoutBar: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: C.surface, paddingHorizontal: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.border, ...Platform.select({ web: { boxShadow: "0 -3px 12px rgba(15,23,42,0.08)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 } }) },
   checkoutTotal: { ...Typ.title, color: C.text },
   checkoutItems: { ...Typ.caption, color: C.textMuted },
-  checkoutBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 15, borderRadius: 16, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  checkoutBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 15, borderRadius: 16, ...Platform.select({ web: { boxShadow: "0 3px 8px rgba(0,102,255,0.3)" }, default: { shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 } }) },
   checkoutBtnTxt: { ...Typ.button, fontFamily: Font.bold, color: C.textInverse },
   minOrderWrap: { flex: 1, marginLeft: 16, gap: 6 },
   minOrderTxt: { ...Typ.captionMedium, color: C.amber },
@@ -2315,7 +2315,7 @@ const styles = StyleSheet.create({
   successAddr: { ...Typ.body, fontSize: 13, color: C.textMuted, textAlign: "center", marginBottom: 4 },
   successEta: { ...Typ.bodySemiBold, color: C.success, marginBottom: 6 },
   successBtns: { flexDirection: "row", gap: 12, marginTop: 20, width: "100%" },
-  trackBtn: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.primary, borderRadius: 16, paddingVertical: 15, shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  trackBtn: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.primary, borderRadius: 16, paddingVertical: 15, ...Platform.select({ web: { boxShadow: "0 2px 4px rgba(0,102,255,0.3)" }, default: { shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 } }) },
   trackBtnTxt: { ...Typ.body, fontFamily: Font.bold, color: C.textInverse },
   homeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: C.blueSoft, borderRadius: 16, paddingVertical: 15 },
   homeBtnTxt: { ...Typ.bodySemiBold, color: C.primary },

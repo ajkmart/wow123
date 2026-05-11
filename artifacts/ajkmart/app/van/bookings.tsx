@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator, Alert, TouchableOpacity, RefreshControl,
-  ScrollView, StyleSheet, Text, View,
+  ScrollView, StyleSheet, Text, View, Platform,
 } from "react-native";
 import { router } from "expo-router";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -248,7 +248,7 @@ const ss = StyleSheet.create({
   empty: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyTitle: { fontFamily: Font.semiBold, fontSize: 17, color: "#374151", marginTop: 12 },
   emptyDesc: { fontFamily: Font.regular, fontSize: 14, color: "#6B7280", textAlign: "center", marginTop: 6 },
-  card: { borderRadius: 16, overflow: "hidden", marginBottom: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+  card: { borderRadius: 16, overflow: "hidden", marginBottom: 12, ...Platform.select({ web: { boxShadow: "0 3px 10px rgba(0,0,0,0.05)" }, default: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 } }) },
   cardTicketHeader: { padding: 14, paddingBottom: 12, flexDirection: "row", alignItems: "center" },
   cardRouteName: { fontFamily: Font.bold, fontSize: 16, color: "#fff" },
   cardRouteFromTo: { fontFamily: Font.regular, fontSize: 12, color: "rgba(255,255,255,0.8)", marginTop: 2 },

@@ -341,7 +341,7 @@ function FoodScreenInner() {
                 return (
                   <TouchableOpacity key={r.id} activeOpacity={0.75}
                     onPress={() => router.push({ pathname: "/food/store/[id]", params: { id: r.id } })}
-                    style={{ width: 150, borderRadius: 14, backgroundColor: C.surface, overflow: "hidden", shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3 }}
+                    style={{ width: 150, borderRadius: 14, backgroundColor: C.surface, overflow: "hidden", ...Platform.select({ web: { boxShadow: "0 2px 6px rgba(15,23,42,0.07)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3 } }) }}
                     accessibilityRole="button" accessibilityLabel={name}
                   >
                     <View style={{ height: 80, backgroundColor: C.amberSoft, alignItems: "center", justifyContent: "center" }}>
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   cartBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.overlayLight20, alignItems: "center", justifyContent: "center" },
   cartBadge: { position: "absolute", top: -4, right: -4, backgroundColor: C.red, borderRadius: 9, minWidth: 18, height: 18, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, borderWidth: 2, borderColor: C.amber },
   cartBadgeTxt: { ...typography.small, fontFamily: Font.bold, color: C.textInverse },
-  searchBar: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.surface, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.surface, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(15,23,42,0.08)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 } }) },
   searchInput: { flex: 1, ...typography.body, color: C.text, padding: 0 },
 
   catScroll: { marginTop: 12 },
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
   catChipText: { ...typography.buttonSmall, color: C.food },
   catChipTextActive: { color: C.textInverse },
 
-  restaurantCard: { width: 140, backgroundColor: C.surface, borderRadius: 16, overflow: "hidden", shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+  restaurantCard: { width: 140, backgroundColor: C.surface, borderRadius: 16, overflow: "hidden", ...Platform.select({ web: { boxShadow: "0 2px 6px rgba(15,23,42,0.08)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 } }) },
   restaurantImgBox: { width: 140, height: 90, backgroundColor: C.amberSoft, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   restaurantOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.08)" },
   restaurantInfo: { padding: 10 },
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   countBadgeTxt: { ...typography.small, fontFamily: Font.bold, color: C.textInverse },
 
   foodList: { paddingHorizontal: 16, paddingTop: 4, gap: 12 },
-  foodCard: { backgroundColor: C.surface, borderRadius: 18, flexDirection: "row", overflow: "hidden", shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 },
+  foodCard: { backgroundColor: C.surface, borderRadius: 18, flexDirection: "row", overflow: "hidden", ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(15,23,42,0.07)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 } }) },
   foodImageBox: { width: 110, backgroundColor: C.amberSoft, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   timeBadge: { position: "absolute", bottom: 8, left: 8, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.overlayDark60, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   timeText: { ...Typ.smallMedium, fontSize: 10, color: C.textInverse },
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   reviewCount: { ...typography.small, color: C.textMuted },
   foodFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   foodPrice: { ...typography.h3, fontSize: 17, color: C.text },
-  addBtn: { width: 34, height: 34, borderRadius: 11, backgroundColor: C.food, alignItems: "center", justifyContent: "center", shadowColor: C.food, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  addBtn: { width: 34, height: 34, borderRadius: 11, backgroundColor: C.food, alignItems: "center", justifyContent: "center", ...Platform.select({ web: { boxShadow: "0 2px 4px rgba(255,149,0,0.3)" }, default: { shadowColor: C.food, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 } }) },
   addBtnAdded: { backgroundColor: C.success },
   stepperRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   stepperBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: C.dangerSoft, alignItems: "center", justifyContent: "center" },

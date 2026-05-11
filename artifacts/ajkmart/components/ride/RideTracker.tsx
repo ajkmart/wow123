@@ -842,7 +842,7 @@ export function RideTracker({
                       alignItems: "center", justifyContent: "center",
                       borderWidth: active ? 2 : 0,
                       borderColor: active ? completedColor : "transparent",
-                      ...(active ? { shadowColor: completedColor, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 5 } : {}),
+                      ...(active ? Platform.select({ web: { boxShadow: `0 0 8px ${completedColor}80` }, default: { shadowColor: completedColor, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 5 } }) : {}),
                     }}>
                       {done ? (
                         <Ionicons name={active ? hdrCfg.icon : "checkmark"} size={active ? 13 : 12} color="#fff" />

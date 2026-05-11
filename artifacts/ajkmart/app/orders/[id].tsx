@@ -709,7 +709,7 @@ export default function OrderDetailScreen() {
                       <View style={[
                         s.stepDot,
                         done && { backgroundColor: active ? cfg.color : C.emeraldDot },
-                        active && { shadowColor: cfg.color, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6 },
+                        active && Platform.select({ web: { boxShadow: `0 2px 6px ${cfg.color}4D` }, default: { shadowColor: cfg.color, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6 } }),
                       ]}>
                         {done
                           ? <Ionicons name="checkmark" size={13} color={C.textInverse} />

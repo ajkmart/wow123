@@ -706,9 +706,7 @@ const s = StyleSheet.create({
     fontSize: 80,
     color: "#fff",
     lineHeight: 90,
-    textShadowColor: "rgba(0,0,0,0.15)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    ...Platform.select({ web: { textShadow: "0px 2px 8px rgba(0,0,0,0.15)" }, default: { textShadowColor: "rgba(0,0,0,0.15)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 } }),
   },
   heroCondRow: {
     flexDirection: "row",

@@ -4,6 +4,7 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -209,11 +210,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     gap: 10,
-    shadowColor: C.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(15,23,42,0.05)" }, default: { shadowColor: C.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 } }),
   },
   cardTop: { flexDirection: "row", alignItems: "center", gap: 10 },
   cardIcon: {
