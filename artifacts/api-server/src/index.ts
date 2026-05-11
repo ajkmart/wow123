@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { logger } from './lib/logger.js';
 import net from 'net';
 import { execSync } from 'child_process';
+import { writeFileSync, unlinkSync } from 'fs';
 import { createServer, runStartupTasks } from "./app.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
 import { waitForRedisReady } from "./lib/redis.js";
@@ -255,6 +256,12 @@ async function main() {
   // Open the port FIRST so the platform's port detector sees a live listener
   // quickly. Migrations + RBAC seeding run immediately after; if they fail,
   // we exit non-zero so the platform restarts us.
+  /* ── PID file — written so rotate-secrets can find this process ────────────
+     Stored at /tmp/ajkmart-api.pid; cleaned up on any exit signal.          */
+  const PID_FILE = '/tmp/ajkmart-api.pid';
+  try { writeFileSync(PID_FILE, String(process.pid)); } catch { /* non-fatal */ }
+  process.on('exit', () => { try { unlinkSync(PID_FILE); } catch { /* ignore */ } });
+
   const httpServer = server.listen(listenPort, "0.0.0.0", () => {
     const addr = httpServer.address();
     logger.info(`[server:listen] Server listening on port ${listenPort} (addr=${JSON.stringify(addr)})`);
@@ -308,6 +315,32 @@ async function main() {
 
   process.once("SIGTERM", () => gracefulShutdown("SIGTERM"));
   process.once("SIGINT",  () => gracefulShutdown("SIGINT"));
+
+  /* ── SIGHUP — secret rotation reload ─────────────────────────────────────
+     rotate-secrets sends SIGHUP after writing new secrets to .env.enc and
+     .env.reload. We drain in-flight requests (30 s max) then exit cleanly.
+     The workflow / PM2 auto-restarts the process; secure-start.mjs detects
+     .env.reload on startup and applies the new secrets before spawning any
+     service, giving zero-manual-intervention secret rotation.               */
+  process.once("SIGHUP", () => {
+    logger.info("[rotate] SIGHUP received — draining connections for secret rotation reload");
+    stopScheduler();
+    httpServer.close((closeErr) => {
+      if (closeErr) {
+        logger.error("[rotate] error closing HTTP server:", closeErr);
+        process.exit(1);
+      } else {
+        logger.info("[rotate] connections drained — exiting for rotation restart");
+        process.exit(0);
+      }
+    });
+    /* Drain window: 30 s (more generous than normal shutdown's 10 s so
+       long-lived WebSocket / SSE connections have time to close cleanly) */
+    setTimeout(() => {
+      logger.warn("[rotate] drain timeout reached — force exiting for rotation");
+      process.exit(0);
+    }, 30_000).unref();
+  });
 }
 
 main().catch((err) => {

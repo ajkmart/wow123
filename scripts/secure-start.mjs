@@ -161,6 +161,24 @@ function writeEnvFile(envData) {
  * - Codespaces/Local: decrypt .env.enc → write .env → load into process.env
  */
 function loadEnv() {
+  /* ── .env.reload — highest-priority one-time secret override ───────────────
+     Written by rotate-secrets after generating new JWT/security secrets.
+     Applied before everything else so the restarting server uses new secrets
+     immediately, regardless of environment (Replit, Codespaces, or local).
+     Deleted after loading — it is single-use.                               */
+  const reloadPath = path.join(root, ".env.reload");
+  if (existsSync(reloadPath)) {
+    const reloadData = parseEnvFile(reloadPath);
+    const keys = Object.keys(reloadData);
+    if (keys.length > 0) {
+      for (const [k, v] of Object.entries(reloadData)) {
+        process.env[k] = v;   // override everything, including Replit Secrets
+      }
+      try { fs.unlinkSync(reloadPath); } catch {}
+      ok(`Applied ${keys.length} rotated secrets from .env.reload`);
+    }
+  }
+
   if (IS_REPLIT) {
     ok("Replit mode — using Replit Secrets (no decrypt needed)");
     return;
@@ -309,6 +327,32 @@ function startService(name, pnpmArgs, extraEnv = {}) {
     if (code !== 0 && code !== null) {
       err(`[${name}] exited with code ${code}`);
       process.exitCode = code;
+      return;
+    }
+    /* ── Rotation reload: clean exit + .env.reload present ───────────────────
+       rotate-secrets sends SIGHUP → API drains → exits 0 → lands here.
+       Apply the new secrets into process.env, delete the one-time file, then
+       respawn the service so it picks up the fresh secrets immediately.
+       All other services (admin, vendor, rider, ajkmart) keep running.      */
+    const reloadPath = path.join(root, ".env.reload");
+    if (existsSync(reloadPath)) {
+      const reloadData = parseEnvFile(reloadPath);
+      const keys       = Object.keys(reloadData);
+      if (keys.length > 0) {
+        for (const [k, v] of Object.entries(reloadData)) {
+          process.env[k] = v;        // highest-priority override
+          extraEnv[k]    = v;        // propagate into the respawned child too
+        }
+        try { fs.unlinkSync(reloadPath); } catch {}
+        ok(`[${name}] rotation reload — applied ${keys.length} new secrets`);
+      }
+      // Respawn after a brief pause so the port is fully released
+      setTimeout(() => {
+        ok(`[${name}] respawning with rotated secrets…`);
+        const newProc = startService(name, pnpmArgs, extraEnv);
+        const idx     = children.indexOf(proc);
+        if (idx !== -1) children[idx] = newProc;
+      }, 800);
     }
   });
   proc.unref();
