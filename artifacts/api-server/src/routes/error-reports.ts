@@ -1065,7 +1065,11 @@ export async function getAutoResolveSettings() {
     const [row] = await db.select().from(platformSettingsTable)
       .where(eq(platformSettingsTable.key, "auto_resolve_settings"));
     if (row) {
-      return { ...DEFAULT_AUTO_RESOLVE_SETTINGS, ...JSON.parse(row.value) };
+      try {
+        return { ...DEFAULT_AUTO_RESOLVE_SETTINGS, ...JSON.parse(row.value) };
+      } catch {
+        return { ...DEFAULT_AUTO_RESOLVE_SETTINGS };
+      }
     }
   } catch {}
   return { ...DEFAULT_AUTO_RESOLVE_SETTINGS };

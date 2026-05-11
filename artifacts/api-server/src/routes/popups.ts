@@ -102,6 +102,7 @@ async function evaluateTargeting(
 }
 
 router.get("/active", async (req, res) => {
+  try {
   const user = getUserFromRequest(req);
   const userRole = user ? (user.role || "customer") : "customer";
   const sessionId = req.query["sessionId"] as string | undefined;
@@ -174,9 +175,13 @@ router.get("/active", async (req, res) => {
     })),
     total: eligible.length,
   });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 router.post("/impression", async (req, res) => {
+  try {
   const user = getUserFromRequest(req);
   const { popupId, action, sessionId } = req.body as { popupId: string; action: string; sessionId?: string };
   if (!popupId) { sendValidationError(res, "popupId is required"); return; }
@@ -201,6 +206,9 @@ router.post("/impression", async (req, res) => {
   }).catch(() => {});
 
   sendSuccess(res, { success: true });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 /* ──────────────────────────────────────────────────────────────────────────

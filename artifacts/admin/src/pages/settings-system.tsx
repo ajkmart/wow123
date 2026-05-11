@@ -970,13 +970,14 @@ function MaintenanceScheduleSection({ apiFetch, toast }: { apiFetch: (path: stri
 
   useEffect(() => {
     apiFetch("/maintenance-schedule").then(d => {
+      if (!d) return;
       const data = d.data ?? d;
       setStart(data.scheduledStart || "");
       setEnd(data.scheduledEnd || "");
       setMsg(data.scheduledMsg || "");
     }).catch((err) => {
     }).finally(() => setLoading(false));
-  }, [apiFetch]);
+  }, []);
 
   const save = async () => {
     setSaving(true);
@@ -1058,11 +1059,12 @@ function DataRetentionSection({ apiFetch, toast }: { apiFetch: (path: string, op
 
   useEffect(() => {
     apiFetch("/retention-policies").then(d => {
+      if (!d) return;
       const data = d.data ?? d;
       setPolicies({ locationDays: data.locationDays, chatDays: data.chatDays, auditDays: data.auditDays, notificationsDays: data.notificationsDays, lastCleanup: data.lastCleanup });
     }).catch((err) => {
     }).finally(() => setLoading(false));
-  }, [apiFetch]);
+  }, []);
 
   const save = async () => {
     setSaving(true);

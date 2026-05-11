@@ -1101,7 +1101,13 @@ router.post("/demo-backups/:id/restore", async (req, res) => {
   const row = await db.select().from(demoBackupsTable).where(eq(demoBackupsTable.id, id)).limit(1);
   if (!row[0]) { sendNotFound(res, "Demo backup not found"); return; }
 
-  const tables = JSON.parse(row[0].tablesJson) as Record<string, any[]>;
+  let tables: Record<string, any[]>;
+  try {
+    tables = JSON.parse(row[0].tablesJson) as Record<string, any[]>;
+  } catch {
+    sendError(res, "Demo backup data is corrupted and cannot be parsed", 500);
+    return;
+  }
 
   const snap = await snapshotBefore(`Demo Restore: ${row[0].label}`, "demo-restore", Object.keys(TABLE_MAP));
   const { restored, errors } = await restoreTables(tables);

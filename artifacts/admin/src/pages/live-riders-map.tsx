@@ -700,11 +700,6 @@ export default function LiveRidersMap() {
     refetchOnWindowFocus: false,
     retry: 1,
   });
-  useEffect(() => {
-    if (mapConfigError) {
-    }
-  }, [mapConfigError]);
-
   const selectedId = selectedEntity?.type === "rider" ? selectedEntity.id : null;
   const { data: routeData } = useRiderRoute(selectedId, routeDate);
   const { data: customerData } = useCustomerLocations();

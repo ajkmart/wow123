@@ -129,7 +129,9 @@ router.get("/profile/quick-replies", async (req, res) => {
       if (Array.isArray(parsed) && parsed.every(s => typeof s === "string")) {
         shortcuts = parsed;
       }
-    } catch {}
+    } catch (e) {
+      logger.warn({ vendorId, err: (e as Error).message }, "[vendor/quick-replies] corrupted quickReplies data, returning empty array");
+    }
   }
   sendSuccess(res, { quickReplies: shortcuts });
 });

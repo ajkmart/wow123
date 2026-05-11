@@ -8,6 +8,7 @@ import { nowIso, mapOffer, mapCampaign, computeOfferStatus } from "./helpers.js"
 const router = Router();
 
 router.get("/public", async (req, res) => {
+  try {
   const now = nowIso();
   const type = req.query["type"] as string | undefined;
 
@@ -68,9 +69,13 @@ router.get("/public", async (req, res) => {
       bundles:         groupedOffers.bundles.map(mapOffer),
     },
   });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 router.get("/for-you", customerAuth, async (req: Request, res) => {
+  try {
   const userId: string | undefined = req.customerId ?? undefined;
   if (!userId) { sendValidationError(res, "auth required"); return; }
 
@@ -118,9 +123,13 @@ router.get("/for-you", customerAuth, async (req: Request, res) => {
     offers: scored.slice(0, 10).map(o => mapOffer(o)),
     context: { isNewUser, topService, totalSpent },
   });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 router.post("/auto-apply", customerAuth, async (req: Request, res) => {
+  try {
   const userId = req.customerId!;
   const { orderTotal, orderType } = req.body as { orderTotal?: unknown; orderType?: string };
   const total = parseFloat(String(orderTotal ?? "0"));
@@ -213,6 +222,9 @@ router.post("/auto-apply", customerAuth, async (req: Request, res) => {
         ? "Free delivery applied automatically"
         : "Offer applied",
   });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 type ValidatedEntry = {
@@ -228,6 +240,7 @@ type ValidatedEntry = {
 };
 
 router.post("/validate", customerAuth, async (req: Request, res) => {
+  try {
   const { code, offerIds, orderTotal, orderType } = req.body as {
     code?: string;
     offerIds?: unknown[];
@@ -358,49 +371,60 @@ router.post("/validate", customerAuth, async (req: Request, res) => {
     offers: validatedOffers,
     errors,
   });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 router.get("/vendor/campaigns", requireRole("vendor"), async (req: Request, res) => {
-  const vendorId = req.vendorId as string;
-  const now = nowIso();
+  try {
+    const vendorId = req.vendorId as string;
+    const now = nowIso();
 
-  const campaigns = await db
-    .select()
-    .from(campaignsTable)
-    .where(and(eq(campaignsTable.status, "live"), gte(campaignsTable.endDate, now)))
-    .orderBy(asc(campaignsTable.priority));
+    const campaigns = await db
+      .select()
+      .from(campaignsTable)
+      .where(and(eq(campaignsTable.status, "live"), gte(campaignsTable.endDate, now)))
+      .orderBy(asc(campaignsTable.priority));
 
-  const participations = await db.select().from(campaignParticipationsTable)
-    .where(eq(campaignParticipationsTable.vendorId, vendorId));
+    const participations = await db.select().from(campaignParticipationsTable)
+      .where(eq(campaignParticipationsTable.vendorId, vendorId));
 
-  const partMap = Object.fromEntries(participations.map(p => [p.campaignId, p]));
+    const partMap = Object.fromEntries(participations.map(p => [p.campaignId, p]));
 
-  sendSuccess(res, {
-    campaigns: campaigns.map(c => ({
-      ...mapCampaign(c),
-      participation: partMap[c.id] ?? null,
-    })),
-  });
+    sendSuccess(res, {
+      campaigns: campaigns.map(c => ({
+        ...mapCampaign(c),
+        participation: partMap[c.id] ?? null,
+      })),
+    });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 router.post("/vendor/campaigns/:id/participate", requireRole("vendor"), async (req: Request, res) => {
-  const vendorId = req.vendorId as string;
-  const campaignId = req.params["id"]!;
-  const { notes } = req.body;
+  try {
+    const vendorId = req.vendorId as string;
+    const campaignId = req.params["id"]!;
+    const { notes } = req.body;
 
-  const [existing] = await db.select().from(campaignParticipationsTable)
-    .where(and(eq(campaignParticipationsTable.campaignId, campaignId), eq(campaignParticipationsTable.vendorId, vendorId)))
-    .limit(1);
-  if (existing) { sendError(res, "Already requested participation", 409); return; }
+    const [existing] = await db.select().from(campaignParticipationsTable)
+      .where(and(eq(campaignParticipationsTable.campaignId, campaignId), eq(campaignParticipationsTable.vendorId, vendorId)))
+      .limit(1);
+    if (existing) { sendError(res, "Already requested participation", 409); return; }
 
-  const [participation] = await db.insert(campaignParticipationsTable).values({
-    id: generateId(),
-    campaignId,
-    vendorId,
-    status: "pending",
-    notes: notes || null,
-  }).returning();
-  sendCreated(res, participation);
+    const [participation] = await db.insert(campaignParticipationsTable).values({
+      id: generateId(),
+      campaignId,
+      vendorId,
+      status: "pending",
+      notes: notes || null,
+    }).returning();
+    sendCreated(res, participation);
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 export default router;

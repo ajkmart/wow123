@@ -215,8 +215,9 @@ export default function OtpControl() {
   const { data: settingsData } = usePlatformSettings();
   const updateSettings = useUpdatePlatformSettings();
   const rawSettings: Array<{ key: string; value: string }> = settingsData?.settings ?? [];
-  const getSetting = (key: string, fallback: string) =>
-    rawSettings.find((s: { key: string; value: string }) => s.key === key)?.value ?? fallback;
+  const getSetting = useCallback((key: string, fallback: string) =>
+    rawSettings.find((s: { key: string; value: string }) => s.key === key)?.value ?? fallback,
+  [rawSettings]);
   const [rlPhone, setRlPhone] = useState("");
   const [rlIp, setRlIp]       = useState("");
   const [rlWindow, setRlWindow] = useState("");
@@ -227,8 +228,7 @@ export default function OtpControl() {
       setRlIp(getSetting("security_otp_max_per_ip", "20"));
       setRlWindow(getSetting("security_otp_window_min", "60"));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settingsData]);
+  }, [settingsData, getSetting]);
 
   /* ── Delivery OTP Viewer ── */
   const [rideIdInput, setRideIdInput]     = useState("");

@@ -33,20 +33,28 @@ function formatRoute(r: Record<string, unknown>) {
    GET /school/routes — Public list of active school routes
 ══════════════════════════════════════════════════════ */
 router.get("/routes", async (_req, res) => {
-  const routes = await db.select().from(schoolRoutesTable)
-    .where(eq(schoolRoutesTable.isActive, true))
-    .orderBy(asc(schoolRoutesTable.sortOrder), asc(schoolRoutesTable.schoolName));
-  res.json({ routes: routes.map(formatRoute) });
+  try {
+    const routes = await db.select().from(schoolRoutesTable)
+      .where(eq(schoolRoutesTable.isActive, true))
+      .orderBy(asc(schoolRoutesTable.sortOrder), asc(schoolRoutesTable.schoolName));
+    res.json({ routes: routes.map(formatRoute) });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 /* ══════════════════════════════════════════════════════
    GET /school/routes/:id — Single route details
 ══════════════════════════════════════════════════════ */
 router.get("/routes/:id", async (req, res) => {
-  const [route] = await db.select().from(schoolRoutesTable)
-    .where(eq(schoolRoutesTable.id, String(req.params["id"]))).limit(1);
-  if (!route) { res.status(404).json({ error: "Route not found" }); return; }
-  res.json(formatRoute(route));
+  try {
+    const [route] = await db.select().from(schoolRoutesTable)
+      .where(eq(schoolRoutesTable.id, String(req.params["id"]))).limit(1);
+    if (!route) { res.status(404).json({ error: "Route not found" }); return; }
+    res.json(formatRoute(route));
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 /* ══════════════════════════════════════════════════════
@@ -54,6 +62,7 @@ router.get("/routes/:id", async (req, res) => {
    Body: { routeId, studentName, studentClass, paymentMethod }
 ══════════════════════════════════════════════════════ */
 router.post("/subscribe", customerAuth, async (req, res) => {
+  try {
   const userId = req.customerId!;
   const {
     routeId, studentName, studentClass, paymentMethod = "cash", notes,
@@ -169,33 +178,40 @@ router.post("/subscribe", customerAuth, async (req, res) => {
   }).catch(() => {});
 
   res.status(201).json({ ...sub, monthlyAmount: safeNum(sub!.monthlyAmount), route: formatRoute(route) });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 /* ══════════════════════════════════════════════════════
    GET /school/my-subscriptions — requires JWT
 ══════════════════════════════════════════════════════ */
 router.get("/my-subscriptions", customerAuth, async (req, res) => {
-  const userId = req.customerId!;
+  try {
+    const userId = req.customerId!;
 
-  const subs = await db.select().from(schoolSubscriptionsTable)
-    .where(eq(schoolSubscriptionsTable.userId, userId))
-    .orderBy(desc(schoolSubscriptionsTable.createdAt));
+    const subs = await db.select().from(schoolSubscriptionsTable)
+      .where(eq(schoolSubscriptionsTable.userId, userId))
+      .orderBy(desc(schoolSubscriptionsTable.createdAt));
 
-  /* Enrich with route info */
-  const enriched = await Promise.all(subs.map(async (sub) => {
-    const [route] = await db.select().from(schoolRoutesTable)
-      .where(eq(schoolRoutesTable.id, sub.routeId)).limit(1);
-    return {
-      ...sub,
-      monthlyAmount: safeNum(sub.monthlyAmount),
-      route: route ? formatRoute(route) : null,
-      startDate: sub.startDate instanceof Date ? sub.startDate.toISOString() : sub.startDate,
-      nextBillingDate: sub.nextBillingDate instanceof Date ? sub.nextBillingDate.toISOString() : sub.nextBillingDate,
-      createdAt: sub.createdAt instanceof Date ? sub.createdAt.toISOString() : sub.createdAt,
-    };
-  }));
+    /* Enrich with route info */
+    const enriched = await Promise.all(subs.map(async (sub) => {
+      const [route] = await db.select().from(schoolRoutesTable)
+        .where(eq(schoolRoutesTable.id, sub.routeId)).limit(1);
+      return {
+        ...sub,
+        monthlyAmount: safeNum(sub.monthlyAmount),
+        route: route ? formatRoute(route) : null,
+        startDate: sub.startDate instanceof Date ? sub.startDate.toISOString() : sub.startDate,
+        nextBillingDate: sub.nextBillingDate instanceof Date ? sub.nextBillingDate.toISOString() : sub.nextBillingDate,
+        createdAt: sub.createdAt instanceof Date ? sub.createdAt.toISOString() : sub.createdAt,
+      };
+    }));
 
-  res.json({ subscriptions: enriched });
+    res.json({ subscriptions: enriched });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 /* ══════════════════════════════════════════════════════
@@ -203,31 +219,35 @@ router.get("/my-subscriptions", customerAuth, async (req, res) => {
    Requires JWT — cancels the calling user's own subscription.
 ══════════════════════════════════════════════════════ */
 router.patch("/subscriptions/:id/cancel", customerAuth, async (req, res) => {
-  const userId = req.customerId!;
+  try {
+    const userId = req.customerId!;
 
-  const [sub] = await db.select().from(schoolSubscriptionsTable)
-    .where(and(eq(schoolSubscriptionsTable.id, String(req.params["id"])), eq(schoolSubscriptionsTable.userId, userId)))
-    .limit(1);
-  if (!sub) { res.status(404).json({ error: "Subscription not found" }); return; }
-  if (sub.status !== "active") { res.status(400).json({ error: "Subscription is already inactive" }); return; }
+    const [sub] = await db.select().from(schoolSubscriptionsTable)
+      .where(and(eq(schoolSubscriptionsTable.id, String(req.params["id"])), eq(schoolSubscriptionsTable.userId, userId)))
+      .limit(1);
+    if (!sub) { res.status(404).json({ error: "Subscription not found" }); return; }
+    if (sub.status !== "active") { res.status(400).json({ error: "Subscription is already inactive" }); return; }
 
-  /* TOCTOU guard: include userId in UPDATE WHERE so the ownership check
-     and the mutation are atomic — a token swap between SELECT and UPDATE
-     cannot cancel another user's subscription */
-  const [updated] = await db.update(schoolSubscriptionsTable)
-    .set({ status: "cancelled", updatedAt: new Date() })
-    .where(and(
-      eq(schoolSubscriptionsTable.id, String(req.params["id"])),
-      eq(schoolSubscriptionsTable.userId, userId),
-    ))
-    .returning();
+    /* TOCTOU guard: include userId in UPDATE WHERE so the ownership check
+       and the mutation are atomic — a token swap between SELECT and UPDATE
+       cannot cancel another user's subscription */
+    const [updated] = await db.update(schoolSubscriptionsTable)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(and(
+        eq(schoolSubscriptionsTable.id, String(req.params["id"])),
+        eq(schoolSubscriptionsTable.userId, userId),
+      ))
+      .returning();
 
-  /* Decrement enrolled count on the route */
-  await db.update(schoolRoutesTable)
-    .set({ enrolledCount: sql`enrolled_count - 1`, updatedAt: new Date() })
-    .where(eq(schoolRoutesTable.id, sub.routeId));
+    /* Decrement enrolled count on the route */
+    await db.update(schoolRoutesTable)
+      .set({ enrolledCount: sql`enrolled_count - 1`, updatedAt: new Date() })
+      .where(eq(schoolRoutesTable.id, sub.routeId));
 
-  res.json({ ...updated, monthlyAmount: safeNum(updated!.monthlyAmount) });
+    res.json({ ...updated, monthlyAmount: safeNum(updated!.monthlyAmount) });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 /* ══════════════════════════════════════════════════════════════════

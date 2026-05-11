@@ -59,7 +59,7 @@ export default function Broadcast() {
     enabled: historyOpen,
     refetchInterval: historyOpen ? 30_000 : false,
   });
-  const history: BroadcastRecord[] = historyData?.broadcasts ?? [];
+  const history: BroadcastRecord[] = (historyData?.broadcasts ?? historyData ?? []) as BroadcastRecord[];
 
   const targetRolesForQuery: string[] | "all" = allUsers ? "all" : selectedRoles;
   const recipientCountQuery = useBroadcastRecipientCount(

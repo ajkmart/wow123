@@ -239,9 +239,9 @@ function UserActivityModal({ userId, userName, user: userData, onClose }: { user
             </div>
             {(data?.pharmacy?.length || 0) > 0 && (
               <div>
-                <h3 className="text-sm font-bold flex items-center gap-2 mb-2"><Pill className="w-4 h-4 text-pink-600" /> Pharmacy Orders ({data.pharmacy.length})</h3>
+                <h3 className="text-sm font-bold flex items-center gap-2 mb-2"><Pill className="w-4 h-4 text-pink-600" /> Pharmacy Orders ({data?.pharmacy?.length})</h3>
                 <div className="space-y-2">
-                  {data.pharmacy.map((p: any) => (
+                  {data?.pharmacy?.map((p: any) => (
                     <div key={p.id} className="flex justify-between text-sm bg-muted/30 rounded-xl px-3 py-2 hover:bg-muted/50 transition-colors">
                       <span className="font-mono text-xs">{p.id.slice(-6).toUpperCase()}</span>
                       <div className="flex gap-2">
@@ -255,9 +255,9 @@ function UserActivityModal({ userId, userName, user: userData, onClose }: { user
             )}
             {(data?.parcels?.length || 0) > 0 && (
               <div>
-                <h3 className="text-sm font-bold flex items-center gap-2 mb-2"><Package className="w-4 h-4 text-orange-600" /> Parcel Bookings ({data.parcels.length})</h3>
+                <h3 className="text-sm font-bold flex items-center gap-2 mb-2"><Package className="w-4 h-4 text-orange-600" /> Parcel Bookings ({data?.parcels?.length})</h3>
                 <div className="space-y-2">
-                  {data.parcels.map((p: any) => (
+                  {data?.parcels?.map((p: any) => (
                     <div key={p.id} className="flex justify-between text-sm bg-muted/30 rounded-xl px-3 py-2 hover:bg-muted/50 transition-colors">
                       <span className="font-mono text-xs">{p.id.slice(-6).toUpperCase()}</span>
                       <div className="flex gap-2">
