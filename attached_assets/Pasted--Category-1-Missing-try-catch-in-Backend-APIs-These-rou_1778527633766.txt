@@ -1,0 +1,49 @@
+ Category 1: Missing try-catch in Backend APIs
+These route handlers make direct DB calls with zero error handling — if PostgreSQL throws, the Express process crashes with an unhandled promise rejection.
+
+File	Line	Issue Description	Suggested Fix
+artifacts/api-server/src/routes/notifications.ts	16	GET / — entire handler has no try-catch. Direct DB select + insert on first-visit seed flow.	Wrap lines 18–40 in try { ... } catch { res.status(500).json({ error: "Server error" }); }
+artifacts/api-server/src/routes/notifications.ts	52	POST / — DB insert with no try-catch.	Same wrapper pattern.
+artifacts/api-server/src/routes/notifications.ts	59	PATCH /read-all — DB update, no error handling.	Same.
+artifacts/api-server/src/routes/notifications.ts	65	PATCH /:id/read — no try-catch.	Same.
+artifacts/api-server/src/routes/notifications.ts	74	DELETE /:id — no try-catch.	Same.
+artifacts/api-server/src/routes/variants.ts	11	GET /product/:productId — no try-catch. Raw DB call exposed.	Wrap DB block in try-catch, return 500.
+artifacts/api-server/src/routes/variants.ts	33	GET /product/:productId/all — no try-catch.	Same.
+artifacts/api-server/src/routes/variants.ts	52	POST / — no try-catch.	Same.
+artifacts/api-server/src/routes/variants.ts	87	PATCH /:id — no try-catch.	Same.
+artifacts/api-server/src/routes/variants.ts	113	DELETE /:id — no try-catch.	Same.
+artifacts/api-server/src/routes/promotions/public.ts	10	GET /public — no try-catch. Runs 2 heavy DB queries exposed.	Wrap full handler body in try-catch.
+artifacts/api-server/src/routes/promotions/public.ts	73	GET /for-you — no try-catch.	Same.
+artifacts/api-server/src/routes/promotions/public.ts	123	POST /auto-apply — no try-catch. Loops DB per offer.	Same.
+artifacts/api-server/src/routes/promotions/public.ts	230	POST /validate — no try-catch. Multiple awaited DB calls.	Same.
+artifacts/api-server/src/routes/promotions/public.ts	363	GET /vendor/campaigns — no try-catch.	Same.
+artifacts/api-server/src/routes/promotions/public.ts	386	POST /vendor/campaigns/:id/participate — no try-catch.	Same.
+artifacts/api-server/src/routes/school.ts	35	GET /routes — public route, no try-catch.	try { ... } catch { res.status(500).json({ error: "Server error" }); }
+artifacts/api-server/src/routes/school.ts	45	GET /routes/:id — no try-catch.	Same.
+artifacts/api-server/src/routes/school.ts	56	POST /subscribe — long handler with wallet deduction, no try-catch. Critical financial path.	Wrap entire body in try-catch with DB rollback guard.
+artifacts/api-server/src/routes/school.ts	177	GET /my-subscriptions — no try-catch, uses Promise.all.	Wrap with try-catch.
+artifacts/api-server/src/routes/school.ts	205	PATCH /subscriptions/:id/cancel — no try-catch on user-facing cancel.	Same.
+artifacts/api-server/src/routes/popups.ts	104	GET /active — no try-catch. Loops N DB queries inside for loop per campaign.	Wrap handler in try-catch.
+artifacts/api-server/src/routes/popups.ts	179	POST /impression — no try-catch.	Same.
+🔴 Category 2: JSON.parse Without try-catch (Crash Risk)
+These calls parse DB-stored strings with no protection — a single corrupted row will throw and crash the request.
+
+File	Line	Issue Description	Suggested Fix
+artifacts/api-server/src/routes/variants.ts	27, 46	JSON.parse(v.attributes) — no try-catch. DB column attributes is a raw string; any malformed value crashes the GET.	(() => { try { return JSON.parse(v.attributes); } catch { return null; } })()
+artifacts/api-server/src/routes/variants.ts	83, 109	Same problem in POST (insert) and PATCH (update) responses.	Same inline try-catch IIFE.
+artifacts/api-server/src/routes/system.ts	1104	JSON.parse(row[0].tablesJson) in POST /demo-backups/:id/restore — no try-catch. If the backup blob is corrupt, the entire restore handler throws unhandled.	Add try { tables = JSON.parse(...); } catch { return res.status(500).json({ error: "Snapshot data corrupted" }); }
+artifacts/api-server/src/routes/error-reports.ts	1068	JSON.parse(row.value) — bare parse with no protection in auto-resolve settings loader.	Wrap in try-catch with fallback to DEFAULT_AUTO_RESOLVE_SETTINGS.
+artifacts/api-server/src/routes/vendor.ts	128	JSON.parse(profile.quickReplies) — inside a try-catch but the catch block only silently returns []. Swallowed error gives no visibility when data is corrupt.	Log error in catch: catch (e) { logger.warn("quickReplies parse failed", e); return []; }
+🟡 Category 3: useEffect Potential Infinite Loops / Silent Bugs (Frontend)
+File	Line	Issue Description	Suggested Fix
+artifacts/admin/src/pages/otp-control.tsx	224–230	useEffect depends on rawSettings but calls getSetting() inside — getSetting is defined in component body and is not in the dependency array. The file has an // eslint-disable-next-line react-hooks/exhaustive-deps comment suppressing this. If getSetting ever captures stale closure state, the effect silently uses wrong values.	Either move getSetting outside the component or include it in deps with useCallback. Remove the eslint-disable comment.
+artifacts/admin/src/pages/settings-system.tsx	971–978	useEffect(() => { apiFetch("/maintenance-schedule").then(...) }, [apiFetch]) — apiFetch is a function reference obtained from useAbortableEffect/context. If it is not stabilized with useCallback, its reference changes every render, causing the effect to re-fire continuously (infinite API call loop).	Verify apiFetch is wrapped in useCallback in its source. If not, add it, or use an empty [] dep array if the function is stable by design.
+artifacts/admin/src/pages/settings-system.tsx	1059–1065	Same apiFetch dependency problem for the retention-policies useEffect. Same infinite loop risk.	Same fix as above.
+artifacts/admin/src/pages/live-riders-map.tsx	708–711	useEffect(() => { if (mapConfigError) { } }, [mapConfigError]) — completely empty body. The effect runs on every mapConfigError change but does nothing. Dead code creating a misleading dependency.	Either add actual error handling inside the block (e.g., console.error or show a toast), or remove the entire useEffect.
+🟡 Category 4: Admin Panel API Calls With Missing undefined Guards
+File	Line	Issue Description	Suggested Fix
+artifacts/admin/src/pages/users.tsx	242, 244	Inside {(data?.pharmacy?.length || 0) > 0 && (...)} guard, the inner JSX does data.pharmacy.length and data.pharmacy.map(...) without optional chaining. If data itself becomes null between renders (e.g., query invalidation), this throws a runtime crash.	Change to data?.pharmacy?.length and data?.pharmacy?.map(...) consistently inside the block.
+artifacts/admin/src/pages/users.tsx	258, 260	Same problem for data.parcels.length and data.parcels.map(...) inside the parcels guard block.	Same fix — use data?.parcels?.length and data?.parcels?.map(...).
+artifacts/admin/src/pages/settings-system.tsx	973	apiFetch("/maintenance-schedule").then(d => { const data = d.data ?? d; setStart(data.scheduledStart || ""); }) — if d resolves to null or undefined, data.scheduledStart throws. No loading/error guard.	Add .catch(err => { /* handle */ }) and guard: if (!d) return; before accessing properties.
+artifacts/admin/src/pages/settings-system.tsx	1060–1063	Same unguarded chained access after apiFetch("/retention-policies").then(d => { const data = d.data ?? d; setPolicies({ locationDays: data.locationDays ... }) }) — no null check on d before destructuring.	Same — add null guard and .catch.
+artifacts/admin/src/pages/broadcast.tsx	56–59	useQuery result (historyData) is cast directly to BroadcastRecord[] in rendering with .map(). If the API shape changes or returns a paginated object instead of an array, .map is not a function crash occurs.	Use (historyData?.broadcasts ?? historyData ?? []) as BroadcastRecord[] with a fallback empty array.
