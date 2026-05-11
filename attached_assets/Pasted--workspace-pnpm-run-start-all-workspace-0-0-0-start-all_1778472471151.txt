@@ -1,0 +1,240 @@
+~/workspace$ pnpm run start:all
+
+
+> workspace@0.0.0 start:all /home/runner/workspace
+> node scripts/secure-start.mjs
+
+
+╔══════════════════════════════════════════════════════════╗
+║        AJKMart secure-start — Replit                         ║
+╚══════════════════════════════════════════════════════════╝
+
+[secure-start] ✓ Replit mode — using Replit Secrets (no decrypt needed)
+[secure-start] ✓ Replit domain: 98879ac1-290c-4c03-913a-d16786e8c08b-00-1eheeh6vdaavm.sisko.replit.dev
+[secure-start] ✓ DATABASE_URL configured
+[secure-start] ✓ node_modules up to date — skipping install
+[secure-start] ✓ Shared lib packages up to date — skipping lib build
+[secure-start] ✓ Ports cleared
+[secure-start] Starting api…
+[secure-start] Starting admin…
+[secure-start] Starting vendor…
+[secure-start] Starting rider…
+[secure-start] Starting ajkmart…
+[secure-start] All services launched — running health checks in parallel…
+
+> @workspace/vendor-app@0.0.0 dev /home/runner/workspace/artifacts/vendor-app
+> vite --config vite.config.ts --host 0.0.0.0
+
+
+> @workspace/api-server@0.0.0 dev /home/runner/workspace/artifacts/api-server
+> NODE_ENV=development node ./scripts/start-with-restart.mjs
+
+
+> @workspace/rider-app@0.0.0 dev /home/runner/workspace/artifacts/rider-app
+> vite --config vite.config.ts --host 0.0.0.0
+
+
+> @workspace/ajkmart@0.0.0 dev:web /home/runner/workspace/artifacts/ajkmart
+> fuser -k ${PORT}/tcp 2>/dev/null || true; sleep 1 && CI=1 EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID pnpm exec expo start --web --port $PORT --host lan
+
+
+> @workspace/admin@0.0.0 dev /home/runner/workspace/artifacts/admin
+> vite --config vite.config.ts --host 0.0.0.0
+
+[restart-wrapper] Starting API server…
+▲ [WARNING] Duplicate key "prepare" in object literal [duplicate-object-key]
+
+    ../../package.json:58:4:
+      58 │     "prepare": "husky"
+         ╵     ~~~~~~~~~
+
+  The original key "prepare" is here:
+
+    ../../package.json:7:4:
+      7 │     "prepare": "node scripts/install-hooks.mjs",
+        ╵     ~~~~~~~~~
+
+▲ [WARNING] Duplicate key "prepare" in object literal [duplicate-object-key]
+
+    ../../package.json:58:4:
+      58 │     "prepare": "husky"
+         ╵     ~~~~~~~~~
+
+  The original key "prepare" is here:
+
+    ../../package.json:7:4:
+      7 │     "prepare": "node scripts/install-hooks.mjs",
+        ╵     ~~~~~~~~~
+
+▲ [WARNING] Duplicate key "prepare" in object literal [duplicate-object-key]
+
+    ../../package.json:58:4:
+      58 │     "prepare": "husky"
+         ╵     ~~~~~~~~~
+
+  The original key "prepare" is here:
+
+    ../../package.json:7:4:
+      7 │     "prepare": "node scripts/install-hooks.mjs",
+        ╵     ~~~~~~~~~
+
+
+
+
+  VITE v7.3.1  ready in 652 ms
+
+  ➜  Local:   http://localhost:3000/admin/
+  ➜  Network: http://172.31.83.194:3000/admin/
+  ➜  press h + enter to show help
+
+
+
+  VITE v7.3.1  ready in 732 ms
+
+  ➜  Local:   http://localhost:3003/rider/
+  ➜  Network: http://172.31.83.194:3003/rider/
+  ➜  press h + enter to show help
+
+
+
+  VITE v7.3.1  ready in 746 ms
+
+  ➜  Local:   http://localhost:3002/vendor/
+  ➜  Network: http://172.31.83.194:3002/vendor/
+  ➜  press h + enter to show help
+[secure-start] ✓ rider is up (http://127.0.0.1:3003/)
+[secure-start] ✓ admin is up (http://127.0.0.1:3000/)
+[secure-start] ✓ vendor is up (http://127.0.0.1:3002/)
+Starting project at /home/runner/workspace/artifacts/ajkmart
+React Compiler enabled
+Metro is running in CI mode, reloads are disabled. Remove CI=true to enable watch mode.
+Starting Metro Bundler
+The following packages should be updated for best compatibility with the installed expo version:
+  expo-notifications@55.0.22 - expected version: ~0.32.17
+  eslint-config-expo@55.0.0 - expected version: ~10.0.0
+  expo@54.0.33 - expected version: ~54.0.34
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:19006
+Logs for your project will appear below.
+[gemini-ai] Gemini integration not configured — missing: AI_INTEGRATIONS_GEMINI_BASE_URL, AI_INTEGRATIONS_GEMINI_API_KEY. AI features will be unavailable. Provision the Gemini integration in the Replit Integrations panel.
+[secure-start] Waiting for api… (5/25)
+[04:07:18.341] WARN (12737): [redis] REDIS_URL is not set — JWT token blacklisting is DISABLED. Logged-out access tokens will remain valid until they expire naturally. Set REDIS_URL in the Replit Secrets panel to enable blacklisting.
+[04:07:18.778] INFO (12737): [rate-limit] limiter configured
+    prefix: "global"
+    store: "in-memory"
+[04:07:18.779] INFO (12737): [rate-limit] limiter configured
+    prefix: "auth"
+    store: "in-memory"
+[04:07:18.780] INFO (12737): [rate-limit] limiter configured
+    prefix: "admin-auth"
+    store: "in-memory"
+[04:07:18.780] INFO (12737): [rate-limit] limiter configured
+    prefix: "payment"
+    store: "in-memory"
+[04:07:18.780] INFO (12737): [rate-limit] limiter configured
+    prefix: "public"
+    store: "in-memory"
+[04:07:18.780] INFO (12737): [rate-limit] limiter configured
+    prefix: "login"
+    store: "in-memory"
+[04:07:18.780] INFO (12737): [rate-limit] limiter configured
+    prefix: "otp"
+    store: "in-memory"
+[04:07:18.781] INFO (12737): [rate-limit] limiter configured
+    prefix: "redeem"
+    store: "in-memory"
+[04:07:18.781] INFO (12737): [rate-limit] limiter configured
+    prefix: "export-data"
+    store: "in-memory"
+[04:07:18.781] INFO (12737): [rate-limit] limiter configured
+    prefix: "user-api"
+    store: "in-memory"
+[04:07:19.746] INFO (12737): [storage] STORAGE_BUCKET_URL not set — using local disk storage (./uploads/).
+[04:07:20.403] INFO (12737): [docs] Loaded OpenAPI spec from /home/runner/workspace/lib/api-spec/openapi.yaml
+[04:07:20.969] ERROR (12737): 
+╔══════════════════════════════════════════════════════════════════╗
+║  ⚠️  AJKMart API — ENVIRONMENT NOT CONFIGURED                   ║
+╠══════════════════════════════════════════════════════════════════╣
+║  CRITICAL (server will not function correctly):                 ║
+║    ✗ REDIS_URL                                                  ║
+║                                                                 ║
+╠══════════════════════════════════════════════════════════════════╣
+║  To fix:                                                        ║
+║                                                                 ║
+║    On Replit:  add secrets in the Secrets panel (padlock icon)  ║
+║    Other envs: set values in your .env file at the project root ║
+║                                                                 ║
+║    Then restart:   pnpm replit-start                            ║
+╚══════════════════════════════════════════════════════════════════╝
+
+[04:07:20.969] WARN (12737): [env:check] Development mode — continuing despite missing critical vars.
+[04:07:20.969] WARN (12737): [env:check] Add missing secrets in the Replit Secrets panel, then restart.
+
+[04:07:20.969] INFO (12737): [port:init] Primary port: 5000, fallback enabled: true, max retries: 10
+[04:07:20.984] DEBUG (12737): [port:check] Port 5000 is available
+[04:07:20.985] INFO (12737): [port:check] Primary port 5000 is available
+[04:07:21.063] INFO (12737): [runtime-config] Seeded from DB
+[04:07:21.066] INFO (12737): [dev] Sibling app proxies enabled at /admin /vendor /rider /customer /__mockup
+[04:07:21.067] INFO (12737): [SECURITY:CORS] Active allowed origins
+    allowedOrigins: [
+      "http://localhost:3000",
+      "http://localhost:3002",
+      "http://localhost:3003",
+      "http://localhost:21463",
+      "http://localhost:4200",
+      "http://localhost:5000",
+      "https://98879ac1-290c-4c03-913a-d16786e8c08b-00-1eheeh6vdaavm.sisko.replit.dev",
+      "https://98879ac1-290c-4c03-913a-d16786e8c08b-00-1eheeh6vdaavm.expo.sisko.replit.dev"
+    ]
+[04:07:21.070] INFO (12737): [server:listen] Server listening on port 5000 (addr={"address":"0.0.0.0","family":"IPv4","port":5000})
+[04:07:21.070] INFO (12737): [startup] ERROR_REPORT_HMAC_SECRET is configured.
+[04:07:21.083] INFO (12737): [migrations] Database connection successful
+[04:07:21.401] INFO (12737): [startup] RBAC seed + backfill complete
+[04:07:21.402] INFO (12737): [admin-seed] skipped — at least one admin account already exists
+[04:07:21.410] INFO (12737): [admin-password-watch] watchdog run complete
+    scanned: 1
+    verified: 1
+    newSnapshots: 0
+[04:07:21.430] INFO (12737): [startup] error-monitor supplementary tables ready
+[04:07:21.431] INFO (12737): [startup] cart_snapshots table ready
+[04:07:21.440] INFO (12737): [startup] referral_codes, referral_usages, pharmacy_prescription_refs tables ready
+[04:07:21.442] INFO (12737): [startup] platform settings defaults ensured
+    count: 43
+[04:07:21.460] INFO (12737): [startup] schema drift check passed
+    tables: 126
+[04:07:21.460] INFO (12737): [startup] migrations + RBAC ready — serving requests
+[04:07:21.461] INFO (12737): [dispatch-engine] started (every 10s)
+[04:07:21.461] INFO (12737): [scheduler] started (dispatch engine active)
+    jobs: [
+      "idempotency-key-expiry",
+      "otp-attempt-cleanup",
+      "ride-bid-map-cleanup",
+      "refresh-token-cleanup",
+      "magic-link-token-cleanup",
+      "pending-otp-cleanup",
+      "user-session-cleanup",
+      "live-location-cleanup",
+      "login-history-archival",
+      "location-history-cleanup"
+    ]
+[04:07:21.461] INFO (12737): [startup] background scheduler started
+[04:07:21.465] DEBUG (12737): [scheduler] refresh-token cleanup ran, 0 rows removed
+[04:07:21.465] DEBUG (12737): [scheduler] otp-attempt cleanup ran, 0 rows removed
+[04:07:21.468] DEBUG (12737): [scheduler] magic-link-token cleanup ran, 0 rows removed
+[04:07:21.469] DEBUG (12737): [scheduler] ride-bid cleanup ran, 0 rows removed
+[04:07:21.488] INFO (12737): [TOR] Refreshed exit node list: 1354 nodes
+[04:07:21.489] DEBUG (12737): [scheduler] pending-otp cleanup ran, 0 rows removed
+[04:07:21.490] DEBUG (12737): [scheduler] login-history archival ran, 0 rows removed
+[04:07:21.490] DEBUG (12737): [scheduler] user-session cleanup ran, 0 rows removed
+[04:07:21.495] DEBUG (12737): [scheduler] live-location cleanup ran, 0 rows removed
+[04:07:21.495] DEBUG (12737): [scheduler] location-history cleanup ran, 0 rows removed
+[secure-start] ✓ api is up (http://127.0.0.1:5000/api/health)
+[04:07:22.668] INFO (12737): request completed
+    req: {
+      "method": "GET",
+      "url": "/api/health",
+      "requestId": "216c1050-5ca0-4f20-9b37-07f4388dd301"
+    }
+    res: {
+      "statusCode": 200
+    }
